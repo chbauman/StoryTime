@@ -44,6 +44,7 @@ def createXMLandImgFolderIfNotExist(base_folder):
     img_pth = os.path.join(base_folder, "Img")
     if not os.path.isdir(img_pth):
         os.mkdir(img_pth)
+    return
 
 # Read the info file and get necessary information
 def getInfoFromFile():

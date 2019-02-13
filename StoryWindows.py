@@ -142,6 +142,8 @@ class Example(wx.Frame):
         
         self.updateLastEntryText()
 
+        self.Bind(wx.EVT_CLOSE, self.Cleanup)
+
     def setImg(self, name):
         self.bmp_shown = getImageToShow(name)
         self.img.SetBitmap(self.bmp_shown)
@@ -274,14 +276,14 @@ class Example(wx.Frame):
         self.setDateNow()
 
     def OnQuit(self, e):
+        print("QUIIIIIITt")
         self.cdDialog.Destroy()
-        self.Close()
+        self.Close()    
 
-
-    # Not quite working as intended
-    #def Close(self):
-    #    self.cdDialog.Destroy()
-    #    super(Example, self).Close()
+    def Cleanup(self, e):
+        print("Cleanupp")
+        self.cdDialog.Destroy()
+        self.Destroy()
 
     def setDateNow(self):
         self.updateDate(wx.DateTime.Now())
@@ -307,9 +309,6 @@ class Example(wx.Frame):
         self.vbox.Layout()
 
 def main():
-    testFolder = "C:\\Users\\Chrigi\\Desktop\\Neuer Ordner\\TestFolder"
-    #addImgs(testFolder)
-    #convertFromTxt(os.path.join(testFolder, "dummy_txt.txt"))
     app = wx.App()
     ex = Example(None)
     ex.Show()
