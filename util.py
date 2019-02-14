@@ -47,15 +47,33 @@ def createXMLandImgFolderIfNotExist(base_folder):
     return
 
 # Read the info file and get necessary information
-def getInfoFromFile():
+def getInfoFromFile(ask = True):
+    if not os.path.exists("Info.txt"):
+        with open("Info.txt", "w") as f:
+            f.write("NoDirectorySpecified")
     with open("Info.txt") as file:
         data = file.readlines() 
-        fol_path = data[0]
-        if os.path.isdir(fol_path):
+        print(data)
+        
+        if data != [] and os.path.isdir(data[0]):
+            fol_path = data[0]
             # TODO: More checks or create dirs?
             createXMLandImgFolderIfNotExist(fol_path)
             return fol_path
+        elif ask:
+            cdDiag = wx.DirDialog(None, "Choose directory to store Imgs and Text data.", "",
+                    wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+            cdDiag.ShowModal()
+            files_path = cdDiag.GetPath()
+            createXMLandImgFolderIfNotExist(files_path)
+            return files_path
     return None
+
+# Write the current working directory to file
+def writeFolderToFile():
+    with open("Info.txt", "w") as f:
+        f.write(data_path)
+    return
 
 # Scale a bitmap to a given size
 def scale_bitmap(bitmap, width, height):

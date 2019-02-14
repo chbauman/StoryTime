@@ -278,11 +278,13 @@ class Example(wx.Frame):
     def OnQuit(self, e):
         print("QUIIIIIITt")
         self.cdDialog.Destroy()
+        writeFolderToFile()
         self.Close()    
 
     def Cleanup(self, e):
         print("Cleanupp")
         self.cdDialog.Destroy()
+        writeFolderToFile()
         self.Destroy()
 
     def setDateNow(self):
