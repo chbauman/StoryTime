@@ -4,6 +4,7 @@
 import os
 import wx
 import re
+import cv2
 import wx.adv
 from shutil import copy2
 from PIL import Image
@@ -236,6 +237,7 @@ def pydate2wxdate(date):
     hour = date.hour
     return wx.DateTime(day, month-1, year, hour, date.minute, date.second)
 
+# Read the date modified time of a file and convert to wx.DateTime
 def getWXDTFileModified(curr_file):
     return pydate2wxdate(datetime.fromtimestamp(os.path.getmtime(curr_file)))
 
@@ -455,3 +457,154 @@ def getImageToShow(filename, size = 180, border = 5):
     result = wx.Bitmap(image)
     return result
 
+
+# Panel that shows the content recorded by the webcam
+class ShowCapture(wx.Panel):
+    def __init__(self, parent, capture, fps=25):
+
+        # Capture first frame to get size
+        self.capture = capture
+        ret, frame = self.capture.read()
+        height, width = frame.shape[:2]
+        self.h_by_w = height / width
+        self.win_size = (300, int(self.h_by_w * 300))
+
+
+        wx.Panel.__init__(self, parent, wx.ID_ANY, (0,0), self.win_size)
+        parent.SetSize(self.win_size)
+        
+        self.h, self.w = self.win_size
+        frame = cv2.cvtColor(cv2.resize(frame, self.win_size), cv2.COLOR_BGR2RGB)
+        self.bmp = wx.Bitmap.FromBuffer(self.h, self.w, frame)
+
+        self.timer = wx.Timer(self)
+        self.timer.Start(1000./fps)
+
+        self.Bind(wx.EVT_PAINT, self.OnPaint)
+        self.Bind(wx.EVT_TIMER, self.NextFrame)
+
+    def getCurrFrame(self):
+        ret, frame = self.capture.read()
+        if ret:
+            return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        return None
+
+    def OnPaint(self, evt):
+        dc = wx.BufferedPaintDC(self)
+        dc.DrawBitmap(self.bmp, 0, 0)
+
+    def NextFrame(self, event):
+        ret, frame = self.capture.read()
+        if ret:
+            frame = cv2.cvtColor(cv2.resize(frame, self.win_size), cv2.COLOR_BGR2RGB)
+            self.bmp.CopyFromBuffer(frame)
+            self.Refresh()
+
+# Dialog lets you look at the taken picture and decide if you want to take a new one or keep it
+class AcceptPhoto(wx.Dialog):
+
+    def __init__(self, parent = None, img = None, title = "Accept photo?"):
+        super(AcceptPhoto, self).__init__(parent, title = title)
+
+        self.InitUI()
+        self.SetSize((400, 400))
+        self.SetTitle(title)
+        self.taken_img = img
+
+    def InitUI(self):
+
+        pnl = wx.Panel(self)
+        self.vbox = wx.BoxSizer(wx.VERTICAL)
+
+        # Current Image
+        bmp = wx.StaticBitmap(self, -1, self.taken_img)
+        self.vbox.Add(bmp, proportion=0, flag=wx.ALL, border=5)
+
+        # Buttons        
+        shootButton = wx.Button(self, label='Accept')
+        cancelButton = wx.Button(self, label='Throw')
+        shootButton.Bind(wx.EVT_BUTTON, self.OnTakePic)
+        cancelButton.Bind(wx.EVT_BUTTON, self.OnClose)
+
+        # Layout
+        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
+        hbox2.Add(shootButton)
+        hbox2.Add(cancelButton, flag=wx.LEFT, border=5)
+
+        self.vbox.Add(pnl, proportion=1, flag=wx.ALL|wx.EXPAND, border=5)
+        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER|wx.TOP|wx.BOTTOM, border=10)
+
+        self.SetSizer(self.vbox)
+
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
+
+    # Captures the current frame
+    def OnTakePic(self, e):
+        print("Taking img")
+
+    # Release the video capture
+    def Cleanup(self):
+        self.Destroy()
+
+    def OnClose(self, e):
+        print("Cancelled Selfie Dialog")
+        self.Cleanup()
+
+# Dialog lets you take a picture with the webcam
+class SelfieDialog(wx.Dialog):
+
+    def __init__(self, parent = None, title = "Let me take a fucking selfie."):
+        super(SelfieDialog, self).__init__(parent, title = title)
+
+        self.InitUI()
+        self.SetSize((400, 400))
+        self.SetTitle(title)
+        self.taken_img = None
+        self.dt_taken = None
+
+    def InitUI(self):
+
+        pnl = wx.Panel(self)
+        self.vbox = wx.BoxSizer(wx.VERTICAL)
+
+        # Current Image
+        self.capture = cv2.VideoCapture(0)
+        self.imgCap = ShowCapture(self, self.capture)
+        self.vbox.Add(self.imgCap, proportion=0, flag=wx.ALL, border=5)
+        self.imgCap.Show()
+
+        # Buttons        
+        shootButton = wx.Button(self, label='Shoot')
+        cancelButton = wx.Button(self, label='Cancel')
+        shootButton.Bind(wx.EVT_BUTTON, self.OnTakePic)
+        cancelButton.Bind(wx.EVT_BUTTON, self.OnClose)
+
+        # Layout
+        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
+        hbox2.Add(shootButton)
+        hbox2.Add(cancelButton, flag=wx.LEFT, border=5)
+
+        self.vbox.Add(pnl, proportion=1, flag=wx.ALL|wx.EXPAND, border=5)
+        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER|wx.TOP|wx.BOTTOM, border=10)
+
+        self.SetSizer(self.vbox)
+
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
+
+    # Captures the current frame
+    def OnTakePic(self, e):
+        print("Taking img")
+        print("Fucking implement it already!!!!!!!!")
+
+    # Release the video capture
+    def Cleanup(self):
+        self.capture.release()
+        cv2.destroyAllWindows()
+        self.Destroy()
+
+    def OnClose(self, e):
+        print("Cancelled Selfie Dialog")
+        self.Cleanup()
+        
+
+    

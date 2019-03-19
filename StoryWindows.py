@@ -15,6 +15,7 @@ from XML_write import *
 
 ID_MENU_PHOTO = wx.NewId()
 ID_MENU_CHANGE_DATE = wx.NewId()
+ID_MENU_SELFIE = wx.NewId()
 ID_MENU_CHOOSE_DIR = wx.NewId()
 ID_MENU_IMPORT = wx.NewId()
 ID_CLICK_BUTTON = wx.NewId()
@@ -56,22 +57,24 @@ class Example(wx.Frame):
         calendarIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'calendar_icon.png')), iconSize[0], iconSize[1])
         folderIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'folder_icon.png')), iconSize[0], iconSize[1])
         importIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'import_icon.png')), iconSize[0], iconSize[1])
+        selfieIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'webcam_icon.png')), iconSize[0], iconSize[1])
 
         saveTool = self.toolbar.AddTool(wx.ID_SAVE, 'Save', saveIcon, shortHelp="Save entry.")
         self.photoTool = self.toolbar.AddCheckTool(ID_MENU_PHOTO, 'Photo', photoIcon, shortHelp="Change to photo mode.")
         changeDateTool = self.toolbar.AddTool(ID_MENU_CHANGE_DATE, 'Change', calendarIcon, shortHelp="Choose another date and time.")
         changeDir = self.toolbar.AddTool(ID_MENU_CHOOSE_DIR, 'Dir', folderIcon, shortHelp="Change directory.")
         importTool = self.toolbar.AddTool(ID_MENU_IMPORT, 'Import', importIcon, shortHelp="Import text or images from old version.")
+        selfieTool = self.toolbar.AddTool(ID_MENU_SELFIE, 'Selfie', selfieIcon, shortHelp="Take a picture with your webcam.")
         self.toolbar.AddSeparator()
 
         self.toolbar.Realize()
-
 
         self.Bind(wx.EVT_TOOL, self.OnSave, saveTool)
         self.Bind(wx.EVT_TOOL, self.OnPhoto, self.photoTool)
         self.Bind(wx.EVT_TOOL, self.OnChangeDate, changeDateTool)
         self.Bind(wx.EVT_TOOL, self.OnChangeDir, changeDir)
         self.Bind(wx.EVT_TOOL, self.OnImport, importTool)
+        self.Bind(wx.EVT_TOOL, self.OnSelfie, selfieTool)
 
 
         self.main_panel = wx.Panel(self)
@@ -133,13 +136,12 @@ class Example(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.OnOKButtonClick, id=ID_CLICK_OK_BUTTON)
         hbox5.Add(btn1)
         btn2 = wx.Button(self.main_panel, ID_CLICK_BUTTON, label='Close', size=(70, 30))
-        self.Bind(wx.EVT_BUTTON, self.OnButtonClick, id=ID_CLICK_BUTTON)
+        self.Bind(wx.EVT_BUTTON, self.OnCloseButtonClick, id=ID_CLICK_BUTTON)
         hbox5.Add(btn2, flag=wx.LEFT|wx.BOTTOM, border=5)
         self.vbox.Add(hbox5, flag=wx.ALIGN_RIGHT|wx.RIGHT, border=10)
 
         self.main_panel.SetSizer(self.vbox)
 
-        
         self.updateLastEntryText()
 
         self.Bind(wx.EVT_CLOSE, self.Cleanup)
@@ -152,7 +154,19 @@ class Example(wx.Frame):
         self.OnOKButtonClick(e)
         print("saveTool clicked")
 
+    # Dialog to take a photo with webcam, changes to photo mode if in text mode
+    def OnSelfie(self, e):
+        if not self.photoTool.IsToggled():
+            self.OnPhoto(e)
+            self.toolbar.ToggleTool(ID_MENU_PHOTO, True)
+        sDiag = SelfieDialog()
+        sDiag.ShowModal()
+        sDiag.Destroy()
+        print("selfie clicked")
+
+    # Change to photo mode or back
     def OnPhoto(self, e):
+        # If there is text in the textfield or an image loaded warn the user that it will be lost if he continues
         textStr = self.input_text_field.GetValue()
         if textStr != ""  or self.imgLoaded == True:
             if self.imgLoaded == True:
@@ -171,31 +185,39 @@ class Example(wx.Frame):
                 self.removeWrittenText()
             else:
                 print("WTF")
-
+        
+        # Toggle the showing of the Image (drop space)
         if self.image_drop_space.IsShown():
             self.removeImg()
             self.imgLoaded = False
             self.image_drop_space.Hide()
         else:
             self.image_drop_space.Show()
+
+        # Update date and time and the layout
         self.setDateNow()
         self.main_panel.Layout()
         print("photoTool clicked")
 
-    def OnButtonClick(self, e):
+    def OnCloseButtonClick(self, e):
         print("Close Button clicked")
         self.OnQuit(e)    
 
+    # Set the image in the image drop space to the default
     def removeImg(self):
         self.fileDrop.loadedFile = None
         self.setImg(self.defaultImg)
 
+    # Save the contents as an entry
     def OnOKButtonClick(self, e):
         print("OK Button clicked")
+        # Check if there is any text at all
         textStr = self.input_text_field.GetValue()
         if textStr == "":
             wx.MessageBox("No fucking text!!", 'Info', wx.OK | wx.ICON_EXCLAMATION)
             return
+        
+        # If in photo mode, copy the image to the image folder
         tog = self.photoTool.IsToggled()
         if tog:
             lf = self.fileDrop.loadedFile
@@ -208,30 +230,30 @@ class Example(wx.Frame):
             #ofn = self.fileDrop.newFileName
             #copied_file_name = copyImgFileToImgsIfNotExist(lf, uE, ofn)
             saveEntryInXml(textStr, curr_dat, "photo", copied_file_name)
-            print("Hheeeifjsl", lf)
+            print("Loaded File", lf)
         else:
             saveEntryInXml(textStr, self.cdDialog.dt)
         
+        # Clear the contents
         self.removeImg()
         self.removeWrittenText()
 
-
+    # Clear text field and update date and time
     def removeWrittenText(self):
         self.input_text_field.Clear()
         self.updateDate(wx.DateTime.Now())
 
     def OnChangeDate(self, e):
-
         self.cdDialog.ShowModal()
         self.updateDate()
 
     def OnChangeDir(self, e):
-
         cdDiag = wx.DirDialog(None)
         cdDiag.ShowModal()
         files_path = cdDiag.GetPath()
+        cdDiag.Destroy()
         if files_path == "" or files_path is None:
-            print("Null String")
+            print("No new folder selected.")
             return
         updateFolder(files_path)
         createXMLandImgFolderIfNotExist(files_path)
@@ -275,21 +297,25 @@ class Example(wx.Frame):
                     wx.LogError("Cannot open file '%s'." % newfile)
         self.setDateNow()
 
+    # Closing the app, writes the working directory to file for next use
     def OnQuit(self, e):
         print("QUIIIIIITt")
         self.cdDialog.Destroy()
         writeFolderToFile()
         self.Close()    
 
+    # Destroys the change date dialog that holds the date (This is ugly)
     def Cleanup(self, e):
-        print("Cleanupp")
+        print("Cleanup")
         self.cdDialog.Destroy()
         writeFolderToFile()
         self.Destroy()
 
+    # Set the date and time to now
     def setDateNow(self):
         self.updateDate(wx.DateTime.Now())
 
+    # Update the date
     def updateDate(self, newDate = None):
         if newDate is not None:
             self.cdDialog.dt = newDate
@@ -297,6 +323,7 @@ class Example(wx.Frame):
         self.fix_text_box.SetLabel('Hoooiii')
         self.updateLastEntryText()
     
+    # Fills the static text with the most recent entries
     def updateLastEntryText(self):
         date_and_text = getLastXMLEntry(self.cdDialog.dt)
         next_date_and_text = getLastXMLEntry(self.cdDialog.dt, True)
