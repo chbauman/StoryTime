@@ -367,8 +367,6 @@ def copyImgFileToImgs(lf):
     # Get image type
     _, file_extension = os.path.splitext(lf)
 
-    # TODO: Check if already in correct folder
-
     # Check if file with same datetime already exists
     if len(sameDateFileList) > 0:
         # Let the user look at the images and decide if he wants
