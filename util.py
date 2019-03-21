@@ -10,21 +10,22 @@ from shutil import copy2
 from PIL import Image
 from datetime import datetime
 
-# Path to folder containing the XML and the Img folder
-data_path = "" #os.path.join(os.path.dirname(os.path.realpath(__file__)), "Teescht")
-
-# Path to app code
+# Paths to app code and temp folder
 proj_path = os.path.dirname(os.path.realpath(__file__))
 icon_path = os.path.join(proj_path, "Icons")
-
-#imgs_folder = os.path.join(data_path, "Img")
-#xml_folder = os.path.join(data_path, "XML")
-imgs_folder = "fuck"
-xml_folder = "fuck"
 temp_folder = "tmp"
 
-# Update global path variables if folder is changed
+# Path to data (global variables)
+# Initialized values should never be used
+data_path = ""
+imgs_folder = "fuck"
+xml_folder = "fuck"
+
+
 def updateFolder(new_data_path):
+    """
+    Update global path variables if data folder is changed.
+    """
     global data_path
     global imgs_folder
     global xml_folder
@@ -33,10 +34,12 @@ def updateFolder(new_data_path):
     imgs_folder = os.path.join(new_data_path, "Img")
     xml_folder = os.path.join(new_data_path, "XML")
 
-# Removes newlines and replaces them with space
 def repNewlWithSpace(strng):
+    """
+    Removes newlines and replaces them with space
+    and reduces double spaces to single spaces.
+    """
     return strng.replace("\n", " ").replace("  ", " ")
-
 
 # Create a folder for the XML and the Image files
 def createXMLandImgFolderIfNotExist(base_folder):
@@ -71,14 +74,19 @@ def getInfoFromFile(ask = True):
             return files_path
     return None
 
-# Write the current working directory to file
 def writeFolderToFile():
+    """
+    Write the current working directory to file Info.txt
+    """
     with open("Info.txt", "w") as f:
         f.write(data_path)
     return
 
-# Scale a bitmap to a given size
 def scale_bitmap(bitmap, width, height):
+    """
+    Rescales a bitmap to a given size by converting
+    it to image, rescaling and converting it back.
+    """
     image = bitmap.ConvertToImage()
     image = image.Scale(width, height, wx.IMAGE_QUALITY_HIGH)
     result = wx.Bitmap(image)
@@ -230,28 +238,39 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
         self.chosenImgInd = -1 # This means new
         self.Close()  
 
-# Converts a python datetime to a wx.DateTime
 def pydate2wxdate(date):
+    """
+    Converts a python datetime to a wx.DateTime.
+    """
     year = date.year
     month = date.month
     day = date.day
     hour = date.hour
     return wx.DateTime(day, month-1, year, hour, date.minute, date.second)
 
-# Read the date modified time of a file and convert to wx.DateTime
 def getWXDTFileModified(curr_file):
-    return pydate2wxdate(datetime.fromtimestamp(os.path.getmtime(curr_file)))
+    """
+    Read the date modified time of a file, convert it to wx.DateTime
+    and return it.
+    """
+    modif_time = os.path.getmtime(curr_file)
+    return pydate2wxdate(datetime.fromtimestamp(modif_time))
 
-# Converts an integer to a string, padding with leading zeros to get n characters
 def pat0ToStr(integ, n = 2):
+    """
+    Converts an integer to a string, padding with leading zeros 
+    to get n characters. Intended for date and time formatting.
+    """
     base = str(integ)
     for k in range(n-1):
         if integ < 10**(k+1):
             base = "0" + base
     return base
 
-# Gives the image basename from the wx.DateTime
 def getImgBNameFromModTime(wxdt):
+    """
+    Gives the image basename from the wx.DateTime.
+    """
     name = "IMG_" + pat0ToStr(wxdt.GetYear(), 4) + pat0ToStr(wxdt.GetMonth() + 1) + pat0ToStr(wxdt.GetDay())
     name = name + "_" + pat0ToStr(wxdt.GetHour()) + pat0ToStr(wxdt.GetMinute()) + pat0ToStr(wxdt.GetSecond())
     return name
@@ -291,68 +310,90 @@ def extractDateFromImageName(img_file):
         return None
     return None
 
-# Tries to extract the date from a filename, if there is none, returns the modified time, as wx.DateTime
 def getFilenameOrModifiedDate(img_file):
+    """
+    Tries to extract the date from a filename, 
+    if there is none, returns the modified time 
+    of the file as wx.DateTime.
+    """
     name_date = extractDateFromImageName(img_file)
     if name_date is None:
         name_date = getWXDTFileModified(img_file)
     return name_date
 
-# Finds all files starting with string "imgName" in folder "imgs_folder"
 def findAllImgsWithSameDate(imgs_folder, imgName):
+    """
+    Finds all files starting with string "imgName" 
+    in folder "imgs_folder".
+    """
     res = []
     for f in os.listdir(imgs_folder):
         if f.startswith(imgName):
-
             res.append(f)
     return res
 
-# Chooses a new filename that is not in the list and contains the imgName in the beginning
 def getNewName(imgName, sameDateFileList, ext):
+    """
+    Chooses a new filename that is not in the list and
+    contains the imgName in the beginning by appending an 
+    int to the filename separated by an underscore.
+    """
     for k in range(10000):
         new_name = imgName + "_" + str(k) + ext
         try:
             found = sameDateFileList.index(new_name)
         except:
             return imgName + "_" + str(k)
+
+    # If there are already more than 10000 images, gives up.
     print("ERROR: Way too many fucking images.")
     return None
 
-# Copy an image to the Img folder, if there exists one with the same date and time, a dialog pops up
-# to let the user select if he wants to add text to an existing image or save the image
-# If he doesn't decide, returns None
+
 def copyImgFileToImgs(lf):
-     _, file_extension = os.path.splitext(lf)
-     imgDate = getFilenameOrModifiedDate(lf)
-     imgName = getImgBNameFromModTime(imgDate)
+    """
+    Copy an image to the Img folder, if there exists one with 
+    the same date and time, a dialog pops up
+    to let the user select if he wants to add 
+    text to an existing image or save the image
+    If he doesn't decide, returns None
+    """
+    # Get date of image and find all images with same date
+    imgDate = getFilenameOrModifiedDate(lf)
+    imgName = getImgBNameFromModTime(imgDate)
+    sameDateFileList = findAllImgsWithSameDate(imgs_folder, imgName)
+    print(sameDateFileList)
 
-     print(findAllImgsWithSameDate(imgs_folder, imgName))
+    # Get image type
+    _, file_extension = os.path.splitext(lf)
 
-     # TODO: Check if already in correct folder
+    # TODO: Check if already in correct folder
 
-     # Check if file already exists
-     sameDateFileList = findAllImgsWithSameDate(imgs_folder, imgName)
-     if len(sameDateFileList) > 0:
-         print("File already exists, overwriting it. TODO: Dialog")
-         phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
-         phDiag.ShowModal()
-         ind = phDiag.chosenImgInd
-         if ind is None:
-             return None
-         if ind == -1:
-             new_name = getNewName(imgName, sameDateFileList, file_extension)
-         else:
-             # do not copy
-             new_name = sameDateFileList[ind]
-             return os.path.join(imgs_folder, new_name)
-         imgName = new_name
-         phDiag.Destroy()
-         
+    # Check if file with same datetime already exists
+    if len(sameDateFileList) > 0:
+        # Let the user look at the images and decide if he wants
+        # to add the text to an already existing one instead of
+        # adding the image in preview to the images.
+        phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
+        phDiag.ShowModal()
+        ind = phDiag.chosenImgInd
+        phDiag.Destroy()
+        if ind is None:
+            # No decision, abort
+            return None
+        if ind == -1:
+            # Add image in preview
+            imgName = getNewName(imgName, sameDateFileList, file_extension)
+        else:
+            # Add text to existing image
+            imgName = sameDateFileList[ind]
+            return os.path.join(imgs_folder, new_name)
 
-     imgName = imgName + file_extension
-     copied_file_name = os.path.join(imgs_folder, imgName)
-     copy2(lf, copied_file_name)
-     return copied_file_name
+    # Add file extension and copy image to project
+    imgName = imgName + file_extension
+    copied_file_name = os.path.join(imgs_folder, imgName)
+    copy2(lf, copied_file_name)
+    return copied_file_name
 
 def chooseImgTextMethod(lf, imgDT = None):
     _, file_extension = os.path.splitext(lf)
@@ -404,8 +445,12 @@ def copyImgFileToImgsIfNotExist(old_f_name, useExisting, new_fname):
     return old_f_name
 
 def mkrid_if_not_exists(dir_name):
+    """
+    Creates the given directory recursively.
+    """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
+    return
 
 class FileDrop(wx.FileDropTarget):
 
@@ -436,6 +481,9 @@ class FileDrop(wx.FileDropTarget):
         return True
 
 def formDateTime(dateTime):
+    """
+    Format the given datetime in a string.
+    """
     strOut = str(wx.DateTime.GetWeekDayName(dateTime.GetWeekDay())) + ", " 
     strOut += str(dateTime.GetDay()) + ". " 
     strOut += str(dateTime.GetMonth() + 1) + ". " 
