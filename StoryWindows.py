@@ -124,7 +124,7 @@ class Example(wx.Frame):
         self.hbox4.Add(self.image_drop_space, proportion=0, flag=wx.ALL, border=5)
 
         # Bottom right text field
-        text_shown = 'Ok bla bal \n sldfkj \n fuck that\nOk bla bal \n sldfkj \n fuck that\nOk bla bal \n sldfkj \n fuck that\n'
+        text_shown = 'Default text.'
         self.fix_text_box = wx.StaticText(self.main_panel, label = text_shown, style = wx.TE_MULTILINE, size = (-1, 190))
         self.hbox4.Add(self.fix_text_box, proportion=1, flag=wx.EXPAND|wx.ALL, border=5)
         self.vbox.Add(self.hbox4, proportion=1, flag=wx.ALL|wx.EXPAND, border=5)
@@ -163,33 +163,40 @@ class Example(wx.Frame):
         self.imgLoaded = True
         self.setImg(curr_file)
 
-
     def OnSave(self, e):
+        """
+        Same as the save button clicked.
+        """
         self.OnOKButtonClick(e)
-        print("saveTool clicked")
-
-    # Dialog to take a photo with webcam, changes to photo mode if in text mode
+ 
     def OnSelfie(self, e):
-        print("selfie clicked")
+        """
+        Opens dialog that shows the webcam and lets you take a picture
+        with it which is added to the preview window then.
+        """
+        # Go to photo mode if not there yet
         if not self.photoTool.IsToggled():
             self.OnPhoto(e)
             self.toolbar.ToggleTool(ID_MENU_PHOTO, True)
+
+        # Show the dialog
         sDiag = SelfieDialog()
         sDiag.ShowModal()
         img = sDiag.taken_img
+
+        # Save the image and show it in the preview
         if img is not None:
-            print("Yaaay")
             curr_dt = wx.DateTime.Now()
             f_name = getImgBNameFromModTime(curr_dt) + "_Self.png"
             f_path = os.path.join(temp_folder, f_name)
             mkrid_if_not_exists(temp_folder)
-            print("Saving to", f_path)
             cv2.imwrite(f_path, cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             self.set_img_with_date(f_path, curr_dt)
             self.fileDrop.loadedFile = f_path
+        
+        # Cleanup
         sDiag.Destroy()
         
-
     # Change to photo mode or back
     def OnPhoto(self, e):
         # If there is text in the textfield or an image loaded warn the user that it will be lost if he continues
@@ -226,37 +233,45 @@ class Example(wx.Frame):
         print("photoTool clicked")
 
     def OnCloseButtonClick(self, e):
+        """
+        Same as clicking X. Closes the application.
+        """
         print("Close Button clicked")
         self.OnQuit(e)    
 
-    # Set the image in the image drop space to the default
     def removeImg(self):
+        """
+        Set the image in the image drop space to the default.
+        """
         self.fileDrop.loadedFile = None
         self.setImg(self.defaultImg)
 
-    # Save the contents as an entry
     def OnOKButtonClick(self, e):
-        print("OK Button clicked")
+        """
+        Saves the text (and the photo in photo mode) in an 
+        XML entry. Does nothing if text (or image in photo mode) is missing.
+        """
+
         # Check if there is any text at all
         textStr = self.input_text_field.GetValue()
         if textStr == "":
             wx.MessageBox("No fucking text!!", 'Info', wx.OK | wx.ICON_EXCLAMATION)
             return
         
-        # If in photo mode, copy the image to the image folder
+        # Check which mode is on
         tog = self.photoTool.IsToggled()
         if tog:
+
+            # Check if there is an image
             lf = self.fileDrop.loadedFile
             if lf is None:
                 wx.MessageBox("No fucking image!!", 'Info', wx.OK | wx.ICON_EXCLAMATION)
                 return
+
+            # Save image entry
             curr_dat = self.cdDialog.dt
             copied_file_name = copyImgFileToImgsIfNotExistFull(lf, curr_dat)
-            #uE = self.fileDrop.useExisting
-            #ofn = self.fileDrop.newFileName
-            #copied_file_name = copyImgFileToImgsIfNotExist(lf, uE, ofn)
             saveEntryInXml(textStr, curr_dat, "photo", copied_file_name)
-            print("Loaded File", lf)
         else:
             saveEntryInXml(textStr, self.cdDialog.dt)
         
@@ -264,23 +279,37 @@ class Example(wx.Frame):
         self.removeImg()
         self.removeWrittenText()
 
-    # Clear text field and update date and time
     def removeWrittenText(self):
+        """
+        Clear text field and update date and time to now.
+        """
         self.input_text_field.Clear()
         self.updateDate(wx.DateTime.Now())
 
     def OnChangeDate(self, e):
+        """
+        Shows dialog that lets the user change the current date.
+        """
         self.cdDialog.ShowModal()
         self.updateDate()
 
     def OnChangeDir(self, e):
+        """
+        Shows dialog that lets the user change the current 
+        directory.
+        """
+        # Show dialog and get folder
         cdDiag = wx.DirDialog(None)
         cdDiag.ShowModal()
         files_path = cdDiag.GetPath()
         cdDiag.Destroy()
+
+        # If none selected return
         if files_path == "" or files_path is None:
             print("No new folder selected.")
             return
+        
+        # Update and create data directories if not existing
         updateFolder(files_path)
         createXMLandImgFolderIfNotExist(files_path)
         self.setDateNow()
@@ -323,38 +352,53 @@ class Example(wx.Frame):
                     wx.LogError("Cannot open file '%s'." % newfile)
         self.setDateNow()
 
-    # Closing the app, writes the working directory to file for next use
     def OnQuit(self, e):
-        print("QUIIIIIITt")
+        """
+        Closing the app, writes the working directory to file for next use,
+        empties temp folder and closes the app.
+        Should always be executed before closing the app.
+        """
         self.cdDialog.Destroy()
         writeFolderToFile()
-        
         shutil.rmtree(temp_folder)
         self.Close()    
 
     # Destroys the change date dialog that holds the date (This is ugly)
+    # Is this even used???
     def Cleanup(self, e):
         print("Cleanup")
         self.cdDialog.Destroy()
         writeFolderToFile()
         self.Destroy()
 
-    # Set the date and time to now
     def setDateNow(self):
+        """
+        Updates the date and time to now.
+        """
         self.updateDate(wx.DateTime.Now())
 
-    # Update the date
     def updateDate(self, newDate = None):
+        """
+        Updates the date to specified datetime. 
+        Updates the static datetime text and looks
+        for the most recent XML text entries for text preview.
+        """
         if newDate is not None:
             self.cdDialog.dt = newDate
         self.dateLabel.SetLabel('Date: ' + formDateTime(self.cdDialog.dt))
-        self.fix_text_box.SetLabel('Hoooiii')
+        self.fix_text_box.SetLabel('Hoooiii') # Probably unnecessary.
         self.updateLastEntryText()
     
-    # Fills the static text with the most recent entries
     def updateLastEntryText(self):
+        """
+        Fills the static datetime text with the most recent entries
+        for preview.
+        """
+        # Get most recent last and next XML text entries (if existing).
         date_and_text = getLastXMLEntry(self.cdDialog.dt)
         next_date_and_text = getLastXMLEntry(self.cdDialog.dt, True)
+
+        # Construct the text to put into the preview panel.
         text_to_put = ""
         if date_and_text is not None:
             text_to_put += "Last entry was on " + formDateTime(date_and_text[0]) + "\n\n" + repNewlWithSpace(date_and_text[1]) + "\n\n"
@@ -362,10 +406,15 @@ class Example(wx.Frame):
             text_to_put += "Next entry is on " + formDateTime(next_date_and_text[0]) + "\n\n" + repNewlWithSpace(next_date_and_text[1])
         if text_to_put == "":
             text_to_put = "No older entry present."
+
+        # Set text and update layout
         self.fix_text_box.SetLabel(text_to_put)
         self.vbox.Layout()
 
 def main():
+    """
+    DOO ALLL THE STUFFFFFF.
+    """
     app = wx.App()
     ex = Example(None)
     ex.Show()
