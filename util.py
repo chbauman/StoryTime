@@ -21,6 +21,7 @@ icon_path = os.path.join(proj_path, "Icons")
 #xml_folder = os.path.join(data_path, "XML")
 imgs_folder = "fuck"
 xml_folder = "fuck"
+temp_folder = "tmp"
 
 # Update global path variables if folder is changed
 def updateFolder(new_data_path):
@@ -402,6 +403,10 @@ def copyImgFileToImgsIfNotExist(old_f_name, useExisting, new_fname):
         return new_fname
     return old_f_name
 
+def mkrid_if_not_exists(dir_name):
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+
 class FileDrop(wx.FileDropTarget):
 
     def __init__(self, window, frame):
@@ -423,12 +428,10 @@ class FileDrop(wx.FileDropTarget):
             print("ERROR: Unsupported fucking file type!")
             return False
 
+        # Get date and set image
         self.origImgDate = getFilenameOrModifiedDate(curr_file)
-
-        self.frame.updateDate(self.origImgDate)
-        self.frame.imgLoaded = True
+        self.frame.set_img_with_date(curr_file, self.origImgDate)
         self.loadedFile = curr_file
-        self.frame.setImg(curr_file)
 
         return True
 
@@ -506,10 +509,11 @@ class AcceptPhoto(wx.Dialog):
     def __init__(self, parent = None, img = None, title = "Accept photo?"):
         super(AcceptPhoto, self).__init__(parent, title = title)
 
+        self.taken_img = img
         self.InitUI()
         self.SetSize((400, 400))
         self.SetTitle(title)
-        self.taken_img = img
+        self.accepted = False        
 
     def InitUI(self):
 
@@ -517,7 +521,14 @@ class AcceptPhoto(wx.Dialog):
         self.vbox = wx.BoxSizer(wx.VERTICAL)
 
         # Current Image
-        bmp = wx.StaticBitmap(self, -1, self.taken_img)
+        height, width, c = self.taken_img.shape
+        self.orig_img = self.taken_img
+        height, width = (300, int(height / width * 300))
+        new_size = width, height
+        new_size = height, width
+        self.taken_img = cv2.resize(self.taken_img, new_size)
+        bmp = wx.BitmapFromBuffer(height, width, self.taken_img.tobytes())
+        bmp = wx.StaticBitmap(self, -1, bmp, size = new_size)
         self.vbox.Add(bmp, proportion=0, flag=wx.ALL, border=5)
 
         # Buttons        
@@ -540,11 +551,14 @@ class AcceptPhoto(wx.Dialog):
 
     # Captures the current frame
     def OnTakePic(self, e):
-        print("Taking img")
+        print("Accepting img")
+        self.accepted = True
+        self.Cleanup()
 
     # Release the video capture
     def Cleanup(self):
         self.Destroy()
+        pass
 
     def OnClose(self, e):
         print("Cancelled Selfie Dialog")
@@ -591,13 +605,25 @@ class SelfieDialog(wx.Dialog):
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
-    # Captures the current frame
     def OnTakePic(self, e):
-        print("Taking img")
+        """
+        Captures the current frame and
+        shows the Dialog that lets the user accept the photo or decide
+        to take another one.
+        """
+        accept_diag = AcceptPhoto(None, img = self.imgCap.getCurrFrame())
+        accept_diag.ShowModal()
         print("Fucking implement it already!!!!!!!!")
+        if accept_diag.accepted:
+            self.taken_img = accept_diag.orig_img
+            self.Cleanup()
+        accept_diag.Destroy()
+        
 
-    # Release the video capture
     def Cleanup(self):
+        """
+        Release the video capture.
+        """
         self.capture.release()
         cv2.destroyAllWindows()
         self.Destroy()

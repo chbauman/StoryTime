@@ -9,6 +9,7 @@ www.zetcode.com
 
 import wx
 import util
+import shutil
 from util import *
 from XML_write import *
 
@@ -147,8 +148,21 @@ class Example(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.Cleanup)
 
     def setImg(self, name):
+        """
+        Sets an image in the preview panel in photo mode
+        given the path of the image.
+        """
         self.bmp_shown = getImageToShow(name)
         self.img.SetBitmap(self.bmp_shown)
+
+    def set_img_with_date(self, curr_file, img_date):
+        """
+        Sets an image and updates the time.
+        """
+        self.updateDate(img_date)
+        self.imgLoaded = True
+        self.setImg(curr_file)
+
 
     def OnSave(self, e):
         self.OnOKButtonClick(e)
@@ -156,13 +170,25 @@ class Example(wx.Frame):
 
     # Dialog to take a photo with webcam, changes to photo mode if in text mode
     def OnSelfie(self, e):
+        print("selfie clicked")
         if not self.photoTool.IsToggled():
             self.OnPhoto(e)
             self.toolbar.ToggleTool(ID_MENU_PHOTO, True)
         sDiag = SelfieDialog()
         sDiag.ShowModal()
+        img = sDiag.taken_img
+        if img is not None:
+            print("Yaaay")
+            curr_dt = wx.DateTime.Now()
+            f_name = getImgBNameFromModTime(curr_dt) + "_Self.png"
+            f_path = os.path.join(temp_folder, f_name)
+            mkrid_if_not_exists(temp_folder)
+            print("Saving to", f_path)
+            cv2.imwrite(f_path, cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            self.set_img_with_date(f_path, curr_dt)
+            self.fileDrop.loadedFile = f_path
         sDiag.Destroy()
-        print("selfie clicked")
+        
 
     # Change to photo mode or back
     def OnPhoto(self, e):
@@ -302,6 +328,8 @@ class Example(wx.Frame):
         print("QUIIIIIITt")
         self.cdDialog.Destroy()
         writeFolderToFile()
+        
+        shutil.rmtree(temp_folder)
         self.Close()    
 
     # Destroys the change date dialog that holds the date (This is ugly)
