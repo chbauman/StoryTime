@@ -176,7 +176,9 @@ class Example(wx.Frame):
         """
         # Go to photo mode if not there yet
         if not self.photoTool.IsToggled():
-            self.OnPhoto(e)
+            if self.OnPhoto(e) == -1:
+                self.toolbar.ToggleTool(ID_MENU_PHOTO, False)
+                return
             self.toolbar.ToggleTool(ID_MENU_PHOTO, True)
 
         # Show the dialog
@@ -213,7 +215,7 @@ class Example(wx.Frame):
             ans = dial.ShowModal()
             if ans == wx.ID_NO:
                 self.toolbar.ToggleTool(ID_MENU_PHOTO, not tog)
-                return
+                return -1
             elif ans == wx.ID_YES:
                 self.removeWrittenText()
             else:
