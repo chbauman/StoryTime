@@ -275,15 +275,22 @@ def getImgBNameFromModTime(wxdt):
     name = name + "_" + pat0ToStr(wxdt.GetHour()) + pat0ToStr(wxdt.GetMinute()) + pat0ToStr(wxdt.GetSecond())
     return name
 
-# Extracts the date information from the image name
 def extractDateFromImageName(img_file):
+    """
+    Extracts the date information from the image name.
+    Tries to extract the date and optionally the time.
+    If extracted date is not valid or there is no date
+    contained in the name, returns None.
+    """
     p, filename = os.path.split(img_file)
+    # Extract all numbers from string
     nums = re.findall(r'\d+', filename)
     num_nums = len(nums)
     if num_nums < 1:
         print("No Date extracted!")
         return None
     date = int(nums[0])
+    # Year must be greater than 1
     if date < 10000:
         print("Invalid date.")
         return None
@@ -292,6 +299,8 @@ def extractDateFromImageName(img_file):
     month = (rem // 100)
     day = rem - month * 100
     hour = min = sec = 0
+
+    # Extract time
     if len(nums) > 1:
         num_curr = int(nums[1])
         len_num = len(nums[1])
@@ -301,6 +310,8 @@ def extractDateFromImageName(img_file):
         if len_num == 4 or len_num == 6:
             min = num_curr % 100
             hour = num_curr // 100
+    
+    # Check if date is valid
     try:
         wxdt = wx.DateTime(day, month - 1, year, hour, min, sec)
         if not wxdt.IsValid():
@@ -451,6 +462,9 @@ def mkrid_if_not_exists(dir_name):
     return
 
 class FileDrop(wx.FileDropTarget):
+    """
+    Drop Target to drop images to be added. 
+    """
 
     def __init__(self, window, frame):
 
@@ -502,7 +516,8 @@ def getImageToShow(filename, size = 180, border = 5):
     fac = size / max_size
     s_diff_half = abs(imgSize[0] - imgSize[1]) * fac / 2
     image.Rescale(fac * imgSize[0], fac * imgSize[1], wx.IMAGE_QUALITY_HIGH)
-    image.Resize(wx.Size(size + bor_2, size + bor_2), wx.Point(border, border + s_diff_half), 0, 0, 0)
+    img_sz = wx.Size(size + bor_2, size + bor_2)
+    image.Resize(img_sz, wx.Point(border, border + s_diff_half), 0, 0, 0)
     result = wx.Bitmap(image)
     return result
 
@@ -607,7 +622,7 @@ class AcceptPhoto(wx.Dialog):
         pass
 
     def OnClose(self, e):
-        print("Cancelled Selfie Dialog")
+        print("Cancelled Accept Dialog")
         self.Cleanup()
 
 # Dialog lets you take a picture with the webcam
@@ -659,12 +674,10 @@ class SelfieDialog(wx.Dialog):
         """
         accept_diag = AcceptPhoto(None, img = self.imgCap.getCurrFrame())
         accept_diag.ShowModal()
-        print("Fucking implement it already!!!!!!!!")
         if accept_diag.accepted:
             self.taken_img = accept_diag.orig_img
             self.Cleanup()
         accept_diag.Destroy()
-        
 
     def Cleanup(self):
         """

@@ -249,6 +249,7 @@ class Example(wx.Frame):
         """
         self.fileDrop.loadedFile = None
         self.setImg(self.defaultImg)
+        self.imgLoaded = False
 
     def OnOKButtonClick(self, e):
         """
