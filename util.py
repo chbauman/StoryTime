@@ -573,7 +573,7 @@ class AcceptPhoto(wx.Dialog):
         new_size = width, height
         new_size = height, width
         self.taken_img = cv2.resize(self.taken_img, new_size)
-        bmp = wx.BitmapFromBuffer(height, width, self.taken_img.tobytes())
+        bmp = wx.Bitmap.FromBuffer(height, width, self.taken_img.tobytes())
         bmp = wx.StaticBitmap(self, -1, bmp, size = new_size)
         self.vbox.Add(bmp, proportion=0, flag=wx.ALL, border=5)
 

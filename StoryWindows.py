@@ -176,6 +176,7 @@ class Example(wx.Frame):
         """
         # Go to photo mode if not there yet
         if not self.photoTool.IsToggled():
+            # Abort if canceled
             if self.OnPhoto(e) == -1:
                 self.toolbar.ToggleTool(ID_MENU_PHOTO, False)
                 return
@@ -214,6 +215,7 @@ class Example(wx.Frame):
             dial.SetYesNoLabels('Fuck yeah!', 'No fucking way!')
             ans = dial.ShowModal()
             if ans == wx.ID_NO:
+                # Toggle back
                 self.toolbar.ToggleTool(ID_MENU_PHOTO, not tog)
                 return -1
             elif ans == wx.ID_YES:
