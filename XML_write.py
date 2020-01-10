@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""This module contains the XML reading and writing utilities.
+
+All the text is stored in an XML file and the images are referenced
+in the file.
+"""
 import os
 import xml.etree.cElementTree as elTree
 from shutil import copy2

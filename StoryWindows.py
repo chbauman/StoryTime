@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""The main script with the StoryTimeApp.
 
-"""
-Inspired by: 
-ZetCode wxPython tutorial, www.zetcode.com
+Run this file to run the app.
+
+Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 """
 import os
 import shutil
@@ -69,39 +70,32 @@ class StoryTimeApp(wx.Frame):
 
         self.imgLoaded = False
 
-    def setup_toolbar(self):
-        # Toolbar
+    def setup_toolbar(self) -> None:
+        """Sets the toolbar up."""
         iconSize = (50, 50)
 
         self.toolbar = self.CreateToolBar()
         self.toolbar.SetToolBitmapSize(iconSize)
+        
+        tool_list = [
+            ('save_icon.png', wx.ID_SAVE, 'Save', "Save entry.", self.OnSave),
+            ('photo_icon.png', ID_MENU_PHOTO, 'Photo', "Change to photo mode.", self.OnPhoto),
+            ('calendar_icon.png', ID_MENU_CHANGE_DATE, 'Change', "Choose another date and time.", self.OnChangeDate),
+            ('folder_icon.png', ID_MENU_CHOOSE_DIR, 'Dir', "Change directory.", self.OnChangeDir),
+            ('import_icon.png', ID_MENU_IMPORT, 'Import', "Import text or images from old version.", self.OnImport),
+            ('webcam_icon.png', ID_MENU_SELFIE, 'Selfie', "Take a picture with your webcam.", self.OnSelfie),
+        ]
+        for ct, t in enumerate(tool_list):
+            icon_name, tool_id, name, help_txt, met = t
+            icon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, icon_name)), *iconSize)
+            tool = self.toolbar.AddTool(tool_id, name, icon, shortHelp=help_txt)
+            self.Bind(wx.EVT_TOOL, met, tool)
+            tool_list[ct] = tool
 
-        photoIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'photo_icon.png')), iconSize[0], iconSize[1])
-        saveIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'save_icon.png')), iconSize[0], iconSize[1])
-        calendarIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'calendar_icon.png')), iconSize[0], iconSize[1])
-        folderIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'folder_icon.png')), iconSize[0], iconSize[1])
-        importIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'import_icon.png')), iconSize[0], iconSize[1])
-        selfieIcon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, 'webcam_icon.png')), iconSize[0], iconSize[1])
+        self.photoTool = tool_list[1]
 
-        saveTool = self.toolbar.AddTool(wx.ID_SAVE, 'Save', saveIcon, shortHelp="Save entry.")
-        self.photoTool = self.toolbar.AddCheckTool(ID_MENU_PHOTO, 'Photo', photoIcon, shortHelp="Change to photo mode.")
-        changeDateTool = self.toolbar.AddTool(ID_MENU_CHANGE_DATE, 'Change', calendarIcon,
-                                              shortHelp="Choose another date and time.")
-        changeDir = self.toolbar.AddTool(ID_MENU_CHOOSE_DIR, 'Dir', folderIcon, shortHelp="Change directory.")
-        importTool = self.toolbar.AddTool(ID_MENU_IMPORT, 'Import', importIcon,
-                                          shortHelp="Import text or images from old version.")
-        selfieTool = self.toolbar.AddTool(ID_MENU_SELFIE, 'Selfie', selfieIcon,
-                                          shortHelp="Take a picture with your webcam.")
         self.toolbar.AddSeparator()
-
         self.toolbar.Realize()
-
-        self.Bind(wx.EVT_TOOL, self.OnSave, saveTool)
-        self.Bind(wx.EVT_TOOL, self.OnPhoto, self.photoTool)
-        self.Bind(wx.EVT_TOOL, self.OnChangeDate, changeDateTool)
-        self.Bind(wx.EVT_TOOL, self.OnChangeDir, changeDir)
-        self.Bind(wx.EVT_TOOL, self.OnImport, importTool)
-        self.Bind(wx.EVT_TOOL, self.OnSelfie, selfieTool)
 
     def InitUI(self):
 
