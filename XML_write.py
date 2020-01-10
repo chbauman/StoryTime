@@ -6,7 +6,8 @@ from shutil import copy2
 
 import wx
 
-from util import xml_folder, get_time_from_file, img_folder, get_img_name_from_time
+import util
+from util import get_time_from_file, img_folder, get_img_name_from_time
 
 
 def init_XML(comm, year):
@@ -46,7 +47,7 @@ def insertXmlPhotoEntryElement(doc, date_time, img_filename, text) -> None:
 
 def getXMLAndFilename(year, create=True):
     yearStr = str(year)
-    xml_file = os.path.join(xml_folder, yearStr + ".xml")
+    xml_file = os.path.join(util.xml_folder, yearStr + ".xml")
     if os.path.exists(xml_file):
         tree = elTree.parse(xml_file)
     elif create:
@@ -97,7 +98,7 @@ def find_next_older_xml_file(year, newer=False):
     closest_year = -100000
     if newer:
         closest_year = 100000
-    for f in os.listdir(xml_folder):
+    for f in os.listdir(util.xml_folder):
         y = int(f.split(".")[0])
         if not newer and year > y > closest_year:
             closest_year = y

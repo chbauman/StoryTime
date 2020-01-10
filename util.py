@@ -3,6 +3,7 @@
 
 import os
 import re
+from abc import abstractmethod, ABC
 from datetime import datetime
 from shutil import copy2
 from typing import List
@@ -159,7 +160,18 @@ class ChangeDateDialog(wx.Dialog):
         self.Close()
 
 
-class PhotoWithSameDateExistsDialog(wx.Dialog):
+class DialogBase(wx.Dialog):
+    v_box: wx.BoxSizer
+
+    def setup_v_box(self, h_box, h_button, pnl, bind_target, bind_fun):
+        h_box.Add(h_button, flag=wx.LEFT, border=5)
+        self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
+        self.SetSizer(self.v_box)
+        bind_target.Bind(wx.EVT_CLOSE, bind_fun)
+
+
+class PhotoWithSameDateExistsDialog(DialogBase):
     """Dialog that pops up if you want to save an image, but
     there exists an image with the same associated time."""
 
@@ -209,13 +221,8 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
             self.next_button.Bind(wx.EVT_BUTTON, self.OnNext)
             self.prev_button.Bind(wx.EVT_BUTTON, self.OnPrev)
 
-        h_box.Add(newButton, flag=wx.LEFT, border=5)
-        self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
-        self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
+        self.setup_v_box(h_box, newButton, pnl, selectButton, self.OnSelect)
 
-        self.SetSizer(self.v_box)
-
-        selectButton.Bind(wx.EVT_BUTTON, self.OnSelect)
         newButton.Bind(wx.EVT_BUTTON, self.OnNew)
 
     def get_img_at_ind(self, ind):
@@ -603,14 +610,35 @@ class ShowCapture(wx.Panel):
             self.Refresh()
 
 
-class AcceptPhoto(wx.Dialog):
+class PhotoBase(DialogBase):
+
+    def setup(self, pnl: wx.Panel, shoot_label: str, cancel_label: str):
+        # Buttons
+        shootButton = wx.Button(self, label=shoot_label)
+        cancelButton = wx.Button(self, label=cancel_label)
+        shootButton.Bind(wx.EVT_BUTTON, self.OnTakePic)
+        cancelButton.Bind(wx.EVT_BUTTON, self.OnClose)
+
+        # Layout
+        h_box = wx.BoxSizer(wx.HORIZONTAL)
+        h_box.Add(shootButton)
+
+        self.setup_v_box(h_box, cancelButton, pnl, self, self.OnClose)
+
+    def OnTakePic(self, e):
+        pass
+
+    def OnClose(self, e):
+        pass
+
+
+class AcceptPhoto(PhotoBase):
     """Dialog lets you look at the taken picture and
     decide if you want to take a new one or keep it
     """
 
     taken_img = None
     orig_img = None
-    v_box: wx.BoxSizer
 
     def __init__(self, parent=None, img=None, title="Accept photo?"):
         super(AcceptPhoto, self).__init__(parent, title=title)
@@ -635,23 +663,7 @@ class AcceptPhoto(wx.Dialog):
         bmp = wx.StaticBitmap(self, -1, bmp, size=new_size)
         self.v_box.Add(bmp, proportion=0, flag=wx.ALL, border=5)
 
-        # Buttons        
-        shootButton = wx.Button(self, label='Accept')
-        cancelButton = wx.Button(self, label='Throw')
-        shootButton.Bind(wx.EVT_BUTTON, self.OnTakePic)
-        cancelButton.Bind(wx.EVT_BUTTON, self.OnClose)
-
-        # Layout
-        h_box = wx.BoxSizer(wx.HORIZONTAL)
-        h_box.Add(shootButton)
-        h_box.Add(cancelButton, flag=wx.LEFT, border=5)
-
-        self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
-        self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
-
-        self.SetSizer(self.v_box)
-
-        self.Bind(wx.EVT_CLOSE, self.OnClose)
+        self.setup(pnl, 'Accept', 'Throw')
 
     # Captures the current frame
     def OnTakePic(self, e):
@@ -669,14 +681,12 @@ class AcceptPhoto(wx.Dialog):
         self.Cleanup()
 
 
-class SelfieDialog(wx.Dialog):
+class SelfieDialog(PhotoBase):
     """Dialog that lets you take a picture with the webcam.
     """
 
     capture = None
     imgCap = None
-
-    v_box: wx.BoxSizer
 
     def __init__(self, parent=None, title="Let me take a fucking selfie."):
         super(SelfieDialog, self).__init__(parent, title=title)
@@ -697,23 +707,7 @@ class SelfieDialog(wx.Dialog):
         self.v_box.Add(self.imgCap, proportion=0, flag=wx.ALL, border=5)
         self.imgCap.Show()
 
-        # Buttons        
-        shootButton = wx.Button(self, label='Shoot')
-        cancelButton = wx.Button(self, label='Cancel')
-        shootButton.Bind(wx.EVT_BUTTON, self.OnTakePic)
-        cancelButton.Bind(wx.EVT_BUTTON, self.OnClose)
-
-        # Layout
-        h_box = wx.BoxSizer(wx.HORIZONTAL)
-        h_box.Add(shootButton)
-        h_box.Add(cancelButton, flag=wx.LEFT, border=5)
-
-        self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
-        self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
-
-        self.SetSizer(self.v_box)
-
-        self.Bind(wx.EVT_CLOSE, self.OnClose)
+        self.setup(pnl, 'Shoot', 'Cancel')
 
     def OnTakePic(self, e):
         """Takes a picture with the webcam.

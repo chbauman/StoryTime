@@ -12,8 +12,9 @@ import cv2
 import wx
 
 from XML_write import saveEntryInXml, addImgs, convertFromTxt, getLastXMLEntry
+import util
 from util import FileDrop, scale_bitmap, icon_path, create_dir, temp_folder, get_img_name_from_time, ChangeDateDialog, \
-    update_folder, img_folder, get_info_from_file, formDateTime, getImageToShow, SelfieDialog, \
+    update_folder, get_info_from_file, formDateTime, getImageToShow, SelfieDialog, \
     copyImgFileToImgsIfNotExistFull, create_xml_and_img_folder, write_folder_to_file, rep_newlines_with_space
 
 ID_MENU_PHOTO = wx.NewId()
@@ -59,8 +60,8 @@ class StoryTimeApp(wx.Frame):
         self.SetIcon(icon)
         files_path = get_info_from_file()
         update_folder(files_path)
-        print("img_folder", img_folder)
-        print("util.img_folder", img_folder)
+        print("img_folder", util.img_folder)
+        print("util.img_folder", util.img_folder)
         self.InitUI()
         self.SetSize((700, 600))
         self.SetTitle('Story Time')
