@@ -162,12 +162,12 @@ def addImgs(baseFolder):
         full_img_filename = os.path.join(imgFolder, f)
         img_desc_f_name = os.path.join(imgDescFolder, f_name + ".txt")
 
-        dateTime = getFilenameOrModifiedDate(full_img_filename)
+        dateTime = get_time_from_file(full_img_filename)
         text = "No Desc."
         if os.path.exists(img_desc_f_name):
             with open(img_desc_f_name, 'r', encoding='utf-8-sig') as myfile:
                 text = myfile.read()
-        b_name_date = getImgBNameFromModTime(dateTime)
+        b_name_date = get_img_name_from_time(dateTime)
         ct = 0
         while True:
             new_img_name = os.path.join(util.img_folder, b_name_date + "_" + str(ct) + file_ext)

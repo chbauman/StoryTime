@@ -22,7 +22,7 @@ img_folder = "fuck"
 xml_folder = "fuck"
 
 
-def update_folder(new_data_path):
+def update_folder(new_data_path: str) -> None:
     """Update global path variables if data folder is changed.
     """
     global data_path
@@ -34,7 +34,7 @@ def update_folder(new_data_path):
     xml_folder = os.path.join(new_data_path, "XML")
 
 
-def rep_newlines_with_space(string):
+def rep_newlines_with_space(string: str) -> str:
     """Removes newlines and replaces them with spaces.
 
     Also reduces double spaces to single spaces.
@@ -42,7 +42,7 @@ def rep_newlines_with_space(string):
     return string.replace("\n", " ").replace("  ", " ")
 
 
-def createXMLandImgFolderIfNotExist(base_folder):
+def create_xml_and_img_folder(base_folder: str) -> None:
     """Create a folder for the XML and the image files.
     """
     xml_pth = os.path.join(base_folder, "XML")
@@ -54,8 +54,15 @@ def createXMLandImgFolderIfNotExist(base_folder):
     return
 
 
-# Read the info file and get necessary information
-def getInfoFromFile(ask=True):
+def get_info_from_file(ask: bool = True):
+    """Read the info file and get necessary information
+
+    Args:
+        ask: Whether to ask for a directory.
+
+    Returns:
+
+    """
     if not os.path.exists("Info.txt"):
         with open("Info.txt", "w") as f:
             f.write("NoDirectorySpecified")
@@ -66,31 +73,29 @@ def getInfoFromFile(ask=True):
         if data != [] and os.path.isdir(data[0]):
             fol_path = data[0]
             # TODO: More checks or create dirs?
-            createXMLandImgFolderIfNotExist(fol_path)
+            create_xml_and_img_folder(fol_path)
             return fol_path
         elif ask:
             cdDiag = wx.DirDialog(None, "Choose directory to store Imgs and Text data.", "",
                                   wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
             cdDiag.ShowModal()
             files_path = cdDiag.GetPath()
-            createXMLandImgFolderIfNotExist(files_path)
+            create_xml_and_img_folder(files_path)
             return files_path
     return None
 
 
-def writeFolderToFile():
-    """
-    Write the current working directory to file Info.txt
+def write_folder_to_file() -> None:
+    """Write the current working directory to file Info.txt
     """
     with open("Info.txt", "w") as f:
         f.write(data_path)
-    return
 
 
-def scale_bitmap(bitmap, width, height):
-    """
-    Rescales a bitmap to a given size by converting
-    it to image, rescaling and converting it back.
+def scale_bitmap(bitmap: wx.Bitmap, width, height) -> wx.Bitmap:
+    """Rescales a bitmap to a given size.
+
+    Converting it to image, rescaling and converting it back.
     """
     image = bitmap.ConvertToImage()
     image = image.Scale(width, height, wx.IMAGE_QUALITY_HIGH)
@@ -98,8 +103,8 @@ def scale_bitmap(bitmap, width, height):
     return result
 
 
-# Date and Time picker dialog
 class ChangeDateDialog(wx.Dialog):
+    """Date and Time picker dialog"""
     cal: wx.adv.CalendarCtrl
     timePicker: wx.adv.TimePickerCtrl
 
@@ -157,6 +162,14 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
     """Dialog that pops up if you want to save an image, but
     there exists an image with the same associated time."""
 
+    v_box: wx.BoxSizer
+
+    img: wx.StaticBitmap
+    bmp_shown: wx.Bitmap
+
+    next_button: wx.Button
+    prev_button: wx.Button
+
     def __init__(self, file_list, parent=None, title="Image with same date already exists"):
         super(PhotoWithSameDateExistsDialog, self).__init__(parent, title=title)
 
@@ -171,35 +184,35 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
     def InitUI(self):
 
         pnl = wx.Panel(self)
-        self.vbox = wx.BoxSizer(wx.VERTICAL)
+        self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         # Current Image
         self.bmp_shown = self.get_img_at_ind(0)
         self.img = wx.StaticBitmap(self, -1, self.bmp_shown)
-        self.vbox.Add(self.img, proportion=0, flag=wx.ALL, border=5)
+        self.v_box.Add(self.img, proportion=0, flag=wx.ALL, border=5)
         self.img.Show()
 
         # Buttons
-        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
+        h_box = wx.BoxSizer(wx.HORIZONTAL)
         selectButton = wx.Button(self, label='Select')
         newButton = wx.Button(self, label='New')
 
-        hbox2.Add(selectButton)
+        h_box.Add(selectButton)
 
         if self.maxInd > 1:  # No next / previous if there is only one
-            self.nextButton = wx.Button(self, label='Next')
-            self.prevButton = wx.Button(self, label='Previous')
-            self.prevButton.Disable()
-            hbox2.Add(self.prevButton)
-            hbox2.Add(self.nextButton)
-            self.nextButton.Bind(wx.EVT_BUTTON, self.OnNext)
-            self.prevButton.Bind(wx.EVT_BUTTON, self.OnPrev)
+            self.next_button = wx.Button(self, label='Next')
+            self.prev_button = wx.Button(self, label='Previous')
+            self.prev_button.Disable()
+            h_box.Add(self.prev_button)
+            h_box.Add(self.next_button)
+            self.next_button.Bind(wx.EVT_BUTTON, self.OnNext)
+            self.prev_button.Bind(wx.EVT_BUTTON, self.OnPrev)
 
-        hbox2.Add(newButton, flag=wx.LEFT, border=5)
-        self.vbox.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
-        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
+        h_box.Add(newButton, flag=wx.LEFT, border=5)
+        self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
 
-        self.SetSizer(self.vbox)
+        self.SetSizer(self.v_box)
 
         selectButton.Bind(wx.EVT_BUTTON, self.OnSelect)
         newButton.Bind(wx.EVT_BUTTON, self.OnNew)
@@ -216,18 +229,18 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
         print("Next Image")
         self.shownImgInd += 1
         if self.shownImgInd == self.maxInd - 1:
-            self.nextButton.Disable()
+            self.next_button.Disable()
         if self.shownImgInd == 1:
-            self.prevButton.Enable()
+            self.prev_button.Enable()
         self.updateImg()
         print("next img")
 
     def OnPrev(self, e):
         self.shownImgInd -= 1
         if self.shownImgInd == 0:
-            self.prevButton.Disable()
+            self.prev_button.Disable()
         if self.shownImgInd == self.maxInd - 2:
-            self.nextButton.Enable()
+            self.next_button.Enable()
         self.updateImg()
         print("Prev img")
 
@@ -245,9 +258,8 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
         self.Close()
 
 
-def pydate2wxdate(date):
-    """
-    Converts a python datetime to a wx.DateTime.
+def datetime_to_wx_datetime(date: datetime) -> wx.DateTime:
+    """Converts a python datetime to a wx.DateTime.
     """
     year = date.year
     month = date.month
@@ -256,16 +268,15 @@ def pydate2wxdate(date):
     return wx.DateTime(day, month - 1, year, hour, date.minute, date.second)
 
 
-def getWXDTFileModified(curr_file):
-    """
-    Read the date modified time of a file, convert it to wx.DateTime
+def get_file_modified_wx_dt(curr_file: str) -> wx.DateTime:
+    """Read the date modified time of a file, convert it to wx.DateTime
     and return it.
     """
-    modif_time = os.path.getmtime(curr_file)
-    return pydate2wxdate(datetime.fromtimestamp(modif_time))
+    modify_time = os.path.getmtime(curr_file)
+    return datetime_to_wx_datetime(datetime.fromtimestamp(modify_time))
 
 
-def pat0ToStr(int_to_pad: int, n: int = 2) -> str:
+def pad_int_str(int_to_pad: int, n: int = 2) -> str:
     """Converts an integer to a string, padding with leading zeros
     to get n characters. Intended for date and time formatting.
     """
@@ -276,15 +287,15 @@ def pat0ToStr(int_to_pad: int, n: int = 2) -> str:
     return base
 
 
-def getImgBNameFromModTime(wx_dt):
+def get_img_name_from_time(wx_dt: wx.DateTime) -> str:
     """Gives the image basename from the wx.DateTime.
     """
-    name = "IMG_" + pat0ToStr(wx_dt.GetYear(), 4) + pat0ToStr(wx_dt.GetMonth() + 1) + pat0ToStr(wx_dt.GetDay())
-    name = name + "_" + pat0ToStr(wx_dt.GetHour()) + pat0ToStr(wx_dt.GetMinute()) + pat0ToStr(wx_dt.GetSecond())
+    name = "IMG_" + pad_int_str(wx_dt.GetYear(), 4) + pad_int_str(wx_dt.GetMonth() + 1) + pad_int_str(wx_dt.GetDay())
+    name = name + "_" + pad_int_str(wx_dt.GetHour()) + pad_int_str(wx_dt.GetMinute()) + pad_int_str(wx_dt.GetSecond())
     return name
 
 
-def extractDateFromImageName(img_file):
+def extract_date_from_image_name(img_file: str):
     """Extracts the date information from the image name.
 
     Tries to extract the date and optionally the time.
@@ -307,7 +318,7 @@ def extractDateFromImageName(img_file):
     rem = date - year * 10000
     month = (rem // 100)
     day = rem - month * 100
-    hour = min = sec = 0
+    hour = mins = sec = 0
 
     # Extract time
     if len(nums) > 1:
@@ -317,29 +328,29 @@ def extractDateFromImageName(img_file):
             sec = num_curr % 100
             num_curr = num_curr // 100
         if len_num == 4 or len_num == 6:
-            min = num_curr % 100
+            mins = num_curr % 100
             hour = num_curr // 100
 
     # Check if date is valid
     try:
-        wxdt = wx.DateTime(day, month - 1, year, hour, min, sec)
-        if not wxdt.IsValid():
+        wx_dt = wx.DateTime(day, month - 1, year, hour, mins, sec)
+        if not wx_dt.IsValid():
             return None
-        return wxdt
+        return wx_dt
     except Exception as e:
         print(f"Exception: {e} happened :(")
         return None
 
 
-def getFilenameOrModifiedDate(img_file):
-    """
-    Tries to extract the date from a filename, 
-    if there is none, returns the modified time 
+def get_time_from_file(img_file):
+    """Tries to extract the date from a filename.
+
+    If there is none, returns the modified time
     of the file as wx.DateTime.
     """
-    name_date = extractDateFromImageName(img_file)
+    name_date = extract_date_from_image_name(img_file)
     if name_date is None:
-        name_date = getWXDTFileModified(img_file)
+        name_date = get_file_modified_wx_dt(img_file)
     return name_date
 
 
@@ -382,8 +393,8 @@ def copyImgFileToImgs(lf):
     If he doesn't decide, returns None
     """
     # Get date of image and find all images with same date
-    imgDate = getFilenameOrModifiedDate(lf)
-    imgName = getImgBNameFromModTime(imgDate)
+    imgDate = get_time_from_file(lf)
+    imgName = get_img_name_from_time(imgDate)
     sameDateFileList = findAllImgsWithSameDate(img_folder, imgName)
     print(sameDateFileList)
 
@@ -408,7 +419,7 @@ def copyImgFileToImgs(lf):
         else:
             # Add text to existing image
             imgName = sameDateFileList[ind]
-            return os.path.join(img_folder, new_name)
+            return os.path.join(img_folder, imgName)
 
     # Add file extension and copy image to project
     imgName = imgName + file_extension
@@ -420,10 +431,10 @@ def copyImgFileToImgs(lf):
 def chooseImgTextMethod(lf, imgDT=None):
     _, file_extension = os.path.splitext(lf)
     if imgDT is None:
-        imgDate = getFilenameOrModifiedDate(lf)
+        imgDate = get_time_from_file(lf)
     else:
         imgDate = imgDT
-    imgName = getImgBNameFromModTime(imgDate)
+    imgName = get_img_name_from_time(imgDate)
     useExisting = False
 
     # TODO: Check if already in correct folder
@@ -479,9 +490,10 @@ def mkrid_if_not_exists(dir_name):
 
 
 class FileDrop(wx.FileDropTarget):
+    """Drop Target to drop images to be added.
     """
-    Drop Target to drop images to be added. 
-    """
+
+    origImgDate = None
 
     def __init__(self, window, frame):
 
@@ -503,25 +515,24 @@ class FileDrop(wx.FileDropTarget):
             return False
 
         # Get date and set image
-        self.origImgDate = getFilenameOrModifiedDate(curr_file)
+        self.origImgDate = get_time_from_file(curr_file)
         self.frame.set_img_with_date(curr_file, self.origImgDate)
         self.loadedFile = curr_file
 
         return True
 
 
-def formDateTime(dateTime):
+def formDateTime(date_time):
+    """Format the given datetime in a string.
     """
-    Format the given datetime in a string.
-    """
-    strOut = str(wx.DateTime.GetWeekDayName(dateTime.GetWeekDay())) + ", "
-    strOut += str(dateTime.GetDay()) + ". "
-    strOut += str(dateTime.GetMonth() + 1) + ". "
-    strOut += str(dateTime.GetYear()) + ", Time: "
-    strOut += str(dateTime.GetHour()) + ":"
-    strOut += str(dateTime.GetMinute()) + ":"
-    strOut += str(dateTime.GetSecond())
-    return strOut
+    str_out = str(wx.DateTime.GetWeekDayName(date_time.GetWeekDay())) + ", "
+    str_out += str(date_time.GetDay()) + ". "
+    str_out += str(date_time.GetMonth() + 1) + ". "
+    str_out += str(date_time.GetYear()) + ", Time: "
+    str_out += str(date_time.GetHour()) + ":"
+    str_out += str(date_time.GetMinute()) + ":"
+    str_out += str(date_time.GetSecond())
+    return str_out
 
 
 # Assuming quadratic size

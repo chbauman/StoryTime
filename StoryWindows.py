@@ -51,7 +51,7 @@ class StoryTimeApp(wx.Frame):
         icon = wx.Icon()
         icon.CopyFromBitmap(wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY))
         self.SetIcon(icon)
-        files_path = getInfoFromFile()
+        files_path = get_info_from_file()
         update_folder(files_path)
         print("img_folder", img_folder)
         print("util.img_folder", util.img_folder)
@@ -211,7 +211,7 @@ class StoryTimeApp(wx.Frame):
         # Save the image and show it in the preview
         if img is not None:
             curr_dt = wx.DateTime.Now()
-            f_name = getImgBNameFromModTime(curr_dt) + "_Self.png"
+            f_name = get_img_name_from_time(curr_dt) + "_Self.png"
             f_path = os.path.join(temp_folder, f_name)
             mkrid_if_not_exists(temp_folder)
             cv2.imwrite(f_path, cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
@@ -332,7 +332,7 @@ class StoryTimeApp(wx.Frame):
 
         # Update and create data directories if not existing
         update_folder(files_path)
-        createXMLandImgFolderIfNotExist(files_path)
+        create_xml_and_img_folder(files_path)
         self.set_date_to_now()
 
     def OnImport(self, e):
@@ -380,7 +380,7 @@ class StoryTimeApp(wx.Frame):
         Should always be executed before closing the app.
         """
         self.cdDialog.Destroy()
-        writeFolderToFile()
+        write_folder_to_file()
         if os.path.isdir(temp_folder):
             shutil.rmtree(temp_folder)
         self.Close()
@@ -389,7 +389,7 @@ class StoryTimeApp(wx.Frame):
         # Is this even used???
         print("Cleanup")
         self.cdDialog.Destroy()
-        writeFolderToFile()
+        write_folder_to_file()
         self.Destroy()
 
     def set_date_to_now(self):
