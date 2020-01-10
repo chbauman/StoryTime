@@ -32,9 +32,9 @@ class Example(wx.Frame):
         icon.CopyFromBitmap(wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY))
         self.SetIcon(icon)
         files_path = getInfoFromFile()
-        updateFolder(files_path)
-        print("imgs_folder", imgs_folder)
-        print("util.imgs_folder", util.imgs_folder)
+        update_folder(files_path)
+        print("img_folder", img_folder)
+        print("util.img_folder", util.img_folder)
         self.InitUI()
         self.SetSize((700, 600))
         self.SetTitle('Story Time')
@@ -318,7 +318,7 @@ class Example(wx.Frame):
             return
 
         # Update and create data directories if not existing
-        updateFolder(files_path)
+        update_folder(files_path)
         createXMLandImgFolderIfNotExist(files_path)
         self.setDateNow()
 
@@ -369,7 +369,8 @@ class Example(wx.Frame):
         """
         self.cdDialog.Destroy()
         writeFolderToFile()
-        shutil.rmtree(temp_folder)
+        if os.path.isdir(temp_folder):
+            shutil.rmtree(temp_folder)
         self.Close()
 
         # Destroys the change date dialog that holds the date (This is ugly)
@@ -411,10 +412,10 @@ class Example(wx.Frame):
         # Construct the text to put into the preview panel.
         text_to_put = ""
         if date_and_text is not None:
-            text_to_put += "Last entry was on " + formDateTime(date_and_text[0]) + "\n\n" + repNewlWithSpace(
+            text_to_put += "Last entry was on " + formDateTime(date_and_text[0]) + "\n\n" + rep_newlines_with_space(
                 date_and_text[1]) + "\n\n"
         if next_date_and_text is not None:
-            text_to_put += "Next entry is on " + formDateTime(next_date_and_text[0]) + "\n\n" + repNewlWithSpace(
+            text_to_put += "Next entry is on " + formDateTime(next_date_and_text[0]) + "\n\n" + rep_newlines_with_space(
                 next_date_and_text[1])
         if text_to_put == "":
             text_to_put = "No older entry present."

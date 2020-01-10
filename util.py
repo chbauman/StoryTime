@@ -2,49 +2,49 @@
 # -*- coding: utf-8 -*-
 
 import os
-import wx
 import re
-import cv2
-import wx.adv
-from shutil import copy2
-from PIL import Image
 from datetime import datetime
+from shutil import copy2
+
+import cv2
+import wx
+import wx.adv
 
 # Paths to app code and temp folder
-proj_path = os.path.dirname(os.path.realpath(__file__))
-icon_path = os.path.join(proj_path, "Icons")
+project_path = os.path.dirname(os.path.realpath(__file__))
+icon_path = os.path.join(project_path, "Icons")
 temp_folder = "tmp"
 
 # Path to data (global variables)
 # Initialized values should never be used
 data_path = ""
-imgs_folder = "fuck"
+img_folder = "fuck"
 xml_folder = "fuck"
 
 
-def updateFolder(new_data_path):
-    """
-    Update global path variables if data folder is changed.
+def update_folder(new_data_path):
+    """Update global path variables if data folder is changed.
     """
     global data_path
-    global imgs_folder
+    global img_folder
     global xml_folder
 
     data_path = new_data_path
-    imgs_folder = os.path.join(new_data_path, "Img")
+    img_folder = os.path.join(new_data_path, "Img")
     xml_folder = os.path.join(new_data_path, "XML")
 
 
-def repNewlWithSpace(strng):
+def rep_newlines_with_space(string):
+    """Removes newlines and replaces them with spaces.
+
+    Also reduces double spaces to single spaces.
     """
-    Removes newlines and replaces them with space
-    and reduces double spaces to single spaces.
-    """
-    return strng.replace("\n", " ").replace("  ", " ")
+    return string.replace("\n", " ").replace("  ", " ")
 
 
-# Create a folder for the XML and the Image files
 def createXMLandImgFolderIfNotExist(base_folder):
+    """Create a folder for the XML and the image files.
+    """
     xml_pth = os.path.join(base_folder, "XML")
     if not os.path.isdir(xml_pth):
         os.mkdir(xml_pth)
@@ -100,6 +100,8 @@ def scale_bitmap(bitmap, width, height):
 
 # Date and Time picker dialog
 class ChangeDateDialog(wx.Dialog):
+    cal: wx.adv.CalendarCtrl
+    timePicker: wx.adv.TimePickerCtrl
 
     def __init__(self, *args, **kw):
         super(ChangeDateDialog, self).__init__(*args, **kw)
@@ -111,7 +113,7 @@ class ChangeDateDialog(wx.Dialog):
 
     def InitUI(self):
         pnl = wx.Panel(self)
-        vbox = wx.BoxSizer(wx.VERTICAL)
+        vertical_box = wx.BoxSizer(wx.VERTICAL)
 
         # Calendar and Time Picker
         sb = wx.StaticBox(pnl, label='Select Date and Time')
@@ -123,16 +125,16 @@ class ChangeDateDialog(wx.Dialog):
         pnl.SetSizer(sbs)
 
         # Buttons
-        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
+        h_box_2 = wx.BoxSizer(wx.HORIZONTAL)
         okButton = wx.Button(self, label='Ok')
         cancelButton = wx.Button(self, label='Cancel')
-        hbox2.Add(okButton)
-        hbox2.Add(cancelButton, flag=wx.LEFT, border=5)
+        h_box_2.Add(okButton)
+        h_box_2.Add(cancelButton, flag=wx.LEFT, border=5)
 
-        vbox.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
-        vbox.Add(hbox2, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
+        vertical_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        vertical_box.Add(h_box_2, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
 
-        self.SetSizer(vbox)
+        self.SetSizer(vertical_box)
 
         okButton.Bind(wx.EVT_BUTTON, self.OnOK)
         cancelButton.Bind(wx.EVT_BUTTON, self.OnClose)
@@ -150,18 +152,18 @@ class ChangeDateDialog(wx.Dialog):
         print(self.dt)
         self.Close()
 
-    # Dialog that pops up if you want to save an image, but there exists an image with the same associated time
-
 
 class PhotoWithSameDateExistsDialog(wx.Dialog):
+    """Dialog that pops up if you want to save an image, but
+    there exists an image with the same associated time."""
 
-    def __init__(self, fileList, parent=None, title="Image with same date already exists"):
+    def __init__(self, file_list, parent=None, title="Image with same date already exists"):
         super(PhotoWithSameDateExistsDialog, self).__init__(parent, title=title)
 
-        self.fileList = fileList
+        self.fileList = file_list
         self.chosenImgInd = None
         self.shownImgInd = 0
-        self.maxInd = len(fileList)
+        self.maxInd = len(file_list)
         self.InitUI()
         self.SetSize((400, 300))
         self.SetTitle(title)
@@ -172,7 +174,7 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
         self.vbox = wx.BoxSizer(wx.VERTICAL)
 
         # Current Image
-        self.bmp_shown = self.getImgatInd(0)
+        self.bmp_shown = self.get_img_at_ind(0)
         self.img = wx.StaticBitmap(self, -1, self.bmp_shown)
         self.vbox.Add(self.img, proportion=0, flag=wx.ALL, border=5)
         self.img.Show()
@@ -202,12 +204,12 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
         selectButton.Bind(wx.EVT_BUTTON, self.OnSelect)
         newButton.Bind(wx.EVT_BUTTON, self.OnNew)
 
-    def getImgatInd(self, ind):
-        return getImageToShow(os.path.join(imgs_folder, self.fileList[ind]), size=100, border=5)
+    def get_img_at_ind(self, ind):
+        return getImageToShow(os.path.join(img_folder, self.fileList[ind]), size=100, border=5)
 
     def updateImg(self):
         ind = self.shownImgInd
-        img_to_show = self.getImgatInd(ind)
+        img_to_show = self.get_img_at_ind(ind)
         self.img.SetBitmap(img_to_show)
 
     def OnNext(self, e):
@@ -263,30 +265,28 @@ def getWXDTFileModified(curr_file):
     return pydate2wxdate(datetime.fromtimestamp(modif_time))
 
 
-def pat0ToStr(integ, n=2):
-    """
-    Converts an integer to a string, padding with leading zeros 
+def pat0ToStr(int_to_pad: int, n: int = 2) -> str:
+    """Converts an integer to a string, padding with leading zeros
     to get n characters. Intended for date and time formatting.
     """
-    base = str(integ)
+    base = str(int_to_pad)
     for k in range(n - 1):
-        if integ < 10 ** (k + 1):
+        if int_to_pad < 10 ** (k + 1):
             base = "0" + base
     return base
 
 
-def getImgBNameFromModTime(wxdt):
+def getImgBNameFromModTime(wx_dt):
+    """Gives the image basename from the wx.DateTime.
     """
-    Gives the image basename from the wx.DateTime.
-    """
-    name = "IMG_" + pat0ToStr(wxdt.GetYear(), 4) + pat0ToStr(wxdt.GetMonth() + 1) + pat0ToStr(wxdt.GetDay())
-    name = name + "_" + pat0ToStr(wxdt.GetHour()) + pat0ToStr(wxdt.GetMinute()) + pat0ToStr(wxdt.GetSecond())
+    name = "IMG_" + pat0ToStr(wx_dt.GetYear(), 4) + pat0ToStr(wx_dt.GetMonth() + 1) + pat0ToStr(wx_dt.GetDay())
+    name = name + "_" + pat0ToStr(wx_dt.GetHour()) + pat0ToStr(wx_dt.GetMinute()) + pat0ToStr(wx_dt.GetSecond())
     return name
 
 
 def extractDateFromImageName(img_file):
-    """
-    Extracts the date information from the image name.
+    """Extracts the date information from the image name.
+
     Tries to extract the date and optionally the time.
     If extracted date is not valid or there is no date
     contained in the name, returns None.
@@ -326,9 +326,9 @@ def extractDateFromImageName(img_file):
         if not wxdt.IsValid():
             return None
         return wxdt
-    except:
+    except Exception as e:
+        print(f"Exception: {e} happened :(")
         return None
-    return None
 
 
 def getFilenameOrModifiedDate(img_file):
@@ -346,7 +346,7 @@ def getFilenameOrModifiedDate(img_file):
 def findAllImgsWithSameDate(imgs_folder, imgName):
     """
     Finds all files starting with string "imgName" 
-    in folder "imgs_folder".
+    in folder "img_folder".
     """
     res = []
     for f in os.listdir(imgs_folder):
@@ -384,7 +384,7 @@ def copyImgFileToImgs(lf):
     # Get date of image and find all images with same date
     imgDate = getFilenameOrModifiedDate(lf)
     imgName = getImgBNameFromModTime(imgDate)
-    sameDateFileList = findAllImgsWithSameDate(imgs_folder, imgName)
+    sameDateFileList = findAllImgsWithSameDate(img_folder, imgName)
     print(sameDateFileList)
 
     # Get image type
@@ -408,11 +408,11 @@ def copyImgFileToImgs(lf):
         else:
             # Add text to existing image
             imgName = sameDateFileList[ind]
-            return os.path.join(imgs_folder, new_name)
+            return os.path.join(img_folder, new_name)
 
     # Add file extension and copy image to project
     imgName = imgName + file_extension
-    copied_file_name = os.path.join(imgs_folder, imgName)
+    copied_file_name = os.path.join(img_folder, imgName)
     copy2(lf, copied_file_name)
     return copied_file_name
 
@@ -427,12 +427,12 @@ def chooseImgTextMethod(lf, imgDT=None):
     useExisting = False
 
     # TODO: Check if already in correct folder
-    if os.path.normpath(os.path.dirname(lf)) == os.path.normpath(imgs_folder):
+    if os.path.normpath(os.path.dirname(lf)) == os.path.normpath(img_folder):
         print("Already in right folder.")
         return lf, imgDate, True
 
     # Check if file already exists
-    sameDateFileList = findAllImgsWithSameDate(imgs_folder, imgName)
+    sameDateFileList = findAllImgsWithSameDate(img_folder, imgName)
     if len(sameDateFileList) > 0:
         print("File already exists, overwriting it. TODO: Dialog")
         phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
@@ -446,12 +446,12 @@ def chooseImgTextMethod(lf, imgDT=None):
             # do not copy
             new_name = sameDateFileList[ind]
             useExisting = True
-            return os.path.join(imgs_folder, new_name), imgDate, useExisting
+            return os.path.join(img_folder, new_name), imgDate, useExisting
         imgName = new_name
         phDiag.Destroy()
 
     imgName = imgName + file_extension
-    copied_file_name = os.path.join(imgs_folder, imgName)
+    copied_file_name = os.path.join(img_folder, imgName)
     return copied_file_name, imgDate, useExisting
 
 

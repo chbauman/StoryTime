@@ -16,17 +16,17 @@ def init_XML(comm, year):
     head = ET.SubElement(root, "head")
     ET.SubElement(head, "year").text = str(year)
     ET.SubElement(head, "text").text = comm
-    doc = ET.SubElement(root, "doc")
+    ET.SubElement(root, "doc")
     return ET.ElementTree(root)
 
 
-def insertXmlTextEntryElement(doc, dateTime, text):
-    ent = ET.SubElement(doc, "entry", date_time=dateTime.FormatISOCombined(), type="text").text = text
+def insertXmlTextEntryElement(doc, date_time, text):
+    ent = ET.SubElement(doc, "entry", date_time=date_time.FormatISOCombined(), type="text").text = text
 
 
 # Inserts a photo entry element as a child of the ET doc
 def insertXmlPhotoEntryElement(doc, dateTime, img_filename, text):
-    if (img_filename == None):
+    if img_filename is None:
         print("ERROR: No fucking filename provided for inserting into XML.")
         return
     # TODO: Check if file exists
@@ -47,22 +47,32 @@ def getXMLAndFilename(year, create=True):
     return tree, xml_file
 
 
-# Reads the XML file and adds an entry element with the specified content
-def saveEntryInXml(comm, dateTime, type="text", img_filename=None):
-    year = dateTime.GetYear()
+def saveEntryInXml(comm, date_time, entry_type: str = "text", img_filename: str = None):
+    """Reads the XML file and adds an entry element with the specified content
+
+    Args:
+        comm:
+        date_time:
+        entry_type:
+        img_filename:
+
+    Returns:
+
+    """
+    year = date_time.GetYear()
     tree, xml_file = getXMLAndFilename(year)
 
     doc = tree.getroot().find("doc")
-    if type == "text":
-        insertXmlTextEntryElement(doc, dateTime, comm)
-    elif type == "photo":
-        insertXmlPhotoEntryElement(doc, dateTime, os.path.basename(img_filename), comm)
+    if entry_type == "text":
+        insertXmlTextEntryElement(doc, date_time, comm)
+    elif entry_type == "photo":
+        insertXmlPhotoEntryElement(doc, date_time, os.path.basename(img_filename), comm)
     else:
         print("WTF are you doing??")
     tree.write(xml_file)
 
 
-# Finds the most recent XML file before year 'year', if there is 
+# Finds the most recent XML file before year 'year', if there is
 # none return None, else the found year and the tree of the XML.
 # if newer == True, then it finds the next newer one
 def findNextOlderXMLfile(year, newer=False):
@@ -80,9 +90,9 @@ def findNextOlderXMLfile(year, newer=False):
     return closest_year, getXMLAndFilename(closest_year, False)[0]
 
 
-# Finds most recent date_time entry in doc, if there is no earlier entry than 'dateTime' returns None
+# Finds most recent date_time entry in doc, if there is no earlier entry than 'date_time' returns None
 # if newer == True, then it finds the next newer one
-def findLatestInDoc(tree, dateTime, newer=False):
+def findLatestInDoc(tree, date_time, newer=False):
     doc = tree.getroot().find("doc")
     temp = wx.DateTime(1, 1, 0)
     if newer:
@@ -93,7 +103,7 @@ def findLatestInDoc(tree, dateTime, newer=False):
             continue
         wxDT = wx.DateTime()
         wxDT.ParseISOCombined(child.get("date_time"))
-        if (not newer and wxDT > temp and wxDT < dateTime) or (newer and wxDT < temp and wxDT > dateTime):
+        if (not newer and temp < wxDT < date_time) or (newer and temp > wxDT > date_time):
             temp = wxDT
             curr_child = child
     if abs(temp.GetYear() - 50000) == 50000:
@@ -105,10 +115,11 @@ def findLatestInDoc(tree, dateTime, newer=False):
 def getLastXMLEntry(dt, newer=False):
     curr_year = dt.GetYear()
     tree = getXMLAndFilename(curr_year, False)
+    date_child = None
     if tree is not None:
         tree = tree[0]
         date_child = findLatestInDoc(tree, dt, newer)
-        if date_child == None:
+        if date_child is None:
             tree = None
     if tree is None:
         date_child = None
@@ -120,6 +131,7 @@ def getLastXMLEntry(dt, newer=False):
             curr_year = res[0]
             date_child = findLatestInDoc(tree, dt, newer)
 
+    assert date_child is not None
     date, child = date_child
     return date, child.text
 
@@ -158,7 +170,7 @@ def addImgs(baseFolder):
         b_name_date = getImgBNameFromModTime(dateTime)
         ct = 0
         while True:
-            new_img_name = os.path.join(util.imgs_folder, b_name_date + "_" + str(ct) + file_ext)
+            new_img_name = os.path.join(util.img_folder, b_name_date + "_" + str(ct) + file_ext)
             ct += 1
             if not os.path.exists(new_img_name):
                 break
