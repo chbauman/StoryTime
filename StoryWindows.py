@@ -228,7 +228,7 @@ class StoryTimeApp(wx.Frame):
         # Cleanup
         sDiag.Destroy()
 
-    def OnPhoto(self, e):
+    def OnPhoto(self, _):
         """Change to photo mode or back"""
         # If there is text in the textfield or an image loaded warn
         # the user that it will be lost if he continues
@@ -277,7 +277,7 @@ class StoryTimeApp(wx.Frame):
         self.set_img(self.defaultImg)
         self.imgLoaded = False
 
-    def OnOKButtonClick(self, e):
+    def OnOKButtonClick(self, _):
         """Saves the text (and the photo in photo mode) in an XML entry.
 
         Does nothing if text (or image in photo mode) is missing.
@@ -316,14 +316,14 @@ class StoryTimeApp(wx.Frame):
         self.input_text_field.Clear()
         self.update_date(wx.DateTime.Now())
 
-    def OnChangeDate(self, e):
+    def OnChangeDate(self, _):
         """
         Shows dialog that lets the user change the current date.
         """
         self.cdDialog.ShowModal()
         self.update_date()
 
-    def OnChangeDir(self, e):
+    def OnChangeDir(self, _):
         """Shows dialog that lets the user change the current directory.
         """
         # Show dialog and get folder
@@ -342,7 +342,7 @@ class StoryTimeApp(wx.Frame):
         create_xml_and_img_folder(files_path)
         self.set_date_to_now()
 
-    def OnImport(self, e):
+    def OnImport(self, _):
         msg = 'Do you want to add images in a folder or text entries from a .txt file?'
         dial = wx.MessageDialog(None, msg, 'Question',
                                 wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION | wx.CANCEL_DEFAULT)
@@ -380,7 +380,7 @@ class StoryTimeApp(wx.Frame):
                     wx.LogError("Cannot open file '%s'." % pathname)
         self.set_date_to_now()
 
-    def OnQuit(self, e):
+    def OnQuit(self, _):
         """Closing the app, writes the working directory to file for next use,
         empties temp folder and closes the app.
 
@@ -392,7 +392,7 @@ class StoryTimeApp(wx.Frame):
             shutil.rmtree(temp_folder)
         self.Close()
 
-    def Cleanup(self, e):
+    def Cleanup(self, _):
         # Is this even used???
         print("Cleanup")
         self.cdDialog.Destroy()
