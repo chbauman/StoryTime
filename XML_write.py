@@ -8,8 +8,8 @@ import xml.etree.cElementTree as ET
 import util
 from util import *
 
-
 util.xml_folder
+
 
 def init_XML(comm, year):
     root = ET.Element("root")
@@ -19,32 +19,36 @@ def init_XML(comm, year):
     doc = ET.SubElement(root, "doc")
     return ET.ElementTree(root)
 
+
 def insertXmlTextEntryElement(doc, dateTime, text):
-    ent = ET.SubElement(doc, "entry", date_time = dateTime.FormatISOCombined(), type = "text").text = text
-  
+    ent = ET.SubElement(doc, "entry", date_time=dateTime.FormatISOCombined(), type="text").text = text
+
+
 # Inserts a photo entry element as a child of the ET doc
 def insertXmlPhotoEntryElement(doc, dateTime, img_filename, text):
-    if(img_filename == None):
+    if (img_filename == None):
         print("ERROR: No fucking filename provided for inserting into XML.")
         return
     # TODO: Check if file exists
-    ent = ET.SubElement(doc, "entry", date_time = dateTime.FormatISOCombined(), type = "photo")
+    ent = ET.SubElement(doc, "entry", date_time=dateTime.FormatISOCombined(), type="photo")
     txt = ET.SubElement(ent, "text").text = text
     pht = ET.SubElement(ent, "photo").text = img_filename
 
-def getXMLAndFilename(year, create = True):
+
+def getXMLAndFilename(year, create=True):
     yearStr = str(year)
     xml_file = os.path.join(util.xml_folder, yearStr + ".xml")
     if os.path.exists(xml_file):
         tree = ET.parse(xml_file)
-    elif create:        
+    elif create:
         tree = init_XML("Das isch es Johr " + yearStr + ".", year)
     else:
         return None
     return tree, xml_file
 
+
 # Reads the XML file and adds an entry element with the specified content
-def saveEntryInXml(comm, dateTime, type = "text", img_filename = None):
+def saveEntryInXml(comm, dateTime, type="text", img_filename=None):
     year = dateTime.GetYear()
     tree, xml_file = getXMLAndFilename(year)
 
@@ -57,25 +61,28 @@ def saveEntryInXml(comm, dateTime, type = "text", img_filename = None):
         print("WTF are you doing??")
     tree.write(xml_file)
 
-# Finds the most recent XML file before year 'year', if there is none return None, else the found year and the tree of the XML 
+
+# Finds the most recent XML file before year 'year', if there is 
+# none return None, else the found year and the tree of the XML.
 # if newer == True, then it finds the next newer one
-def findNextOlderXMLfile(year, newer = False):
+def findNextOlderXMLfile(year, newer=False):
     closest_year = -100000
     if newer:
         closest_year = 100000
     for f in os.listdir(util.xml_folder):
         y = int(f.split(".")[0])
-        if not newer and y < year and y > closest_year:
+        if not newer and year > y > closest_year:
             closest_year = y
-        if newer and y > year and y < closest_year:
+        if newer and year < y < closest_year:
             closest_year = y
     if abs(closest_year) == 100000:
         return None
     return closest_year, getXMLAndFilename(closest_year, False)[0]
 
+
 # Finds most recent date_time entry in doc, if there is no earlier entry than 'dateTime' returns None
 # if newer == True, then it finds the next newer one
-def findLatestInDoc(tree, dateTime, newer = False):
+def findLatestInDoc(tree, dateTime, newer=False):
     doc = tree.getroot().find("doc")
     temp = wx.DateTime(1, 1, 0)
     if newer:
@@ -84,7 +91,7 @@ def findLatestInDoc(tree, dateTime, newer = False):
     for child in doc:
         if child.get("type") != "text":
             continue
-        wxDT = wx.DateTime()        
+        wxDT = wx.DateTime()
         wxDT.ParseISOCombined(child.get("date_time"))
         if (not newer and wxDT > temp and wxDT < dateTime) or (newer and wxDT < temp and wxDT > dateTime):
             temp = wxDT
@@ -93,8 +100,9 @@ def findLatestInDoc(tree, dateTime, newer = False):
         return None
     return temp, curr_child
 
+
 # Get the latest entry before 'dt', if any
-def getLastXMLEntry(dt, newer = False):
+def getLastXMLEntry(dt, newer=False):
     curr_year = dt.GetYear()
     tree = getXMLAndFilename(curr_year, False)
     if tree is not None:
@@ -115,6 +123,7 @@ def getLastXMLEntry(dt, newer = False):
     date, child = date_child
     return date, child.text
 
+
 # Takes the text document written by the old program and adds all the entries to the XML
 def convertFromTxt(txt_file):
     with open(txt_file, 'r', encoding='utf-8-sig') as myfile:
@@ -130,6 +139,7 @@ def convertFromTxt(txt_file):
     print("Fucking file could not be read!!")
     return
 
+
 # Takes the text document written by the old program and adds all the entries to the XML
 def addImgs(baseFolder):
     imgFolder = os.path.join(baseFolder, "Img")
@@ -139,7 +149,7 @@ def addImgs(baseFolder):
         f_name, file_ext = os.path.splitext(base)
         full_img_filename = os.path.join(imgFolder, f)
         img_desc_f_name = os.path.join(imgDescFolder, f_name + ".txt")
-        
+
         dateTime = getFilenameOrModifiedDate(full_img_filename)
         text = "No Desc."
         if os.path.exists(img_desc_f_name):

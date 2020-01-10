@@ -13,7 +13,6 @@ import shutil
 from util import *
 from XML_write import *
 
-
 ID_MENU_PHOTO = wx.NewId()
 ID_MENU_CHANGE_DATE = wx.NewId()
 ID_MENU_SELFIE = wx.NewId()
@@ -40,7 +39,7 @@ class Example(wx.Frame):
         self.SetSize((700, 600))
         self.SetTitle('Story Time')
         self.Center()
-        
+
         self.imgLoaded = False
 
     def InitUI(self):
@@ -62,10 +61,13 @@ class Example(wx.Frame):
 
         saveTool = self.toolbar.AddTool(wx.ID_SAVE, 'Save', saveIcon, shortHelp="Save entry.")
         self.photoTool = self.toolbar.AddCheckTool(ID_MENU_PHOTO, 'Photo', photoIcon, shortHelp="Change to photo mode.")
-        changeDateTool = self.toolbar.AddTool(ID_MENU_CHANGE_DATE, 'Change', calendarIcon, shortHelp="Choose another date and time.")
+        changeDateTool = self.toolbar.AddTool(ID_MENU_CHANGE_DATE, 'Change', calendarIcon,
+                                              shortHelp="Choose another date and time.")
         changeDir = self.toolbar.AddTool(ID_MENU_CHOOSE_DIR, 'Dir', folderIcon, shortHelp="Change directory.")
-        importTool = self.toolbar.AddTool(ID_MENU_IMPORT, 'Import', importIcon, shortHelp="Import text or images from old version.")
-        selfieTool = self.toolbar.AddTool(ID_MENU_SELFIE, 'Selfie', selfieIcon, shortHelp="Take a picture with your webcam.")
+        importTool = self.toolbar.AddTool(ID_MENU_IMPORT, 'Import', importIcon,
+                                          shortHelp="Import text or images from old version.")
+        selfieTool = self.toolbar.AddTool(ID_MENU_SELFIE, 'Selfie', selfieIcon,
+                                          shortHelp="Take a picture with your webcam.")
         self.toolbar.AddSeparator()
 
         self.toolbar.Realize()
@@ -76,7 +78,6 @@ class Example(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.OnChangeDir, changeDir)
         self.Bind(wx.EVT_TOOL, self.OnImport, importTool)
         self.Bind(wx.EVT_TOOL, self.OnSelfie, selfieTool)
-
 
         self.main_panel = wx.Panel(self)
 
@@ -92,7 +93,7 @@ class Example(wx.Frame):
         self.hbox1.Add(self.dateLabel, flag=wx.RIGHT, border=8)
         tc = wx.StaticText(self.main_panel)
         self.hbox1.Add(tc, proportion=1)
-        self.vbox.Add(self.hbox1, flag=wx.EXPAND|wx.LEFT|wx.RIGHT|wx.TOP, border=10)
+        self.vbox.Add(self.hbox1, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, border=10)
 
         self.vbox.Add((-1, 10))
 
@@ -109,7 +110,7 @@ class Example(wx.Frame):
         hbox3 = wx.BoxSizer(wx.HORIZONTAL)
         self.input_text_field = wx.TextCtrl(self.main_panel, style=wx.TE_MULTILINE)
         hbox3.Add(self.input_text_field, proportion=1, flag=wx.EXPAND)
-        self.vbox.Add(hbox3, proportion=1, flag=wx.LEFT|wx.RIGHT|wx.EXPAND, border=10)
+        self.vbox.Add(hbox3, proportion=1, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=10)
 
         self.vbox.Add((-1, 25))
 
@@ -125,9 +126,9 @@ class Example(wx.Frame):
 
         # Bottom right text field
         text_shown = 'Default text.'
-        self.fix_text_box = wx.StaticText(self.main_panel, label = text_shown, style = wx.TE_MULTILINE, size = (-1, 190))
-        self.hbox4.Add(self.fix_text_box, proportion=1, flag=wx.EXPAND|wx.ALL, border=5)
-        self.vbox.Add(self.hbox4, proportion=1, flag=wx.ALL|wx.EXPAND, border=5)
+        self.fix_text_box = wx.StaticText(self.main_panel, label=text_shown, style=wx.TE_MULTILINE, size=(-1, 190))
+        self.hbox4.Add(self.fix_text_box, proportion=1, flag=wx.EXPAND | wx.ALL, border=5)
+        self.vbox.Add(self.hbox4, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
 
         self.vbox.Add((-1, 25))
 
@@ -138,8 +139,8 @@ class Example(wx.Frame):
         hbox5.Add(btn1)
         btn2 = wx.Button(self.main_panel, ID_CLICK_BUTTON, label='Close', size=(70, 30))
         self.Bind(wx.EVT_BUTTON, self.OnCloseButtonClick, id=ID_CLICK_BUTTON)
-        hbox5.Add(btn2, flag=wx.LEFT|wx.BOTTOM, border=5)
-        self.vbox.Add(hbox5, flag=wx.ALIGN_RIGHT|wx.RIGHT, border=10)
+        hbox5.Add(btn2, flag=wx.LEFT | wx.BOTTOM, border=5)
+        self.vbox.Add(hbox5, flag=wx.ALIGN_RIGHT | wx.RIGHT, border=10)
 
         self.main_panel.SetSizer(self.vbox)
 
@@ -168,7 +169,7 @@ class Example(wx.Frame):
         Same as the save button clicked.
         """
         self.OnOKButtonClick(e)
- 
+
     def OnSelfie(self, e):
         """
         Opens dialog that shows the webcam and lets you take a picture
@@ -196,22 +197,24 @@ class Example(wx.Frame):
             cv2.imwrite(f_path, cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             self.set_img_with_date(f_path, curr_dt)
             self.fileDrop.loadedFile = f_path
-        
+
         # Cleanup
         sDiag.Destroy()
-        
+
     # Change to photo mode or back
     def OnPhoto(self, e):
         # If there is text in the textfield or an image loaded warn the user that it will be lost if he continues
         textStr = self.input_text_field.GetValue()
-        if textStr != ""  or self.imgLoaded == True:
+        if textStr != "" or self.imgLoaded == True:
             if self.imgLoaded == True:
                 addstring = ', the loaded image'
             else:
                 addstring = ''
             tog = self.photoTool.IsToggled()
-            dial = wx.MessageDialog(None, 'If you change mode, the text' + addstring + ' and the chosen time will be lost. Do you want to proceed?', 'Warning',
-            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+            dial = wx.MessageDialog(None,
+                                    'If you change mode, the text' + addstring + ' and the chosen time will be lost. Do you want to proceed?',
+                                    'Warning',
+                                    wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
             dial.SetYesNoLabels('Fuck yeah!', 'No fucking way!')
             ans = dial.ShowModal()
             if ans == wx.ID_NO:
@@ -222,7 +225,7 @@ class Example(wx.Frame):
                 self.removeWrittenText()
             else:
                 print("WTF")
-        
+
         # Toggle the showing of the Image (drop space)
         if self.image_drop_space.IsShown():
             self.removeImg()
@@ -241,7 +244,7 @@ class Example(wx.Frame):
         Same as clicking X. Closes the application.
         """
         print("Close Button clicked")
-        self.OnQuit(e)    
+        self.OnQuit(e)
 
     def removeImg(self):
         """
@@ -262,7 +265,7 @@ class Example(wx.Frame):
         if textStr == "":
             wx.MessageBox("No fucking text!!", 'Info', wx.OK | wx.ICON_EXCLAMATION)
             return
-        
+
         # Check which mode is on
         tog = self.photoTool.IsToggled()
         if tog:
@@ -279,7 +282,7 @@ class Example(wx.Frame):
             saveEntryInXml(textStr, curr_dat, "photo", copied_file_name)
         else:
             saveEntryInXml(textStr, self.cdDialog.dt)
-        
+
         # Clear the contents
         self.removeImg()
         self.removeWrittenText()
@@ -313,7 +316,7 @@ class Example(wx.Frame):
         if files_path == "" or files_path is None:
             print("No new folder selected.")
             return
-        
+
         # Update and create data directories if not existing
         updateFolder(files_path)
         createXMLandImgFolderIfNotExist(files_path)
@@ -321,8 +324,9 @@ class Example(wx.Frame):
 
     def OnImport(self, e):
 
-        dial = wx.MessageDialog(None, 'Do you want to add images in a folder or text entries from a .txt file?', 'Question',
-            wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION | wx.CANCEL_DEFAULT)
+        dial = wx.MessageDialog(None, 'Do you want to add images in a folder or text entries from a .txt file?',
+                                'Question',
+                                wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION | wx.CANCEL_DEFAULT)
         dial.SetYesNoLabels('Text of course!', 'Fucking images!')
         imp_imgs = None
         ans = dial.ShowModal()
@@ -336,7 +340,7 @@ class Example(wx.Frame):
             return
 
         if imp_imgs == True:
-            cdDiag = wx.DirDialog(None, message = "Hooi", name = "Choose Location")
+            cdDiag = wx.DirDialog(None, message="Hooi", name="Choose Location")
             cdDiag.ShowModal()
             files_path = cdDiag.GetPath()
             if files_path == "" or files_path is None:
@@ -345,10 +349,10 @@ class Example(wx.Frame):
             addImgs(files_path)
         else:
             with wx.FileDialog(self, "Open Text file", wildcard="Text files (*.txt)|*.txt",
-                       style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
+                               style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
 
                 if fileDialog.ShowModal() == wx.ID_CANCEL:
-                    return     # the user changed their mind
+                    return  # the user changed their mind
 
                 pathname = fileDialog.GetPath()
                 try:
@@ -366,9 +370,10 @@ class Example(wx.Frame):
         self.cdDialog.Destroy()
         writeFolderToFile()
         shutil.rmtree(temp_folder)
-        self.Close()    
+        self.Close()
 
-    # Destroys the change date dialog that holds the date (This is ugly)
+        # Destroys the change date dialog that holds the date (This is ugly)
+
     # Is this even used???
     def Cleanup(self, e):
         print("Cleanup")
@@ -382,7 +387,7 @@ class Example(wx.Frame):
         """
         self.updateDate(wx.DateTime.Now())
 
-    def updateDate(self, newDate = None):
+    def updateDate(self, newDate=None):
         """
         Updates the date to specified datetime. 
         Updates the static datetime text and looks
@@ -391,9 +396,9 @@ class Example(wx.Frame):
         if newDate is not None:
             self.cdDialog.dt = newDate
         self.dateLabel.SetLabel('Date: ' + formDateTime(self.cdDialog.dt))
-        self.fix_text_box.SetLabel('Hoooiii') # Probably unnecessary.
+        self.fix_text_box.SetLabel('Hoooiii')  # Probably unnecessary.
         self.updateLastEntryText()
-    
+
     def updateLastEntryText(self):
         """
         Fills the static datetime text with the most recent entries
@@ -406,15 +411,18 @@ class Example(wx.Frame):
         # Construct the text to put into the preview panel.
         text_to_put = ""
         if date_and_text is not None:
-            text_to_put += "Last entry was on " + formDateTime(date_and_text[0]) + "\n\n" + repNewlWithSpace(date_and_text[1]) + "\n\n"
+            text_to_put += "Last entry was on " + formDateTime(date_and_text[0]) + "\n\n" + repNewlWithSpace(
+                date_and_text[1]) + "\n\n"
         if next_date_and_text is not None:
-            text_to_put += "Next entry is on " + formDateTime(next_date_and_text[0]) + "\n\n" + repNewlWithSpace(next_date_and_text[1])
+            text_to_put += "Next entry is on " + formDateTime(next_date_and_text[0]) + "\n\n" + repNewlWithSpace(
+                next_date_and_text[1])
         if text_to_put == "":
             text_to_put = "No older entry present."
 
         # Set text and update layout
         self.fix_text_box.SetLabel(text_to_put)
         self.vbox.Layout()
+
 
 def main():
     """

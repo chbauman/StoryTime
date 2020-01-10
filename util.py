@@ -29,10 +29,11 @@ def updateFolder(new_data_path):
     global data_path
     global imgs_folder
     global xml_folder
-    
+
     data_path = new_data_path
     imgs_folder = os.path.join(new_data_path, "Img")
     xml_folder = os.path.join(new_data_path, "XML")
+
 
 def repNewlWithSpace(strng):
     """
@@ -40,6 +41,7 @@ def repNewlWithSpace(strng):
     and reduces double spaces to single spaces.
     """
     return strng.replace("\n", " ").replace("  ", " ")
+
 
 # Create a folder for the XML and the Image files
 def createXMLandImgFolderIfNotExist(base_folder):
@@ -51,15 +53,16 @@ def createXMLandImgFolderIfNotExist(base_folder):
         os.mkdir(img_pth)
     return
 
+
 # Read the info file and get necessary information
-def getInfoFromFile(ask = True):
+def getInfoFromFile(ask=True):
     if not os.path.exists("Info.txt"):
         with open("Info.txt", "w") as f:
             f.write("NoDirectorySpecified")
     with open("Info.txt") as file:
-        data = file.readlines() 
+        data = file.readlines()
         print(data)
-        
+
         if data != [] and os.path.isdir(data[0]):
             fol_path = data[0]
             # TODO: More checks or create dirs?
@@ -67,12 +70,13 @@ def getInfoFromFile(ask = True):
             return fol_path
         elif ask:
             cdDiag = wx.DirDialog(None, "Choose directory to store Imgs and Text data.", "",
-                    wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+                                  wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
             cdDiag.ShowModal()
             files_path = cdDiag.GetPath()
             createXMLandImgFolderIfNotExist(files_path)
             return files_path
     return None
+
 
 def writeFolderToFile():
     """
@@ -81,6 +85,7 @@ def writeFolderToFile():
     with open("Info.txt", "w") as f:
         f.write(data_path)
     return
+
 
 def scale_bitmap(bitmap, width, height):
     """
@@ -91,6 +96,7 @@ def scale_bitmap(bitmap, width, height):
     image = image.Scale(width, height, wx.IMAGE_QUALITY_HIGH)
     result = wx.Bitmap(image)
     return result
+
 
 # Date and Time picker dialog
 class ChangeDateDialog(wx.Dialog):
@@ -104,7 +110,6 @@ class ChangeDateDialog(wx.Dialog):
         self.SetTitle("Change Date of entry")
 
     def InitUI(self):
-
         pnl = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
@@ -112,9 +117,9 @@ class ChangeDateDialog(wx.Dialog):
         sb = wx.StaticBox(pnl, label='Select Date and Time')
         sbs = wx.StaticBoxSizer(sb, orient=wx.HORIZONTAL)
         self.cal = wx.adv.CalendarCtrl(pnl)
-        sbs.Add(self.cal, flag=wx.ALL, border = 5)
+        sbs.Add(self.cal, flag=wx.ALL, border=5)
         self.timePicker = wx.adv.TimePickerCtrl(pnl)
-        sbs.Add(self.timePicker, flag=wx.ALL, border = 5)
+        sbs.Add(self.timePicker, flag=wx.ALL, border=5)
         pnl.SetSizer(sbs)
 
         # Buttons
@@ -124,20 +129,18 @@ class ChangeDateDialog(wx.Dialog):
         hbox2.Add(okButton)
         hbox2.Add(cancelButton, flag=wx.LEFT, border=5)
 
-        vbox.Add(pnl, proportion=1, flag=wx.ALL|wx.EXPAND, border=5)
-        vbox.Add(hbox2, flag=wx.ALIGN_CENTER|wx.TOP|wx.BOTTOM, border=10)
+        vbox.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        vbox.Add(hbox2, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
 
         self.SetSizer(vbox)
 
         okButton.Bind(wx.EVT_BUTTON, self.OnOK)
         cancelButton.Bind(wx.EVT_BUTTON, self.OnClose)
 
-
     def OnClose(self, e):
-
         print("Closed Change Date Dialog")
         self.Close()
-    
+
     def OnOK(self, e):
         timeTuple = self.timePicker.GetTime()
         self.dt = self.cal.GetDate()
@@ -145,13 +148,15 @@ class ChangeDateDialog(wx.Dialog):
         self.dt.SetMinute(timeTuple[1])
         self.dt.SetSecond(timeTuple[2])
         print(self.dt)
-        self.Close()  
+        self.Close()
 
-# Dialog that pops up if you want to save an image, but there exists an image with the same associated time
+    # Dialog that pops up if you want to save an image, but there exists an image with the same associated time
+
+
 class PhotoWithSameDateExistsDialog(wx.Dialog):
 
-    def __init__(self, fileList, parent = None, title = "Image with same date already exists"):
-        super(PhotoWithSameDateExistsDialog, self).__init__(parent, title = title)
+    def __init__(self, fileList, parent=None, title="Image with same date already exists"):
+        super(PhotoWithSameDateExistsDialog, self).__init__(parent, title=title)
 
         self.fileList = fileList
         self.chosenImgInd = None
@@ -179,7 +184,7 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
 
         hbox2.Add(selectButton)
 
-        if self.maxInd > 1: # No next / previous if there is only one
+        if self.maxInd > 1:  # No next / previous if there is only one
             self.nextButton = wx.Button(self, label='Next')
             self.prevButton = wx.Button(self, label='Previous')
             self.prevButton.Disable()
@@ -189,18 +194,17 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
             self.prevButton.Bind(wx.EVT_BUTTON, self.OnPrev)
 
         hbox2.Add(newButton, flag=wx.LEFT, border=5)
-        self.vbox.Add(pnl, proportion=1, flag=wx.ALL|wx.EXPAND, border=5)
-        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER|wx.TOP|wx.BOTTOM, border=10)
+        self.vbox.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
 
         self.SetSizer(self.vbox)
 
         selectButton.Bind(wx.EVT_BUTTON, self.OnSelect)
         newButton.Bind(wx.EVT_BUTTON, self.OnNew)
-    
 
     def getImgatInd(self, ind):
-        return getImageToShow(os.path.join(imgs_folder , self.fileList[ind]), size = 100, border = 5)
-    
+        return getImageToShow(os.path.join(imgs_folder, self.fileList[ind]), size=100, border=5)
+
     def updateImg(self):
         ind = self.shownImgInd
         img_to_show = self.getImgatInd(ind)
@@ -233,10 +237,11 @@ class PhotoWithSameDateExistsDialog(wx.Dialog):
     def OnClose(self, e):
         print("Closed Change Date Dialog")
         self.Close()
-    
+
     def OnNew(self, e):
-        self.chosenImgInd = -1 # This means new
-        self.Close()  
+        self.chosenImgInd = -1  # This means new
+        self.Close()
+
 
 def pydate2wxdate(date):
     """
@@ -246,7 +251,8 @@ def pydate2wxdate(date):
     month = date.month
     day = date.day
     hour = date.hour
-    return wx.DateTime(day, month-1, year, hour, date.minute, date.second)
+    return wx.DateTime(day, month - 1, year, hour, date.minute, date.second)
+
 
 def getWXDTFileModified(curr_file):
     """
@@ -256,16 +262,18 @@ def getWXDTFileModified(curr_file):
     modif_time = os.path.getmtime(curr_file)
     return pydate2wxdate(datetime.fromtimestamp(modif_time))
 
-def pat0ToStr(integ, n = 2):
+
+def pat0ToStr(integ, n=2):
     """
     Converts an integer to a string, padding with leading zeros 
     to get n characters. Intended for date and time formatting.
     """
     base = str(integ)
-    for k in range(n-1):
-        if integ < 10**(k+1):
+    for k in range(n - 1):
+        if integ < 10 ** (k + 1):
             base = "0" + base
     return base
+
 
 def getImgBNameFromModTime(wxdt):
     """
@@ -274,6 +282,7 @@ def getImgBNameFromModTime(wxdt):
     name = "IMG_" + pat0ToStr(wxdt.GetYear(), 4) + pat0ToStr(wxdt.GetMonth() + 1) + pat0ToStr(wxdt.GetDay())
     name = name + "_" + pat0ToStr(wxdt.GetHour()) + pat0ToStr(wxdt.GetMinute()) + pat0ToStr(wxdt.GetSecond())
     return name
+
 
 def extractDateFromImageName(img_file):
     """
@@ -310,7 +319,7 @@ def extractDateFromImageName(img_file):
         if len_num == 4 or len_num == 6:
             min = num_curr % 100
             hour = num_curr // 100
-    
+
     # Check if date is valid
     try:
         wxdt = wx.DateTime(day, month - 1, year, hour, min, sec)
@@ -320,6 +329,7 @@ def extractDateFromImageName(img_file):
     except:
         return None
     return None
+
 
 def getFilenameOrModifiedDate(img_file):
     """
@@ -332,6 +342,7 @@ def getFilenameOrModifiedDate(img_file):
         name_date = getWXDTFileModified(img_file)
     return name_date
 
+
 def findAllImgsWithSameDate(imgs_folder, imgName):
     """
     Finds all files starting with string "imgName" 
@@ -342,6 +353,7 @@ def findAllImgsWithSameDate(imgs_folder, imgName):
         if f.startswith(imgName):
             res.append(f)
     return res
+
 
 def getNewName(imgName, sameDateFileList, ext):
     """
@@ -404,7 +416,8 @@ def copyImgFileToImgs(lf):
     copy2(lf, copied_file_name)
     return copied_file_name
 
-def chooseImgTextMethod(lf, imgDT = None):
+
+def chooseImgTextMethod(lf, imgDT=None):
     _, file_extension = os.path.splitext(lf)
     if imgDT is None:
         imgDate = getFilenameOrModifiedDate(lf)
@@ -421,25 +434,26 @@ def chooseImgTextMethod(lf, imgDT = None):
     # Check if file already exists
     sameDateFileList = findAllImgsWithSameDate(imgs_folder, imgName)
     if len(sameDateFileList) > 0:
-         print("File already exists, overwriting it. TODO: Dialog")
-         phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
-         phDiag.ShowModal()
-         ind = phDiag.chosenImgInd
-         if ind is None:
-             return None
-         if ind == -1:
-             new_name = getNewName(imgName, sameDateFileList, file_extension)
-         else:
-             # do not copy
-             new_name = sameDateFileList[ind]
-             useExisting = True
-             return os.path.join(imgs_folder, new_name), imgDate, useExisting
-         imgName = new_name
-         phDiag.Destroy()
-         
+        print("File already exists, overwriting it. TODO: Dialog")
+        phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
+        phDiag.ShowModal()
+        ind = phDiag.chosenImgInd
+        if ind is None:
+            return None
+        if ind == -1:
+            new_name = getNewName(imgName, sameDateFileList, file_extension)
+        else:
+            # do not copy
+            new_name = sameDateFileList[ind]
+            useExisting = True
+            return os.path.join(imgs_folder, new_name), imgDate, useExisting
+        imgName = new_name
+        phDiag.Destroy()
+
     imgName = imgName + file_extension
     copied_file_name = os.path.join(imgs_folder, imgName)
     return copied_file_name, imgDate, useExisting
+
 
 def copyImgFileToImgsIfNotExistFull(old_f_name, date):
     copied_file_name, imgDate, useExisting = chooseImgTextMethod(old_f_name, date)
@@ -447,11 +461,13 @@ def copyImgFileToImgsIfNotExistFull(old_f_name, date):
         copy2(old_f_name, copied_file_name)
     return copied_file_name
 
+
 def copyImgFileToImgsIfNotExist(old_f_name, useExisting, new_fname):
     if not useExisting:
         copy2(old_f_name, new_fname)
         return new_fname
     return old_f_name
+
 
 def mkrid_if_not_exists(dir_name):
     """
@@ -460,6 +476,7 @@ def mkrid_if_not_exists(dir_name):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     return
+
 
 class FileDrop(wx.FileDropTarget):
     """
@@ -492,22 +509,23 @@ class FileDrop(wx.FileDropTarget):
 
         return True
 
+
 def formDateTime(dateTime):
     """
     Format the given datetime in a string.
     """
-    strOut = str(wx.DateTime.GetWeekDayName(dateTime.GetWeekDay())) + ", " 
-    strOut += str(dateTime.GetDay()) + ". " 
-    strOut += str(dateTime.GetMonth() + 1) + ". " 
+    strOut = str(wx.DateTime.GetWeekDayName(dateTime.GetWeekDay())) + ", "
+    strOut += str(dateTime.GetDay()) + ". "
+    strOut += str(dateTime.GetMonth() + 1) + ". "
     strOut += str(dateTime.GetYear()) + ", Time: "
     strOut += str(dateTime.GetHour()) + ":"
     strOut += str(dateTime.GetMinute()) + ":"
     strOut += str(dateTime.GetSecond())
     return strOut
 
-# Assuming quadratic size
-def getImageToShow(filename, size = 180, border = 5):
 
+# Assuming quadratic size
+def getImageToShow(filename, size=180, border=5):
     bor_2 = 2 * border
     wxBmp = wx.Bitmap(filename)
     image = wxBmp.ConvertToImage()
@@ -533,16 +551,15 @@ class ShowCapture(wx.Panel):
         self.h_by_w = height / width
         self.win_size = (300, int(self.h_by_w * 300))
 
-
-        wx.Panel.__init__(self, parent, wx.ID_ANY, (0,0), self.win_size)
+        wx.Panel.__init__(self, parent, wx.ID_ANY, (0, 0), self.win_size)
         parent.SetSize(self.win_size)
-        
+
         self.h, self.w = self.win_size
         frame = cv2.cvtColor(cv2.resize(frame, self.win_size), cv2.COLOR_BGR2RGB)
         self.bmp = wx.Bitmap.FromBuffer(self.h, self.w, frame)
 
         self.timer = wx.Timer(self)
-        self.timer.Start(1000./fps)
+        self.timer.Start(1000. / fps)
 
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_TIMER, self.NextFrame)
@@ -564,20 +581,20 @@ class ShowCapture(wx.Panel):
             self.bmp.CopyFromBuffer(frame)
             self.Refresh()
 
+
 # Dialog lets you look at the taken picture and decide if you want to take a new one or keep it
 class AcceptPhoto(wx.Dialog):
 
-    def __init__(self, parent = None, img = None, title = "Accept photo?"):
-        super(AcceptPhoto, self).__init__(parent, title = title)
+    def __init__(self, parent=None, img=None, title="Accept photo?"):
+        super(AcceptPhoto, self).__init__(parent, title=title)
 
         self.taken_img = img
         self.InitUI()
         self.SetSize((400, 400))
         self.SetTitle(title)
-        self.accepted = False        
+        self.accepted = False
 
     def InitUI(self):
-
         pnl = wx.Panel(self)
         self.vbox = wx.BoxSizer(wx.VERTICAL)
 
@@ -589,7 +606,7 @@ class AcceptPhoto(wx.Dialog):
         new_size = height, width
         self.taken_img = cv2.resize(self.taken_img, new_size)
         bmp = wx.Bitmap.FromBuffer(height, width, self.taken_img.tobytes())
-        bmp = wx.StaticBitmap(self, -1, bmp, size = new_size)
+        bmp = wx.StaticBitmap(self, -1, bmp, size=new_size)
         self.vbox.Add(bmp, proportion=0, flag=wx.ALL, border=5)
 
         # Buttons        
@@ -603,8 +620,8 @@ class AcceptPhoto(wx.Dialog):
         hbox2.Add(shootButton)
         hbox2.Add(cancelButton, flag=wx.LEFT, border=5)
 
-        self.vbox.Add(pnl, proportion=1, flag=wx.ALL|wx.EXPAND, border=5)
-        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER|wx.TOP|wx.BOTTOM, border=10)
+        self.vbox.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
 
         self.SetSizer(self.vbox)
 
@@ -625,11 +642,12 @@ class AcceptPhoto(wx.Dialog):
         print("Cancelled Accept Dialog")
         self.Cleanup()
 
+
 # Dialog lets you take a picture with the webcam
 class SelfieDialog(wx.Dialog):
 
-    def __init__(self, parent = None, title = "Let me take a fucking selfie."):
-        super(SelfieDialog, self).__init__(parent, title = title)
+    def __init__(self, parent=None, title="Let me take a fucking selfie."):
+        super(SelfieDialog, self).__init__(parent, title=title)
 
         self.InitUI()
         self.SetSize((400, 400))
@@ -638,7 +656,6 @@ class SelfieDialog(wx.Dialog):
         self.dt_taken = None
 
     def InitUI(self):
-
         pnl = wx.Panel(self)
         self.vbox = wx.BoxSizer(wx.VERTICAL)
 
@@ -659,8 +676,8 @@ class SelfieDialog(wx.Dialog):
         hbox2.Add(shootButton)
         hbox2.Add(cancelButton, flag=wx.LEFT, border=5)
 
-        self.vbox.Add(pnl, proportion=1, flag=wx.ALL|wx.EXPAND, border=5)
-        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER|wx.TOP|wx.BOTTOM, border=10)
+        self.vbox.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
 
         self.SetSizer(self.vbox)
 
@@ -672,7 +689,7 @@ class SelfieDialog(wx.Dialog):
         shows the Dialog that lets the user accept the photo or decide
         to take another one.
         """
-        accept_diag = AcceptPhoto(None, img = self.imgCap.getCurrFrame())
+        accept_diag = AcceptPhoto(None, img=self.imgCap.getCurrFrame())
         accept_diag.ShowModal()
         if accept_diag.accepted:
             self.taken_img = accept_diag.orig_img
@@ -690,6 +707,3 @@ class SelfieDialog(wx.Dialog):
     def OnClose(self, e):
         print("Cancelled Selfie Dialog")
         self.Cleanup()
-        
-
-    
