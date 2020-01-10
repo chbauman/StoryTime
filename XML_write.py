@@ -1,45 +1,52 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
-import wx
-import xml.etree.cElementTree as ET
+import xml.etree.cElementTree as elTree
 
 import util
 from util import *
 
-util.xml_folder
-
 
 def init_XML(comm, year):
-    root = ET.Element("root")
-    head = ET.SubElement(root, "head")
-    ET.SubElement(head, "year").text = str(year)
-    ET.SubElement(head, "text").text = comm
-    ET.SubElement(root, "doc")
-    return ET.ElementTree(root)
+    root = elTree.Element("root")
+    head = elTree.SubElement(root, "head")
+    elTree.SubElement(head, "year").text = str(year)
+    elTree.SubElement(head, "text").text = comm
+    elTree.SubElement(root, "doc")
+    return elTree.ElementTree(root)
 
 
 def insertXmlTextEntryElement(doc, date_time, text):
-    ent = ET.SubElement(doc, "entry", date_time=date_time.FormatISOCombined(), type="text").text = text
+    elTree.SubElement(doc, "entry", date_time=date_time.FormatISOCombined(),
+                      type="text").text = text
 
 
-# Inserts a photo entry element as a child of the ET doc
-def insertXmlPhotoEntryElement(doc, dateTime, img_filename, text):
+def insertXmlPhotoEntryElement(doc, date_time, img_filename, text) -> None:
+    """Inserts a photo entry element as a child of the elTree doc.
+
+    Args:
+        doc:
+        date_time:
+        img_filename:
+        text:
+
+    Returns:
+
+    """
     if img_filename is None:
         print("ERROR: No fucking filename provided for inserting into XML.")
         return
     # TODO: Check if file exists
-    ent = ET.SubElement(doc, "entry", date_time=dateTime.FormatISOCombined(), type="photo")
-    txt = ET.SubElement(ent, "text").text = text
-    pht = ET.SubElement(ent, "photo").text = img_filename
+    ent = elTree.SubElement(doc, "entry", date_time=date_time.FormatISOCombined(), type="photo")
+    elTree.SubElement(ent, "text").text = text
+    elTree.SubElement(ent, "photo").text = img_filename
 
 
 def getXMLAndFilename(year, create=True):
     yearStr = str(year)
     xml_file = os.path.join(util.xml_folder, yearStr + ".xml")
     if os.path.exists(xml_file):
-        tree = ET.parse(xml_file)
+        tree = elTree.parse(xml_file)
     elif create:
         tree = init_XML("Das isch es Johr " + yearStr + ".", year)
     else:
@@ -72,10 +79,19 @@ def saveEntryInXml(comm, date_time, entry_type: str = "text", img_filename: str 
     tree.write(xml_file)
 
 
-# Finds the most recent XML file before year 'year', if there is
-# none return None, else the found year and the tree of the XML.
-# if newer == True, then it finds the next newer one
-def findNextOlderXMLfile(year, newer=False):
+def find_next_older_xml_file(year, newer=False):
+    """Finds the most recent XML file before year 'year'.
+
+    If there is none return None, else the found year and the tree of the XML.
+    if newer == True, then it finds the next newer one
+
+    Args:
+        year:
+        newer:
+
+    Returns:
+
+    """
     closest_year = -100000
     if newer:
         closest_year = 100000
@@ -90,9 +106,20 @@ def findNextOlderXMLfile(year, newer=False):
     return closest_year, getXMLAndFilename(closest_year, False)[0]
 
 
-# Finds most recent date_time entry in doc, if there is no earlier entry than 'date_time' returns None
-# if newer == True, then it finds the next newer one
 def findLatestInDoc(tree, date_time, newer=False):
+    """Finds most recent date_time entry in doc.
+
+    If there is no earlier entry than 'date_time' returns None
+    if newer == True, then it finds the next newer one
+
+    Args:
+        tree:
+        date_time:
+        newer:
+
+    Returns:
+
+    """
     doc = tree.getroot().find("doc")
     temp = wx.DateTime(1, 1, 0)
     if newer:
@@ -111,8 +138,16 @@ def findLatestInDoc(tree, date_time, newer=False):
     return temp, curr_child
 
 
-# Get the latest entry before 'dt', if any
 def getLastXMLEntry(dt, newer=False):
+    """Get the latest entry before 'dt', if any
+
+    Args:
+        dt:
+        newer:
+
+    Returns:
+
+    """
     curr_year = dt.GetYear()
     tree = getXMLAndFilename(curr_year, False)
     date_child = None
@@ -124,7 +159,7 @@ def getLastXMLEntry(dt, newer=False):
     if tree is None:
         date_child = None
         while date_child is None:
-            res = findNextOlderXMLfile(curr_year, newer)
+            res = find_next_older_xml_file(curr_year, newer)
             if res is None:
                 return None
             tree = res[1]
@@ -136,10 +171,17 @@ def getLastXMLEntry(dt, newer=False):
     return date, child.text
 
 
-# Takes the text document written by the old program and adds all the entries to the XML
 def convertFromTxt(txt_file):
-    with open(txt_file, 'r', encoding='utf-8-sig') as myfile:
-        data = myfile.read()
+    """Takes the text document written by the old program and adds all the entries to the XML
+
+    Args:
+        txt_file:
+
+    Returns:
+
+    """
+    with open(txt_file, 'r', encoding='utf-8-sig') as f:
+        data = f.read()
         entry_list = data.split("\n\nDate: ")
         if entry_list[0][:6] == "Date: ":
             entry_list[0] = entry_list[0][6:]
@@ -148,14 +190,19 @@ def convertFromTxt(txt_file):
             wxDT = wx.DateTime(int(date[8:10]), int(date[5:7]) - 1, int(date[:4]), int(date[17:19]), int(date[20:22]))
             saveEntryInXml(text, wxDT)
         return
-    print("Fucking file could not be read!!")
-    return
 
 
-# Takes the text document written by the old program and adds all the entries to the XML
-def addImgs(baseFolder):
-    imgFolder = os.path.join(baseFolder, "Img")
-    imgDescFolder = os.path.join(baseFolder, "ImgDesc")
+def addImgs(base_folder) -> None:
+    """Takes the text document written by the old program and adds all the entries to the XML.
+
+    Args:
+        base_folder:
+
+    Returns:
+
+    """
+    imgFolder = os.path.join(base_folder, "Img")
+    imgDescFolder = os.path.join(base_folder, "ImgDesc")
     for f in os.listdir(imgFolder):
         base = os.path.basename(f)
         f_name, file_ext = os.path.splitext(base)
@@ -165,8 +212,8 @@ def addImgs(baseFolder):
         dateTime = get_time_from_file(full_img_filename)
         text = "No Desc."
         if os.path.exists(img_desc_f_name):
-            with open(img_desc_f_name, 'r', encoding='utf-8-sig') as myfile:
-                text = myfile.read()
+            with open(img_desc_f_name, 'r', encoding='utf-8-sig') as f_2:
+                text = f_2.read()
         b_name_date = get_img_name_from_time(dateTime)
         ct = 0
         while True:
@@ -177,5 +224,3 @@ def addImgs(baseFolder):
 
         copy2(full_img_filename, new_img_name)
         saveEntryInXml(text, dateTime, "photo", new_img_name)
-
-    return
