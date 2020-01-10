@@ -213,7 +213,7 @@ class StoryTimeApp(wx.Frame):
             curr_dt = wx.DateTime.Now()
             f_name = get_img_name_from_time(curr_dt) + "_Self.png"
             f_path = os.path.join(temp_folder, f_name)
-            mkrid_if_not_exists(temp_folder)
+            create_dir(temp_folder)
             cv2.imwrite(f_path, cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             self.set_img_with_date(f_path, curr_dt)
             self.fileDrop.loadedFile = f_path

@@ -5,6 +5,7 @@ import os
 import re
 from datetime import datetime
 from shutil import copy2
+from typing import List
 
 import cv2
 import wx
@@ -342,7 +343,7 @@ def extract_date_from_image_name(img_file: str):
         return None
 
 
-def get_time_from_file(img_file):
+def get_time_from_file(img_file: str):
     """Tries to extract the date from a filename.
 
     If there is none, returns the modified time
@@ -354,39 +355,37 @@ def get_time_from_file(img_file):
     return name_date
 
 
-def findAllImgsWithSameDate(imgs_folder, imgName):
-    """
-    Finds all files starting with string "imgName" 
+def find_all_imgs_with_same_date(imgs_folder: str, img_name: str) -> List[str]:
+    """Finds all files starting with string "img_name"
     in folder "img_folder".
     """
     res = []
     for f in os.listdir(imgs_folder):
-        if f.startswith(imgName):
+        if f.startswith(img_name):
             res.append(f)
     return res
 
 
-def getNewName(imgName, sameDateFileList, ext):
-    """
-    Chooses a new filename that is not in the list and
-    contains the imgName in the beginning by appending an 
+def find_new_name(img_name: str, same_date_file_list: List[str], ext: str) -> str:
+    """Chooses a new filename that is not in the list and
+    contains the img_name in the beginning by appending an
     int to the filename separated by an underscore.
     """
     for k in range(10000):
-        new_name = imgName + "_" + str(k) + ext
+        new_name = img_name + "_" + str(k) + ext
         try:
-            found = sameDateFileList.index(new_name)
-        except:
-            return imgName + "_" + str(k)
+            same_date_file_list.index(new_name)
+        except ValueError:
+            return img_name + "_" + str(k)
 
     # If there are already more than 10000 images, gives up.
-    print("ERROR: Way too many fucking images.")
-    return None
+    raise ValueError("ERROR: Way too many fucking images.")
 
 
-def copyImgFileToImgs(lf):
-    """
-    Copy an image to the Img folder, if there exists one with 
+def copy_img_file_to_imgs(lf):
+    """Copy an image to the Img folder.
+
+    If there exists one with
     the same date and time, a dialog pops up
     to let the user select if he wants to add 
     text to an existing image or save the image
@@ -395,7 +394,7 @@ def copyImgFileToImgs(lf):
     # Get date of image and find all images with same date
     imgDate = get_time_from_file(lf)
     imgName = get_img_name_from_time(imgDate)
-    sameDateFileList = findAllImgsWithSameDate(img_folder, imgName)
+    sameDateFileList = find_all_imgs_with_same_date(img_folder, imgName)
     print(sameDateFileList)
 
     # Get image type
@@ -415,7 +414,7 @@ def copyImgFileToImgs(lf):
             return None
         if ind == -1:
             # Add image in preview
-            imgName = getNewName(imgName, sameDateFileList, file_extension)
+            imgName = find_new_name(imgName, sameDateFileList, file_extension)
         else:
             # Add text to existing image
             imgName = sameDateFileList[ind]
@@ -428,12 +427,12 @@ def copyImgFileToImgs(lf):
     return copied_file_name
 
 
-def chooseImgTextMethod(lf, imgDT=None):
+def chooseImgTextMethod(lf, img_dt=None):
     _, file_extension = os.path.splitext(lf)
-    if imgDT is None:
+    if img_dt is None:
         imgDate = get_time_from_file(lf)
     else:
-        imgDate = imgDT
+        imgDate = img_dt
     imgName = get_img_name_from_time(imgDate)
     useExisting = False
 
@@ -443,7 +442,7 @@ def chooseImgTextMethod(lf, imgDT=None):
         return lf, imgDate, True
 
     # Check if file already exists
-    sameDateFileList = findAllImgsWithSameDate(img_folder, imgName)
+    sameDateFileList = find_all_imgs_with_same_date(img_folder, imgName)
     if len(sameDateFileList) > 0:
         print("File already exists, overwriting it. TODO: Dialog")
         phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
@@ -452,7 +451,7 @@ def chooseImgTextMethod(lf, imgDT=None):
         if ind is None:
             return None
         if ind == -1:
-            new_name = getNewName(imgName, sameDateFileList, file_extension)
+            new_name = find_new_name(imgName, sameDateFileList, file_extension)
         else:
             # do not copy
             new_name = sameDateFileList[ind]
@@ -473,16 +472,15 @@ def copyImgFileToImgsIfNotExistFull(old_f_name, date):
     return copied_file_name
 
 
-def copyImgFileToImgsIfNotExist(old_f_name, useExisting, new_fname):
-    if not useExisting:
-        copy2(old_f_name, new_fname)
-        return new_fname
+def copyImgFileToImgsIfNotExist(old_f_name, use_existing, new_f_name):
+    if not use_existing:
+        copy2(old_f_name, new_f_name)
+        return new_f_name
     return old_f_name
 
 
-def mkrid_if_not_exists(dir_name):
-    """
-    Creates the given directory recursively.
+def create_dir(dir_name):
+    """Creates the given directory recursively.
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -535,8 +533,19 @@ def formDateTime(date_time):
     return str_out
 
 
-# Assuming quadratic size
 def getImageToShow(filename, size=180, border=5):
+    """
+
+    Assuming quadratic size.
+
+    Args:
+        filename:
+        size:
+        border:
+
+    Returns:
+
+    """
     bor_2 = 2 * border
     wxBmp = wx.Bitmap(filename)
     image = wxBmp.ConvertToImage()
@@ -551,8 +560,9 @@ def getImageToShow(filename, size=180, border=5):
     return result
 
 
-# Panel that shows the content recorded by the webcam
 class ShowCapture(wx.Panel):
+    """Panel that shows the content recorded by the webcam."""
+
     def __init__(self, parent, capture, fps=25):
 
         # Capture first frame to get size
@@ -581,11 +591,11 @@ class ShowCapture(wx.Panel):
             return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         return None
 
-    def OnPaint(self, evt):
+    def OnPaint(self, e):
         dc = wx.BufferedPaintDC(self)
         dc.DrawBitmap(self.bmp, 0, 0)
 
-    def NextFrame(self, event):
+    def NextFrame(self, e):
         ret, frame = self.capture.read()
         if ret:
             frame = cv2.cvtColor(cv2.resize(frame, self.win_size), cv2.COLOR_BGR2RGB)
@@ -593,8 +603,14 @@ class ShowCapture(wx.Panel):
             self.Refresh()
 
 
-# Dialog lets you look at the taken picture and decide if you want to take a new one or keep it
 class AcceptPhoto(wx.Dialog):
+    """Dialog lets you look at the taken picture and
+    decide if you want to take a new one or keep it
+    """
+
+    taken_img = None
+    orig_img = None
+    v_box: wx.BoxSizer
 
     def __init__(self, parent=None, img=None, title="Accept photo?"):
         super(AcceptPhoto, self).__init__(parent, title=title)
@@ -607,18 +623,17 @@ class AcceptPhoto(wx.Dialog):
 
     def InitUI(self):
         pnl = wx.Panel(self)
-        self.vbox = wx.BoxSizer(wx.VERTICAL)
+        self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         # Current Image
         height, width, c = self.taken_img.shape
         self.orig_img = self.taken_img
         height, width = (300, int(height / width * 300))
-        new_size = width, height
         new_size = height, width
         self.taken_img = cv2.resize(self.taken_img, new_size)
         bmp = wx.Bitmap.FromBuffer(height, width, self.taken_img.tobytes())
         bmp = wx.StaticBitmap(self, -1, bmp, size=new_size)
-        self.vbox.Add(bmp, proportion=0, flag=wx.ALL, border=5)
+        self.v_box.Add(bmp, proportion=0, flag=wx.ALL, border=5)
 
         # Buttons        
         shootButton = wx.Button(self, label='Accept')
@@ -627,14 +642,14 @@ class AcceptPhoto(wx.Dialog):
         cancelButton.Bind(wx.EVT_BUTTON, self.OnClose)
 
         # Layout
-        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
-        hbox2.Add(shootButton)
-        hbox2.Add(cancelButton, flag=wx.LEFT, border=5)
+        h_box = wx.BoxSizer(wx.HORIZONTAL)
+        h_box.Add(shootButton)
+        h_box.Add(cancelButton, flag=wx.LEFT, border=5)
 
-        self.vbox.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
-        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
+        self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
 
-        self.SetSizer(self.vbox)
+        self.SetSizer(self.v_box)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
@@ -654,8 +669,14 @@ class AcceptPhoto(wx.Dialog):
         self.Cleanup()
 
 
-# Dialog lets you take a picture with the webcam
 class SelfieDialog(wx.Dialog):
+    """Dialog that lets you take a picture with the webcam.
+    """
+
+    capture = None
+    imgCap = None
+
+    v_box: wx.BoxSizer
 
     def __init__(self, parent=None, title="Let me take a fucking selfie."):
         super(SelfieDialog, self).__init__(parent, title=title)
@@ -668,12 +689,12 @@ class SelfieDialog(wx.Dialog):
 
     def InitUI(self):
         pnl = wx.Panel(self)
-        self.vbox = wx.BoxSizer(wx.VERTICAL)
+        self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         # Current Image
         self.capture = cv2.VideoCapture(0)
         self.imgCap = ShowCapture(self, self.capture)
-        self.vbox.Add(self.imgCap, proportion=0, flag=wx.ALL, border=5)
+        self.v_box.Add(self.imgCap, proportion=0, flag=wx.ALL, border=5)
         self.imgCap.Show()
 
         # Buttons        
@@ -683,19 +704,20 @@ class SelfieDialog(wx.Dialog):
         cancelButton.Bind(wx.EVT_BUTTON, self.OnClose)
 
         # Layout
-        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
-        hbox2.Add(shootButton)
-        hbox2.Add(cancelButton, flag=wx.LEFT, border=5)
+        h_box = wx.BoxSizer(wx.HORIZONTAL)
+        h_box.Add(shootButton)
+        h_box.Add(cancelButton, flag=wx.LEFT, border=5)
 
-        self.vbox.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
-        self.vbox.Add(hbox2, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
+        self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
 
-        self.SetSizer(self.vbox)
+        self.SetSizer(self.v_box)
 
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
     def OnTakePic(self, e):
-        """
+        """Takes a picture with the webcam.
+
         Captures the current frame and
         shows the Dialog that lets the user accept the photo or decide
         to take another one.
@@ -708,8 +730,7 @@ class SelfieDialog(wx.Dialog):
         accept_diag.Destroy()
 
     def Cleanup(self):
-        """
-        Release the video capture.
+        """Release the video capture.
         """
         self.capture.release()
         cv2.destroyAllWindows()
