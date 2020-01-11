@@ -5,9 +5,16 @@
 Run this file to run the app.
 
 Inspired by: ZetCode wxPython tutorial, www.zetcode.com
+
+TODO:
+- Preview including image entries.
+- Add more type hints.
+- Add more documentation, esp. for function arguments.
+- PDF generation?
 """
 import os
 import shutil
+from typing import Sequence
 
 import cv2
 import wx
@@ -15,7 +22,7 @@ import wx
 from XML_write import saveEntryInXml, addImgs, convertFromTxt, getLastXMLEntry
 import util
 from util import FileDrop, scale_bitmap, icon_path, create_dir, temp_folder, get_img_name_from_time, ChangeDateDialog, \
-    update_folder, get_info_from_file, formDateTime, getImageToShow, SelfieDialog, \
+    update_folder, get_info_from_file, format_date_time, getImageToShow, SelfieDialog, \
     copyImgFileToImgsIfNotExistFull, create_xml_and_img_folder, write_folder_to_file, rep_newlines_with_space
 
 ID_MENU_PHOTO = wx.NewId()
@@ -28,6 +35,12 @@ ID_CLICK_OK_BUTTON = wx.NewId()
 
 
 class StoryTimeApp(wx.Frame):
+    """The Story Time App.
+
+    This is the main frame, it contains all the functionality
+    and opens other frames / dialogs when certain buttons
+    are pushed.
+    """
     count: int
 
     # GUI elements
@@ -76,7 +89,7 @@ class StoryTimeApp(wx.Frame):
 
         self.toolbar = self.CreateToolBar()
         self.toolbar.SetToolBitmapSize(iconSize)
-        
+
         tool_list = [
             ('save_icon.png', wx.ID_SAVE, 'Save', "Save entry.", self.OnSave),
             ('photo_icon.png', ID_MENU_PHOTO, 'Photo', "Change to photo mode.", self.OnPhoto),
@@ -112,7 +125,7 @@ class StoryTimeApp(wx.Frame):
 
         # Datum
         self.h_box_1 = wx.BoxSizer(wx.HORIZONTAL)
-        self.dateLabel = wx.StaticText(self.main_panel, label='Date: ' + formDateTime(self.cdDialog.dt))
+        self.dateLabel = wx.StaticText(self.main_panel, label='Date: ' + format_date_time(self.cdDialog.dt))
         self.dateLabel.SetFont(font)
         self.h_box_1.Add(self.dateLabel, flag=wx.RIGHT, border=8)
         tc = wx.StaticText(self.main_panel)
@@ -168,7 +181,7 @@ class StoryTimeApp(wx.Frame):
 
         self.main_panel.SetSizer(self.v_box)
 
-        self.updateLastEntryText()
+        self.update_preview_text()
 
         self.Bind(wx.EVT_CLOSE, self.Cleanup)
 
@@ -223,9 +236,11 @@ class StoryTimeApp(wx.Frame):
         sDiag.Destroy()
 
     def OnPhoto(self, _):
-        """Change to photo mode or back"""
-        # If there is text in the textfield or an image loaded warn
-        # the user that it will be lost if he continues
+        """Change to photo mode or back.
+
+        If there is text in the textfield or an image loaded warn
+        the user that it will be lost if he continues.
+        """
         textStr = self.input_text_field.GetValue()
         if textStr != "" or self.imgLoaded:
             add_string = ', the loaded image' if self.imgLoaded else ''
@@ -286,7 +301,6 @@ class StoryTimeApp(wx.Frame):
         # Check which mode is on
         tog = self.photoTool.IsToggled()
         if tog:
-
             # Check if there is an image
             lf = self.fileDrop.loadedFile
             if lf is None:
@@ -308,7 +322,7 @@ class StoryTimeApp(wx.Frame):
         """Clear text field and update date and time to now.
         """
         self.input_text_field.Clear()
-        self.update_date(wx.DateTime.Now())
+        self.set_date_to_now()
 
     def OnChangeDate(self, _):
         """
@@ -406,11 +420,20 @@ class StoryTimeApp(wx.Frame):
         """
         if new_date is not None:
             self.cdDialog.dt = new_date
-        self.dateLabel.SetLabel('Date: ' + formDateTime(self.cdDialog.dt))
+        self.dateLabel.SetLabel('Date: ' + format_date_time(self.cdDialog.dt))
         self.fix_text_box.SetLabel('Hoi')  # Probably unnecessary.
-        self.updateLastEntryText()
+        self.update_preview_text()
 
-    def updateLastEntryText(self):
+    @staticmethod
+    def _get_text_to_put(date_and_text: Sequence = None, last: bool = True) -> str:
+        if date_and_text is None:
+            return ""
+        ret_str = "Last" if last else "Next"
+        ret_str += format_date_time(date_and_text[0]) + "\n\n"
+        ret_str += rep_newlines_with_space(date_and_text[1]) + "\n\n"
+        return ret_str
+
+    def update_preview_text(self):
         """Fills the static datetime text with the most recent entries
         for preview.
         """
@@ -420,12 +443,8 @@ class StoryTimeApp(wx.Frame):
 
         # Construct the text to put into the preview panel.
         text_to_put = ""
-        if date_and_text is not None:
-            text_to_put += "Last entry was on " + formDateTime(date_and_text[0]) + "\n\n" + rep_newlines_with_space(
-                date_and_text[1]) + "\n\n"
-        if next_date_and_text is not None:
-            text_to_put += "Next entry is on " + formDateTime(next_date_and_text[0]) + "\n\n" + rep_newlines_with_space(
-                next_date_and_text[1])
+        text_to_put += self._get_text_to_put(date_and_text, True)
+        text_to_put += self._get_text_to_put(next_date_and_text, False)
         if text_to_put == "":
             text_to_put = "No older entry present."
 

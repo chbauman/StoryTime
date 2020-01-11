@@ -15,7 +15,16 @@ import util
 from util import get_time_from_file, img_folder, get_img_name_from_time
 
 
-def init_XML(comm, year):
+def init_XML(comm: str, year: int) -> elTree.ElementTree:
+    """Initializes an XML document for a new year.
+
+    Args:
+        comm: A comment for the beginning of the year.
+        year: The year of the document.
+
+    Returns:
+        XML element tree.
+    """
     root = elTree.Element("root")
     head = elTree.SubElement(root, "head")
     elTree.SubElement(head, "year").text = str(year)

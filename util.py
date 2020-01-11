@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Some general utility functions.
+
+Includes os stuff, dialogs for the main frame,
+datetime conversions...
+"""
 
 import os
 import re
@@ -14,13 +19,15 @@ import wx.adv
 # Paths to app code and temp folder
 project_path = os.path.dirname(os.path.realpath(__file__))
 icon_path = os.path.join(project_path, "Icons")
-temp_folder = "tmp"
+temp_folder = "tmp"  #: Temporary folder to store images temporarily.
 
 # Path to data (global variables)
 # Initialized values should never be used
-data_path = ""
-img_folder = "fuck"
-xml_folder = "fuck"
+# Also they should not be imported from the module since they change
+# when initializing the app.
+data_path = ""  #: The folder containing the image and the xml folder.
+img_folder = "fuck"  #: The folder where the images are stored.
+xml_folder = "fuck"  #: The folder where the xml documents are stored.
 
 
 def update_folder(new_data_path: str) -> None:
@@ -147,6 +154,7 @@ class TwoButtonDialogBase(ButtonDialogBase):
 
 class ChangeDateDialog(TwoButtonDialogBase):
     """Date and Time picker dialog"""
+    dt: wx.DateTime
     cal: wx.adv.CalendarCtrl
     timePicker: wx.adv.TimePickerCtrl
 
@@ -523,15 +531,20 @@ class FileDrop(wx.FileDropTarget):
         self.loadedFile = None
         self.newFileName = None
 
-    def OnDropFiles(self, x, y, filenames):
+    def OnDropFiles(self, x, y, filenames) -> bool:
+        """Handle the dropped files.
+
+        Checks if the extension is supported and stores
+        the file path.
+        """
 
         if len(filenames) > 1:
             print("Can only process one file at a time.")
         curr_file = filenames[0]
         _, ext = os.path.splitext(curr_file)
         ext = ext[1:].lower()
-        if ext != "jpg" and ext != "jpeg" and ext != "png" and ext != "bmp":
-            print("ERROR: Unsupported fucking file type!")
+        if ext not in ["jpg", "jpeg", "png", "bmp"]:
+            print(f"ERROR: Unsupported fucking file type: {ext}")
             return False
 
         # Get date and set image
@@ -542,7 +555,7 @@ class FileDrop(wx.FileDropTarget):
         return True
 
 
-def formDateTime(date_time):
+def format_date_time(date_time: wx.DateTime) -> str:
     """Format the given datetime in a string.
     """
     str_out = str(wx.DateTime.GetWeekDayName(date_time.GetWeekDay())) + ", "
@@ -585,7 +598,7 @@ def getImageToShow(filename, size=180, border=5):
 class ShowCapture(wx.Panel):
     """Panel that shows the content recorded by the webcam."""
 
-    def __init__(self, parent, capture, fps=25):
+    def __init__(self, parent, capture, fps: int = 25):
 
         # Capture first frame to get size
         self.capture = capture
@@ -634,7 +647,7 @@ class AcceptPhoto(TwoButtonDialogBase):
     orig_img = None
 
     def __init__(self, parent=None, img=None, title="Accept photo?"):
-        super(AcceptPhoto, self).__init__(parent, title=title)
+        super().__init__(parent, title=title)
 
         self.taken_img = img
         self.InitUI()
@@ -678,27 +691,28 @@ class SelfieDialog(TwoButtonDialogBase):
     """Dialog that lets you take a picture with the webcam.
     """
 
-    capture = None
-    imgCap = None
+    taken_img = None
+    dt_taken = None
+
+    _vid_capture = None
+    _img_cap = None
 
     def __init__(self, parent=None, title="Let me take a fucking selfie."):
-        super(SelfieDialog, self).__init__(parent, title=title)
+        super().__init__(parent, title=title)
 
         self.InitUI()
         self.SetSize((400, 400))
         self.SetTitle(title)
-        self.taken_img = None
-        self.dt_taken = None
 
     def InitUI(self):
         pnl = wx.Panel(self)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         # Current Image
-        self.capture = cv2.VideoCapture(0)
-        self.imgCap = ShowCapture(self, self.capture)
-        self.v_box.Add(self.imgCap, proportion=0, flag=wx.ALL, border=5)
-        self.imgCap.Show()
+        self._vid_capture = cv2.VideoCapture(0)
+        self._img_cap = ShowCapture(self, self._vid_capture)
+        self.v_box.Add(self._img_cap, proportion=0, flag=wx.ALL, border=5)
+        self._img_cap.Show()
 
         self.setup(pnl, 'Shoot', 'Cancel')
 
@@ -709,7 +723,7 @@ class SelfieDialog(TwoButtonDialogBase):
         shows the Dialog that lets the user accept the photo or decide
         to take another one.
         """
-        accept_diag = AcceptPhoto(None, img=self.imgCap.getCurrFrame())
+        accept_diag = AcceptPhoto(None, img=self._img_cap.getCurrFrame())
         accept_diag.ShowModal()
         if accept_diag.accepted:
             self.taken_img = accept_diag.orig_img
@@ -719,7 +733,7 @@ class SelfieDialog(TwoButtonDialogBase):
     def Cleanup(self):
         """Release the video capture.
         """
-        self.capture.release()
+        self._vid_capture.release()
         cv2.destroyAllWindows()
         self.Destroy()
 
