@@ -81,16 +81,17 @@ class TestFileSystem(TestCase):
         def fun(dlg):
             dlg.OnNew(None)
 
-        copy_img_file_to_imgs(img_path, fun)
+        copy_img_file_to_imgs(img_path, None, fun)
 
         def fun2(dlg):
             dlg.OnNext(None)
             dlg.OnClose(None)
 
-        copy_img_file_to_imgs(img_path, fun2)
+        copy_img_file_to_imgs(img_path, None, fun2)
 
         shutil.rmtree(lib.util.img_folder)
         os.removedirs(lib.util.xml_folder)
+        a.Destroy()
 
     pass
 

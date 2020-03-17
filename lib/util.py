@@ -436,7 +436,7 @@ def find_new_name(img_name: str, same_date_file_list: List[str], ext: str) -> st
     raise ValueError("ERROR: Way too many fucking images.")
 
 
-def copy_img_file_to_imgs(lf: str, photo_diag_fun: Callable = None):
+def copy_img_file_to_imgs(lf: str, img_date=None, photo_diag_fun: Callable = None):
     """Copy an image to the Img folder.
 
     If there exists one with
@@ -446,7 +446,7 @@ def copy_img_file_to_imgs(lf: str, photo_diag_fun: Callable = None):
     If he doesn't decide, returns None
     """
     # Get date of image and find all images with same date
-    imgDate = get_time_from_file(lf)
+    imgDate = get_time_from_file(lf) if img_date is None else img_date
     imgName = get_img_name_from_time(imgDate)
     sameDateFileList = find_all_imgs_with_same_date(img_folder, imgName)
     print(sameDateFileList)
@@ -480,51 +480,6 @@ def copy_img_file_to_imgs(lf: str, photo_diag_fun: Callable = None):
     imgName = imgName + file_extension
     copied_file_name = os.path.join(img_folder, imgName)
     copy2(lf, copied_file_name)
-    return copied_file_name
-
-
-def chooseImgTextMethod(lf, img_dt=None):
-    _, file_extension = os.path.splitext(lf)
-    if img_dt is None:
-        imgDate = get_time_from_file(lf)
-    else:
-        imgDate = img_dt
-    imgName = get_img_name_from_time(imgDate)
-    useExisting = False
-
-    # TODO: Check if already in correct folder
-    if os.path.normpath(os.path.dirname(lf)) == os.path.normpath(img_folder):
-        print("Already in right folder.")
-        return lf, imgDate, True
-
-    # Check if file already exists
-    sameDateFileList = find_all_imgs_with_same_date(img_folder, imgName)
-    if len(sameDateFileList) > 0:
-        print("File already exists, overwriting it. TODO: Dialog")
-        phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
-        phDiag.ShowModal()
-        phDiag.Destroy()
-        ind = phDiag.chosenImgInd
-        if ind is None:
-            return None
-        if ind == -1:
-            new_name = find_new_name(imgName, sameDateFileList, file_extension)
-        else:
-            # do not copy
-            new_name = sameDateFileList[ind]
-            useExisting = True
-            return os.path.join(img_folder, new_name), imgDate, useExisting
-        imgName = new_name
-
-    imgName = imgName + file_extension
-    copied_file_name = os.path.join(img_folder, imgName)
-    return copied_file_name, imgDate, useExisting
-
-
-def copyImgFileToImgsIfNotExistFull(old_f_name, date):
-    copied_file_name, imgDate, useExisting = chooseImgTextMethod(old_f_name, date)
-    if not useExisting:
-        copy2(old_f_name, copied_file_name)
     return copied_file_name
 
 

@@ -25,12 +25,10 @@ from lib.util import (
     get_img_name_from_time,
     temp_folder,
     create_dir,
-    copyImgFileToImgsIfNotExistFull,
     create_xml_and_img_folder,
     write_folder_to_file,
     rep_newlines_with_space,
-)
-
+    copy_img_file_to_imgs)
 
 ID_MENU_PHOTO = wx.NewId()
 ID_MENU_CHANGE_DATE = wx.NewId()
@@ -363,7 +361,7 @@ class StoryTimeApp(wx.Frame):
 
             # Save image entry
             curr_dat = self.cdDialog.dt
-            copied_file_name = copyImgFileToImgsIfNotExistFull(lf, curr_dat)
+            copied_file_name = copy_img_file_to_imgs(lf, curr_dat)
             saveEntryInXml(textStr, curr_dat, "photo", copied_file_name)
         else:
             saveEntryInXml(textStr, self.cdDialog.dt)
