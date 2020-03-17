@@ -28,7 +28,8 @@ from lib.util import (
     create_xml_and_img_folder,
     write_folder_to_file,
     rep_newlines_with_space,
-    copy_img_file_to_imgs)
+    copy_img_file_to_imgs,
+)
 
 ID_MENU_PHOTO = wx.NewId()
 ID_MENU_CHANGE_DATE = wx.NewId()
@@ -144,7 +145,9 @@ class StoryTimeApp(wx.Frame):
             b_map = wx.Bitmap(os.path.join(icon_path, icon_name))
             icon = scale_bitmap(b_map, *iconSize)
             if rest is not None and rest:
-                tool = self.toolbar.AddCheckTool(tool_id, name, icon, shortHelp=help_txt)
+                tool = self.toolbar.AddCheckTool(
+                    tool_id, name, icon, shortHelp=help_txt
+                )
             else:
                 tool = self.toolbar.AddTool(tool_id, name, icon, shortHelp=help_txt)
 

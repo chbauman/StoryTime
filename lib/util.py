@@ -63,7 +63,7 @@ def create_xml_and_img_folder(base_folder: str) -> None:
     return
 
 
-def get_info_from_file(ask: bool = True):
+def get_info_from_file(ask: bool = True) -> Optional[str]:
     """Read the info file and get necessary information
 
     Args:
@@ -81,7 +81,6 @@ def get_info_from_file(ask: bool = True):
 
         if data != [] and os.path.isdir(data[0]):
             fol_path = data[0]
-            # TODO: More checks or create dirs?
             create_xml_and_img_folder(fol_path)
             return fol_path
         elif ask:
@@ -483,7 +482,7 @@ def copy_img_file_to_imgs(lf: str, img_date=None, photo_diag_fun: Callable = Non
     return copied_file_name
 
 
-def create_dir(dir_name):
+def create_dir(dir_name: str) -> None:
     """Creates the given directory recursively.
     """
     if not os.path.exists(dir_name):

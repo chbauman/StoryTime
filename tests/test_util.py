@@ -6,17 +6,33 @@ from unittest import TestCase
 import wx
 
 import lib
-from lib.util import create_xml_and_img_folder, rep_newlines_with_space, pad_int_str, get_img_name_from_time, \
-    extract_date_from_image_name, get_time_from_file, get_file_modified_wx_dt, FileDrop, update_folder, \
-    write_folder_to_file, get_info_from_file, format_date_time, ChangeDateDialog, PhotoWithSameDateExistsDialog, \
-    SelfieDialog, find_new_name, find_all_imgs_with_same_date, copy_img_file_to_imgs, create_dir
+from lib.util import (
+    create_xml_and_img_folder,
+    rep_newlines_with_space,
+    pad_int_str,
+    get_img_name_from_time,
+    extract_date_from_image_name,
+    get_time_from_file,
+    get_file_modified_wx_dt,
+    FileDrop,
+    update_folder,
+    write_folder_to_file,
+    get_info_from_file,
+    format_date_time,
+    ChangeDateDialog,
+    PhotoWithSameDateExistsDialog,
+    SelfieDialog,
+    find_new_name,
+    find_all_imgs_with_same_date,
+    copy_img_file_to_imgs,
+    create_dir,
+)
 
 DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
 SAMPLE_IMG_DIR = os.path.join(DATA_DIR, "sample_imgs")
 
 
 class TestFileSystem(TestCase):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not os.path.isdir(DATA_DIR):
@@ -97,7 +113,6 @@ class TestFileSystem(TestCase):
 
 
 class TestUtil(TestCase):
-
     def test_newline_replace(self):
         inp = "sdl sdk \n e sie \n"
         exp_out = "sdl sdk  e sie "
@@ -158,7 +173,6 @@ def run_diag(dlg, fun, destroy: bool = True):
 
 
 class TestGUIElements(TestCase):
-
     def test_file_drop(self):
         class DummyFrame:
             def set_img_with_date(self, *args, **kwargs):
@@ -186,8 +200,10 @@ class TestGUIElements(TestCase):
 
     def test_photo_exists_dialog(self):
         app, frame = init_app()
-        img_list = [os.path.join(SAMPLE_IMG_DIR, f)
-                    for f in ["Entwurf.jpg", "calendar_icon.png"]]
+        img_list = [
+            os.path.join(SAMPLE_IMG_DIR, f)
+            for f in ["Entwurf.jpg", "calendar_icon.png"]
+        ]
         photo_dlg = PhotoWithSameDateExistsDialog(img_list, frame)
 
         def test_1():
@@ -216,6 +232,7 @@ class TestGUIElements(TestCase):
         def test_1():
             def inner():
                 photo_dlg.accept_diag.OnTakePic(None)
+
             photo_dlg.OnTakePic(None, inner)
 
         run_diag(photo_dlg, test_1)
@@ -226,9 +243,11 @@ class TestGUIElements(TestCase):
         def test_2():
             def inner():
                 photo_dlg.accept_diag.OnClose(None)
+
             photo_dlg.OnTakePic(None, inner)
             photo_dlg.OnClose(None)
 
         run_diag(photo_dlg, test_2)
         assert photo_dlg.taken_img is None
+
     pass
