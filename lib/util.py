@@ -9,6 +9,7 @@ datetime conversions...
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 from shutil import copy2
 from typing import List
 
@@ -17,7 +18,7 @@ import wx
 import wx.adv
 
 # Paths to app code and temp folder
-project_path = os.path.dirname(os.path.realpath(__file__))
+project_path = Path(os.path.dirname(os.path.realpath(__file__))).parent
 icon_path = os.path.join(project_path, "Icons")
 temp_folder = "tmp"  #: Temporary folder to store images temporarily.
 

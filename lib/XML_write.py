@@ -11,8 +11,8 @@ from shutil import copy2
 
 import wx
 
-import util
-from util import get_time_from_file, img_folder, get_img_name_from_time
+from lib import util
+from lib.util import get_time_from_file, img_folder, get_img_name_from_time
 
 
 def init_XML(comm: str, year: int) -> elTree.ElementTree:

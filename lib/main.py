@@ -1,17 +1,8 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""The main script with the StoryTimeApp.
-
-Run this file to run the app.
+"""The main frame.
 
 Inspired by: ZetCode wxPython tutorial, www.zetcode.com
-
-TODO:
-- Preview including image entries.
-- Add more type hints.
-- Add more documentation, esp. for function arguments.
-- PDF generation?
 """
+
 import os
 import shutil
 from typing import Sequence
@@ -19,11 +10,12 @@ from typing import Sequence
 import cv2
 import wx
 
-from XML_write import saveEntryInXml, addImgs, convertFromTxt, getLastXMLEntry
-import util
-from util import FileDrop, scale_bitmap, icon_path, create_dir, temp_folder, get_img_name_from_time, ChangeDateDialog, \
-    update_folder, get_info_from_file, format_date_time, getImageToShow, SelfieDialog, \
+from lib import util
+from lib.XML_write import saveEntryInXml, addImgs, convertFromTxt, getLastXMLEntry
+from lib.util import FileDrop, icon_path, ChangeDateDialog, get_info_from_file, update_folder, scale_bitmap, \
+    format_date_time, getImageToShow, SelfieDialog, get_img_name_from_time, temp_folder, create_dir, \
     copyImgFileToImgsIfNotExistFull, create_xml_and_img_folder, write_folder_to_file, rep_newlines_with_space
+
 
 ID_MENU_PHOTO = wx.NewId()
 ID_MENU_CHANGE_DATE = wx.NewId()
@@ -451,16 +443,3 @@ class StoryTimeApp(wx.Frame):
         # Set text and update layout
         self.fix_text_box.SetLabel(text_to_put)
         self.v_box.Layout()
-
-
-def main():
-    """DOO ALL THE STUFF.
-    """
-    app = wx.App()
-    ex = StoryTimeApp(None)
-    ex.Show()
-    app.MainLoop()
-
-
-if __name__ == '__main__':
-    main()
