@@ -31,13 +31,13 @@ from lib.util import (
     copy_img_file_to_imgs,
 )
 
-ID_MENU_PHOTO = wx.NewId()
-ID_MENU_CHANGE_DATE = wx.NewId()
-ID_MENU_SELFIE = wx.NewId()
-ID_MENU_CHOOSE_DIR = wx.NewId()
-ID_MENU_IMPORT = wx.NewId()
-ID_CLICK_BUTTON = wx.NewId()
-ID_CLICK_OK_BUTTON = wx.NewId()
+ID_MENU_PHOTO = wx.Window.NewControlId()
+ID_MENU_CHANGE_DATE = wx.Window.NewControlId()
+ID_MENU_SELFIE = wx.Window.NewControlId()
+ID_MENU_CHOOSE_DIR = wx.Window.NewControlId()
+ID_MENU_IMPORT = wx.Window.NewControlId()
+ID_CLICK_BUTTON = wx.Window.NewControlId()
+ID_CLICK_OK_BUTTON = wx.Window.NewControlId()
 
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 

@@ -5,8 +5,14 @@ import xml.etree.cElementTree as elTree
 import wx
 
 import lib
-from lib.XML_write import init_XML, insertXmlTextEntryElement, insertXmlPhotoEntryElement, getXMLAndFilename, \
-    saveEntryInXml, findLatestInDoc
+from lib.XML_write import (
+    init_XML,
+    insertXmlTextEntryElement,
+    insertXmlPhotoEntryElement,
+    getXMLAndFilename,
+    saveEntryInXml,
+    findLatestInDoc,
+)
 from lib import util
 from tests.test_util import DATA_DIR
 
@@ -14,7 +20,6 @@ XML_DIR = os.path.join(DATA_DIR, "XML")
 
 
 class TestXML(TestCase):
-
     def test_init_XML(self):
         el_tree = init_XML("Test", 2020)
         root = el_tree.getroot()

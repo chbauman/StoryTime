@@ -34,13 +34,17 @@ def init_XML(comm: str, year: int) -> elTree.ElementTree:
     return elTree.ElementTree(root)
 
 
-def insertXmlTextEntryElement(doc: elTree.Element, date_time: wx.DateTime, text: str) -> None:
+def insertXmlTextEntryElement(
+    doc: elTree.Element, date_time: wx.DateTime, text: str
+) -> None:
     """Inserts a text entry into the XML element tree."""
     dt = date_time.FormatISOCombined()
     elTree.SubElement(doc, "entry", date_time=dt, type="text").text = text
 
 
-def insertXmlPhotoEntryElement(doc: elTree.Element, date_time: wx.DateTime, img_filename: str, text: str) -> None:
+def insertXmlPhotoEntryElement(
+    doc: elTree.Element, date_time: wx.DateTime, img_filename: str, text: str
+) -> None:
     """Inserts a photo entry element as a child of the elTree doc.
 
     Args:
@@ -72,7 +76,12 @@ def getXMLAndFilename(year: int, create: bool = True) -> Tuple:
     return tree, xml_file
 
 
-def saveEntryInXml(comm: str, date_time: wx.DateTime, entry_type: str = "text", img_filename: str = None) -> None:
+def saveEntryInXml(
+    comm: str,
+    date_time: wx.DateTime,
+    entry_type: str = "text",
+    img_filename: str = None,
+) -> None:
     """Reads the XML file and adds an entry element with the specified content
 
     Args:
