@@ -4,8 +4,10 @@ from unittest import TestCase
 
 import wx
 
+import lib
 from lib.util import create_xml_and_img_folder, rep_newlines_with_space, pad_int_str, get_img_name_from_time, \
-    extract_date_from_image_name, get_time_from_file, get_file_modified_wx_dt, FileDrop
+    extract_date_from_image_name, get_time_from_file, get_file_modified_wx_dt, FileDrop, update_folder, \
+    write_folder_to_file, get_info_from_file, format_date_time, ChangeDateDialog
 
 DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
 
@@ -43,6 +45,22 @@ class TestFileSystem(TestCase):
         finally:
             os.remove(test_file)
 
+    def test_info_file(self):
+        with open("Info.txt", "r") as f:
+            curr_info_txt = f.read()
+
+        try:
+            lib.util.data_path = DATA_DIR
+            write_folder_to_file()
+            with open("Info.txt", "r") as f:
+                assert f.read().strip() == DATA_DIR
+
+            f_path = get_info_from_file(False)
+            assert f_path == DATA_DIR
+        finally:
+            with open("Info.txt", "w") as f:
+                f.write(curr_info_txt)
+
     pass
 
 
@@ -76,14 +94,50 @@ class TestUtil(TestCase):
         wx_dt = extract_date_from_image_name(f_path)
         assert wx_dt is None
 
+    def test_update_folder(self):
+        update_folder(DATA_DIR)
+        assert lib.util.data_path == DATA_DIR
+
+    def test_format_dt(self):
+        wx_dt = wx.DateTime(2, 11, 2020, 5, 31)
+        exp_str = " 2.12.2020, Time: 05:31:00"
+        res = format_date_time(wx_dt)
+        assert ",".join(res.split(",")[1:]) == exp_str
+
     pass
 
 
-def test_file_drop():
-    class DummyFrame:
-        def set_img_with_date(self, *args, **kwargs):
-            pass
+def init_app():
+    return wx.App(), wx.Frame()
 
-    d_frame = DummyFrame()
-    fd = FileDrop(None, d_frame)
-    fd.OnDropFiles(0, 0, ["test/IMG_20201202_053100.jpg"])
+
+def run_diag(dlg, fun):
+    wx.CallAfter(fun)
+    dlg.ShowModal()
+    dlg.Destroy()
+
+
+class TestGUIElements(TestCase):
+
+    def test_file_drop(self):
+        class DummyFrame:
+            def set_img_with_date(self, *args, **kwargs):
+                pass
+
+        d_frame = DummyFrame()
+        fd = FileDrop(None, d_frame)
+        fd.OnDropFiles(0, 0, ["test/IMG_20201202_053100.jpg"])
+
+    def test_change_date_dialog(self):
+        app, frame = init_app()
+        dlg = ChangeDateDialog(frame)
+
+        def clickOK():
+            dlg.OnOK(None)
+
+        run_diag(dlg, clickOK)
+
+        def cancel():
+            dlg.OnClose(None)
+
+        run_diag(dlg, cancel)

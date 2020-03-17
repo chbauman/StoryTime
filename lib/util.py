@@ -587,13 +587,13 @@ class FileDrop(wx.FileDropTarget):
 def format_date_time(date_time: wx.DateTime) -> str:
     """Format the given datetime in a string.
     """
-    str_out = str(wx.DateTime.GetWeekDayName(date_time.GetWeekDay())) + ", "
-    str_out += str(date_time.GetDay()) + ". "
-    str_out += str(date_time.GetMonth() + 1) + ". "
-    str_out += str(date_time.GetYear()) + ", Time: "
-    str_out += str(date_time.GetHour()) + ":"
-    str_out += str(date_time.GetMinute()) + ":"
-    str_out += str(date_time.GetSecond())
+    dt: wx.DateTime = date_time
+    d, mon, y = dt.GetDay(), dt.GetMonth() + 1, dt.GetYear()
+    h, m = pad_int_str(dt.GetHour()), pad_int_str(dt.GetMinute())
+    s = pad_int_str(dt.GetSecond())
+
+    str_out = f"{wx.DateTime.GetWeekDayName(dt.GetWeekDay())}, "
+    str_out += f"{d}.{mon}.{y}, Time: {h}:{m}:{s}"
     return str_out
 
 

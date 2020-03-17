@@ -6,4 +6,5 @@ Info.txt
 tmp
 venv/*
 .coverage
+htmlcov
 tests/test_data
