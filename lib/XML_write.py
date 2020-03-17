@@ -8,6 +8,7 @@ in the file.
 import os
 import xml.etree.cElementTree as elTree
 from shutil import copy2
+from typing import Tuple
 
 import wx
 
@@ -33,12 +34,13 @@ def init_XML(comm: str, year: int) -> elTree.ElementTree:
     return elTree.ElementTree(root)
 
 
-def insertXmlTextEntryElement(doc, date_time, text):
+def insertXmlTextEntryElement(doc: elTree.Element, date_time: wx.DateTime, text: str) -> None:
+    """Inserts a text entry into the XML element tree."""
     dt = date_time.FormatISOCombined()
     elTree.SubElement(doc, "entry", date_time=dt, type="text").text = text
 
 
-def insertXmlPhotoEntryElement(doc, date_time, img_filename, text) -> None:
+def insertXmlPhotoEntryElement(doc: elTree.Element, date_time: wx.DateTime, img_filename: str, text: str) -> None:
     """Inserts a photo entry element as a child of the elTree doc.
 
     Args:
@@ -46,14 +48,11 @@ def insertXmlPhotoEntryElement(doc, date_time, img_filename, text) -> None:
         date_time:
         img_filename:
         text:
-
-    Returns:
-
     """
     if img_filename is None:
         print("ERROR: No fucking filename provided for inserting into XML.")
         return
-    # TODO: Check if file exists
+    # TODO: Check if file exists?
     ent = elTree.SubElement(
         doc, "entry", date_time=date_time.FormatISOCombined(), type="photo"
     )
@@ -61,25 +60,25 @@ def insertXmlPhotoEntryElement(doc, date_time, img_filename, text) -> None:
     elTree.SubElement(ent, "photo").text = img_filename
 
 
-def getXMLAndFilename(year, create=True):
+def getXMLAndFilename(year: int, create: bool = True) -> Tuple:
     yearStr = str(year)
-    xml_file = os.path.join(util.xml_folder, yearStr + ".xml")
+    xml_file = os.path.join(util.xml_folder, f"{yearStr}.xml")
     if os.path.exists(xml_file):
         tree = elTree.parse(xml_file)
     elif create:
         tree = init_XML("Das isch es Johr " + yearStr + ".", year)
     else:
-        return None
+        raise FileNotFoundError("File not found and create == False")
     return tree, xml_file
 
 
-def saveEntryInXml(comm, date_time, entry_type: str = "text", img_filename: str = None):
+def saveEntryInXml(comm: str, date_time: wx.DateTime, entry_type: str = "text", img_filename: str = None) -> None:
     """Reads the XML file and adds an entry element with the specified content
 
     Args:
-        comm:
-        date_time:
-        entry_type:
+        comm: The text for the entry.
+        date_time: The DateTime of the entry.
+        entry_type: The type of the entry, either "text" or "photo".
         img_filename:
 
     Returns:
@@ -98,11 +97,11 @@ def saveEntryInXml(comm, date_time, entry_type: str = "text", img_filename: str 
     tree.write(xml_file)
 
 
-def find_next_older_xml_file(year, newer=False):
+def find_next_older_xml_file(year: int, newer: bool = False):
     """Finds the most recent XML file before year 'year'.
 
     If there is none return None, else the found year and the tree of the XML.
-    if newer == True, then it finds the next newer one
+    If newer == True, then it finds the next newer one
 
     Args:
         year:
@@ -125,7 +124,7 @@ def find_next_older_xml_file(year, newer=False):
     return closest_year, getXMLAndFilename(closest_year, False)[0]
 
 
-def findLatestInDoc(tree, date_time, newer=False):
+def findLatestInDoc(tree, date_time: wx.DateTime, newer: bool = False):
     """Finds most recent date_time entry in doc.
 
     If there is no earlier entry than 'date_time' returns None
@@ -140,9 +139,7 @@ def findLatestInDoc(tree, date_time, newer=False):
 
     """
     doc = tree.getroot().find("doc")
-    temp = wx.DateTime(1, 1, 0)
-    if newer:
-        temp = wx.DateTime(1, 1, 100000)
+    temp = wx.DateTime(1, 1, 100000 if newer else 0)
     curr_child = None
     for child in doc:
         if child.get("type") != "text":
@@ -220,9 +217,6 @@ def addImgs(base_folder) -> None:
 
     Args:
         base_folder:
-
-    Returns:
-
     """
     imgFolder = os.path.join(base_folder, "Img")
     imgDescFolder = os.path.join(base_folder, "ImgDesc")
