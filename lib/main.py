@@ -110,6 +110,7 @@ class StoryTimeApp(wx.Frame):
                 "Photo",
                 "Change to photo mode.",
                 self.OnPhoto,
+                True,
             ),
             (
                 "calendar_icon.png",
@@ -141,10 +142,14 @@ class StoryTimeApp(wx.Frame):
             ),
         ]
         for ct, t in enumerate(tool_list):
-            icon_name, tool_id, name, help_txt, met = t
+            icon_name, tool_id, name, help_txt, met, *rest = t
             b_map = wx.Bitmap(os.path.join(icon_path, icon_name))
             icon = scale_bitmap(b_map, *iconSize)
-            tool = self.toolbar.AddTool(tool_id, name, icon, shortHelp=help_txt)
+            if rest is not None and rest:
+                tool = self.toolbar.AddCheckTool(tool_id, name, icon, shortHelp=help_txt)
+            else:
+                tool = self.toolbar.AddTool(tool_id, name, icon, shortHelp=help_txt)
+
             self.Bind(wx.EVT_TOOL, met, tool)
             tool_list[ct] = tool
 

@@ -76,6 +76,8 @@ class TestFileSystem(TestCase):
         create_dir(lib.util.xml_folder)
         img_path = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
         copy_img_file_to_imgs(img_path)
+        a = wx.App()
+        copy_img_file_to_imgs(img_path)
         shutil.rmtree(lib.util.img_folder)
         os.removedirs(lib.util.xml_folder)
 
