@@ -1,8 +1,7 @@
 import os
-import time
+import shutil
 from pathlib import Path
 from unittest import TestCase
-import shutil
 
 import wx
 
@@ -34,6 +33,7 @@ class TestFileSystem(TestCase):
             os.removedirs(img_dir)
             assert os.path.isdir(xml_dir)
             os.removedirs(xml_dir)
+        assert not os.path.isdir(img_dir)
 
     def test_modified_time(self):
         test_file = os.path.join(DATA_DIR, "test_file")
@@ -77,7 +77,18 @@ class TestFileSystem(TestCase):
         img_path = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
         copy_img_file_to_imgs(img_path)
         a = wx.App()
-        copy_img_file_to_imgs(img_path)
+
+        def fun(dlg):
+            dlg.OnNew(None)
+
+        copy_img_file_to_imgs(img_path, fun)
+
+        def fun2(dlg):
+            dlg.OnNext(None)
+            dlg.OnClose(None)
+
+        copy_img_file_to_imgs(img_path, fun2)
+
         shutil.rmtree(lib.util.img_folder)
         os.removedirs(lib.util.xml_folder)
 

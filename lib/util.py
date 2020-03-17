@@ -116,13 +116,11 @@ def scale_bitmap(bitmap: wx.Bitmap, width, height) -> wx.Bitmap:
 class ButtonDialogBase(wx.Dialog):
     v_box: wx.BoxSizer
 
-    def setup_v_box(self, h_box, h_button, pnl, bind_target, bind_fun):
+    def setup_v_box(self, h_box, h_button, pnl):
         h_box.Add(h_button, flag=wx.LEFT, border=5)
         self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
         self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
         self.SetSizer(self.v_box)
-        if bind_target is not None:
-            bind_target.Bind(wx.EVT_CLOSE, bind_fun)
 
 
 class TwoButtonDialogBase(ButtonDialogBase):
@@ -131,7 +129,6 @@ class TwoButtonDialogBase(ButtonDialogBase):
         pnl: wx.Panel,
         shoot_label: str,
         cancel_label: str,
-        bind_self_to_on_close: bool = True,
         shoot_fun: Callable = None,
         cancel_fun: Callable = None,
     ):
@@ -150,8 +147,7 @@ class TwoButtonDialogBase(ButtonDialogBase):
         h_box = wx.BoxSizer(wx.HORIZONTAL)
         h_box.Add(shootButton)
 
-        bind_tar = self if bind_self_to_on_close else None
-        self.setup_v_box(h_box, cancelButton, pnl, bind_tar, self.OnClose)
+        self.setup_v_box(h_box, cancelButton, pnl)
 
     def OnTakePic(self, e):
         pass
@@ -189,7 +185,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
 
         # Add buttons
         self.v_box = wx.BoxSizer(wx.VERTICAL)
-        self.setup(pnl, "Ok", "Cancel", False, self.OnOK, self.OnClose)
+        self.setup(pnl, "Ok", "Cancel", self.OnOK, self.OnClose)
 
     def OnClose(self, e):
         print("Closed Change Date Dialog")
@@ -258,7 +254,8 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
             self.next_button.Bind(wx.EVT_BUTTON, self.OnNext)
             self.prev_button.Bind(wx.EVT_BUTTON, self.OnPrev)
 
-        self.setup_v_box(h_box, newButton, pnl, selectButton, self.OnSelect)
+        self.setup_v_box(h_box, newButton, pnl)
+        selectButton.Bind(wx.EVT_BUTTON, self.OnSelect)
 
         newButton.Bind(wx.EVT_BUTTON, self.OnNew)
 
@@ -293,7 +290,6 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
     def OnSelect(self, _):
         self.chosenImgInd = self.shownImgInd
         self.Close()
-        pass
 
     def OnClose(self, _):
         print("Closed Change Date Dialog")
@@ -440,7 +436,7 @@ def find_new_name(img_name: str, same_date_file_list: List[str], ext: str) -> st
     raise ValueError("ERROR: Way too many fucking images.")
 
 
-def copy_img_file_to_imgs(lf: str):
+def copy_img_file_to_imgs(lf: str, photo_diag_fun: Callable = None):
     """Copy an image to the Img folder.
 
     If there exists one with
@@ -464,9 +460,11 @@ def copy_img_file_to_imgs(lf: str):
         # to add the text to an already existing one instead of
         # adding the image in preview to the images.
         phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
+        if photo_diag_fun is not None:
+            wx.CallAfter(photo_diag_fun, phDiag)
         phDiag.ShowModal()
-        ind = phDiag.chosenImgInd
         phDiag.Destroy()
+        ind = phDiag.chosenImgInd
         if ind is None:
             # No decision, abort
             return None
@@ -505,6 +503,7 @@ def chooseImgTextMethod(lf, img_dt=None):
         print("File already exists, overwriting it. TODO: Dialog")
         phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
         phDiag.ShowModal()
+        phDiag.Destroy()
         ind = phDiag.chosenImgInd
         if ind is None:
             return None
@@ -516,7 +515,6 @@ def chooseImgTextMethod(lf, img_dt=None):
             useExisting = True
             return os.path.join(img_folder, new_name), imgDate, useExisting
         imgName = new_name
-        phDiag.Destroy()
 
     imgName = imgName + file_extension
     copied_file_name = os.path.join(img_folder, imgName)
@@ -690,7 +688,7 @@ class AcceptPhoto(TwoButtonDialogBase):
         bmp = wx.StaticBitmap(self, -1, bmp, size=new_size)
         self.v_box.Add(bmp, proportion=0, flag=wx.ALL, border=5)
 
-        self.setup(pnl, "Accept", "Throw", False)
+        self.setup(pnl, "Accept", "Throw")
 
     def set_img(self, img):
         self.taken_img = img
@@ -740,7 +738,7 @@ class SelfieDialog(TwoButtonDialogBase):
         self.v_box.Add(self._img_cap, proportion=0, flag=wx.ALL, border=5)
         self._img_cap.Show()
 
-        self.setup(pnl, "Shoot", "Cancel", False)
+        self.setup(pnl, "Shoot", "Cancel")
 
     def OnTakePic(self, e, fun: Callable = None):
         """Takes a picture with the webcam.

@@ -4,8 +4,6 @@
 
 Run this file to run the app.
 
-Inspired by: ZetCode wxPython tutorial, www.zetcode.com
-
 TODO:
 - Preview including image entries.
 - Add more type hints.

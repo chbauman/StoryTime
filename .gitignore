@@ -9,3 +9,5 @@ venv/*
 htmlcov
 tests/test_data/*
 !tests/test_data/sample_imgs/
+
+tests/manual_test_data
