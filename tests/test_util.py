@@ -1,15 +1,19 @@
 import os
+import time
 from pathlib import Path
 from unittest import TestCase
+import shutil
 
 import wx
 
 import lib
 from lib.util import create_xml_and_img_folder, rep_newlines_with_space, pad_int_str, get_img_name_from_time, \
     extract_date_from_image_name, get_time_from_file, get_file_modified_wx_dt, FileDrop, update_folder, \
-    write_folder_to_file, get_info_from_file, format_date_time, ChangeDateDialog
+    write_folder_to_file, get_info_from_file, format_date_time, ChangeDateDialog, PhotoWithSameDateExistsDialog, \
+    SelfieDialog, find_new_name, find_all_imgs_with_same_date, copy_img_file_to_imgs, create_dir
 
 DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
+SAMPLE_IMG_DIR = os.path.join(DATA_DIR, "sample_imgs")
 
 
 class TestFileSystem(TestCase):
@@ -61,6 +65,20 @@ class TestFileSystem(TestCase):
             with open("Info.txt", "w") as f:
                 f.write(curr_info_txt)
 
+    def test_img_finding(self):
+        f_img = "Entwurf.jpg"
+        r = find_all_imgs_with_same_date(SAMPLE_IMG_DIR, f_img)
+        assert r[0] == f_img
+
+    def test_img_copying(self):
+        update_folder(DATA_DIR)
+        create_dir(lib.util.img_folder)
+        create_dir(lib.util.xml_folder)
+        img_path = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
+        copy_img_file_to_imgs(img_path)
+        shutil.rmtree(lib.util.img_folder)
+        os.removedirs(lib.util.xml_folder)
+
     pass
 
 
@@ -104,6 +122,13 @@ class TestUtil(TestCase):
         res = format_date_time(wx_dt)
         assert ",".join(res.split(",")[1:]) == exp_str
 
+    def test_new_name(self):
+        img_name = "test_img"
+        ext = ".jpg"
+        img_list = [f"{img_name}_{k}{ext}" for k in range(5)]
+        new_name = find_new_name(img_name, img_list[:-1], ext)
+        assert new_name + ext == img_list[-1]
+
     pass
 
 
@@ -111,10 +136,11 @@ def init_app():
     return wx.App(), wx.Frame()
 
 
-def run_diag(dlg, fun):
+def run_diag(dlg, fun, destroy: bool = True):
     wx.CallAfter(fun)
     dlg.ShowModal()
-    dlg.Destroy()
+    if destroy:
+        dlg.Destroy()
 
 
 class TestGUIElements(TestCase):
@@ -126,7 +152,9 @@ class TestGUIElements(TestCase):
 
         d_frame = DummyFrame()
         fd = FileDrop(None, d_frame)
-        fd.OnDropFiles(0, 0, ["test/IMG_20201202_053100.jpg"])
+        assert fd.OnDropFiles(0, 0, ["test/IMG_20201202_053100.jpg"])
+        assert fd.OnDropFiles(0, 0, ["test/IMG_20201202_053100.jpg", "fail"])
+        assert not fd.OnDropFiles(0, 0, ["fail"])
 
     def test_change_date_dialog(self):
         app, frame = init_app()
@@ -141,3 +169,52 @@ class TestGUIElements(TestCase):
             dlg.OnClose(None)
 
         run_diag(dlg, cancel)
+
+    def test_photo_exists_dialog(self):
+        app, frame = init_app()
+        img_list = [os.path.join(SAMPLE_IMG_DIR, f)
+                    for f in ["Entwurf.jpg", "calendar_icon.png"]]
+        photo_dlg = PhotoWithSameDateExistsDialog(img_list, frame)
+
+        def test_1():
+            photo_dlg.OnNext(None)
+            photo_dlg.OnPrev(None)
+            photo_dlg.OnSelect(None)
+
+        run_diag(photo_dlg, test_1)
+        assert photo_dlg.chosenImgInd == 0
+
+        def test_2():
+            photo_dlg.OnClose(None)
+
+        run_diag(photo_dlg, test_2)
+
+        def test_3():
+            photo_dlg.OnNew(None)
+
+        run_diag(photo_dlg, test_3)
+        assert photo_dlg.chosenImgInd == -1
+
+    def test_selfie_dialog(self):
+        app, frame = init_app()
+        photo_dlg = SelfieDialog(frame)
+
+        def test_1():
+            def inner():
+                photo_dlg.accept_diag.OnTakePic(None)
+            photo_dlg.OnTakePic(None, inner)
+
+        run_diag(photo_dlg, test_1)
+        assert photo_dlg.taken_img is not None
+
+        photo_dlg = SelfieDialog(frame)
+
+        def test_2():
+            def inner():
+                photo_dlg.accept_diag.OnClose(None)
+            photo_dlg.OnTakePic(None, inner)
+            photo_dlg.OnClose(None)
+
+        run_diag(photo_dlg, test_2)
+        assert photo_dlg.taken_img is None
+    pass

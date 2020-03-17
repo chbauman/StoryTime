@@ -360,7 +360,6 @@ def extract_date_from_image_name(img_file: str) -> Optional[wx.DateTime]:
     """
     p, filename = os.path.split(img_file)
     # Extract all numbers from string
-    valid = True
     nums = re.findall(r"\d+", filename)
     num_nums = len(nums)
     if num_nums < 1:
@@ -441,7 +440,7 @@ def find_new_name(img_name: str, same_date_file_list: List[str], ext: str) -> st
     raise ValueError("ERROR: Way too many fucking images.")
 
 
-def copy_img_file_to_imgs(lf):
+def copy_img_file_to_imgs(lf: str):
     """Copy an image to the Img folder.
 
     If there exists one with
@@ -529,13 +528,6 @@ def copyImgFileToImgsIfNotExistFull(old_f_name, date):
     if not useExisting:
         copy2(old_f_name, copied_file_name)
     return copied_file_name
-
-
-def copyImgFileToImgsIfNotExist(old_f_name, use_existing, new_f_name):
-    if not use_existing:
-        copy2(old_f_name, new_f_name)
-        return new_f_name
-    return old_f_name
 
 
 def create_dir(dir_name):
@@ -678,8 +670,8 @@ class AcceptPhoto(TwoButtonDialogBase):
     def __init__(self, parent=None, img=None, title="Accept photo?"):
         super().__init__(parent, title=title)
 
-        self.taken_img = img
-        self.InitUI()
+        if img is not None:
+            self.set_img(img)
         self.SetSize((400, 400))
         self.SetTitle(title)
         self.accepted = False
@@ -698,22 +690,23 @@ class AcceptPhoto(TwoButtonDialogBase):
         bmp = wx.StaticBitmap(self, -1, bmp, size=new_size)
         self.v_box.Add(bmp, proportion=0, flag=wx.ALL, border=5)
 
-        self.setup(pnl, "Accept", "Throw")
+        self.setup(pnl, "Accept", "Throw", False)
 
-    # Captures the current frame
+    def set_img(self, img):
+        self.taken_img = img
+        self.InitUI()
+
     def OnTakePic(self, e):
         print("Accepting img")
         self.accepted = True
-        self.Cleanup()
+        self.Close()
 
-    # Release the video capture
-    def Cleanup(self):
-        self.Destroy()
-        pass
+    # def Cleanup(self, destroy: bool = False):
+    #     self.Destroy()
 
     def OnClose(self, e):
         print("Cancelled Accept Dialog")
-        self.Cleanup()
+        self.Close()
 
 
 class SelfieDialog(TwoButtonDialogBase):
@@ -726,12 +719,16 @@ class SelfieDialog(TwoButtonDialogBase):
     _vid_capture = None
     _img_cap = None
 
+    accept_diag: AcceptPhoto
+
     def __init__(self, parent=None, title="Let me take a fucking selfie."):
         super().__init__(parent, title=title)
 
         self.InitUI()
         self.SetSize((400, 400))
         self.SetTitle(title)
+
+        self.accept_diag = AcceptPhoto(None, img=None)
 
     def InitUI(self):
         pnl = wx.Panel(self)
@@ -743,28 +740,31 @@ class SelfieDialog(TwoButtonDialogBase):
         self.v_box.Add(self._img_cap, proportion=0, flag=wx.ALL, border=5)
         self._img_cap.Show()
 
-        self.setup(pnl, "Shoot", "Cancel")
+        self.setup(pnl, "Shoot", "Cancel", False)
 
-    def OnTakePic(self, e):
+    def OnTakePic(self, e, fun: Callable = None):
         """Takes a picture with the webcam.
 
         Captures the current frame and
         shows the Dialog that lets the user accept the photo or decide
         to take another one.
         """
-        accept_diag = AcceptPhoto(None, img=self._img_cap.getCurrFrame())
-        accept_diag.ShowModal()
-        if accept_diag.accepted:
-            self.taken_img = accept_diag.orig_img
+        # accept_diag = AcceptPhoto(None, img=self._img_cap.getCurrFrame())
+        self.accept_diag.set_img(self._img_cap.getCurrFrame())
+        if fun is not None:
+            wx.CallAfter(fun)
+        self.accept_diag.ShowModal()
+        if self.accept_diag.accepted:
+            self.taken_img = self.accept_diag.orig_img
             self.Cleanup()
-        accept_diag.Destroy()
 
     def Cleanup(self):
         """Release the video capture.
         """
         self._vid_capture.release()
         cv2.destroyAllWindows()
-        self.Destroy()
+        self.accept_diag.Destroy()
+        self.Close()
 
     def OnClose(self, e):
         print("Cancelled Selfie Dialog")
