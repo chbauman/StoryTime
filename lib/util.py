@@ -11,7 +11,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from shutil import copy2
-from typing import List, Callable, Sequence
+from typing import List, Callable, Sequence, Optional
 
 import cv2
 import wx
@@ -351,7 +351,7 @@ def get_img_name_from_time(wx_dt: wx.DateTime) -> str:
     return name
 
 
-def extract_date_from_image_name(img_file: str):
+def extract_date_from_image_name(img_file: str) -> Optional[wx.DateTime]:
     """Extracts the date information from the image name.
 
     Tries to extract the date and optionally the time.
@@ -360,6 +360,7 @@ def extract_date_from_image_name(img_file: str):
     """
     p, filename = os.path.split(img_file)
     # Extract all numbers from string
+    valid = True
     nums = re.findall(r"\d+", filename)
     num_nums = len(nums)
     if num_nums < 1:
@@ -387,18 +388,21 @@ def extract_date_from_image_name(img_file: str):
             mins = num_curr % 100
             hour = num_curr // 100
 
+    valid = 0 < month <= 12 and 0 <= hour < 24 and 0 <= mins < 60
+    # TODO: Check better for valid date!
+
     # Check if date is valid
+    if not valid:
+        return None
     try:
         wx_dt = wx.DateTime(day, month - 1, year, hour, mins, sec)
-        if not wx_dt.IsValid():
-            return None
-        return wx_dt
+        return wx_dt if wx_dt.IsValid() else None
     except Exception as e:
         print(f"Exception: {e} happened :(")
         return None
 
 
-def get_time_from_file(img_file: str):
+def get_time_from_file(img_file: str) -> wx.DateTime:
     """Tries to extract the date from a filename.
 
     If there is none, returns the modified time
