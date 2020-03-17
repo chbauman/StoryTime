@@ -34,8 +34,8 @@ def init_XML(comm: str, year: int) -> elTree.ElementTree:
 
 
 def insertXmlTextEntryElement(doc, date_time, text):
-    elTree.SubElement(doc, "entry", date_time=date_time.FormatISOCombined(),
-                      type="text").text = text
+    dt = date_time.FormatISOCombined()
+    elTree.SubElement(doc, "entry", date_time=dt, type="text").text = text
 
 
 def insertXmlPhotoEntryElement(doc, date_time, img_filename, text) -> None:
@@ -54,7 +54,9 @@ def insertXmlPhotoEntryElement(doc, date_time, img_filename, text) -> None:
         print("ERROR: No fucking filename provided for inserting into XML.")
         return
     # TODO: Check if file exists
-    ent = elTree.SubElement(doc, "entry", date_time=date_time.FormatISOCombined(), type="photo")
+    ent = elTree.SubElement(
+        doc, "entry", date_time=date_time.FormatISOCombined(), type="photo"
+    )
     elTree.SubElement(ent, "text").text = text
     elTree.SubElement(ent, "photo").text = img_filename
 
@@ -147,7 +149,9 @@ def findLatestInDoc(tree, date_time, newer=False):
             continue
         wxDT = wx.DateTime()
         wxDT.ParseISOCombined(child.get("date_time"))
-        if (not newer and temp < wxDT < date_time) or (newer and temp > wxDT > date_time):
+        if (not newer and temp < wxDT < date_time) or (
+            newer and temp > wxDT > date_time
+        ):
             temp = wxDT
             curr_child = child
     if abs(temp.GetYear() - 50000) == 50000:
@@ -197,14 +201,16 @@ def convertFromTxt(txt_file):
     Returns:
 
     """
-    with open(txt_file, 'r', encoding='utf-8-sig') as f:
+    with open(txt_file, "r", encoding="utf-8-sig") as f:
         data = f.read()
         entry_list = data.split("\n\nDate: ")
         if entry_list[0][:6] == "Date: ":
             entry_list[0] = entry_list[0][6:]
         for k in entry_list:
             date, text = k.split("\n\n")
-            wxDT = wx.DateTime(int(date[8:10]), int(date[5:7]) - 1, int(date[:4]), int(date[17:19]), int(date[20:22]))
+            day, mon, year = int(date[8:10]), int(date[5:7]) - 1, int(date[:4])
+            hour, minute = int(date[17:19]), int(date[20:22])
+            wxDT = wx.DateTime(day, mon, year, hour, minute,)
             saveEntryInXml(text, wxDT)
         return
 
@@ -229,12 +235,13 @@ def addImgs(base_folder) -> None:
         dateTime = get_time_from_file(full_img_filename)
         text = "No Desc."
         if os.path.exists(img_desc_f_name):
-            with open(img_desc_f_name, 'r', encoding='utf-8-sig') as f_2:
+            with open(img_desc_f_name, "r", encoding="utf-8-sig") as f_2:
                 text = f_2.read()
         b_name_date = get_img_name_from_time(dateTime)
         ct = 0
         while True:
-            new_img_name = os.path.join(img_folder, b_name_date + "_" + str(ct) + file_ext)
+            f_name = f"{b_name_date}_{ct}{file_ext}"
+            new_img_name = os.path.join(img_folder, f_name)
             ct += 1
             if not os.path.exists(new_img_name):
                 break

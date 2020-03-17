@@ -11,7 +11,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from shutil import copy2
-from typing import List
+from typing import List, Callable, Sequence
 
 import cv2
 import wx
@@ -85,8 +85,9 @@ def get_info_from_file(ask: bool = True):
             create_xml_and_img_folder(fol_path)
             return fol_path
         elif ask:
-            cdDiag = wx.DirDialog(None, "Choose directory to store Imgs and Text data.", "",
-                                  wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
+            dial_text = "Choose directory to store Imgs and Text data."
+            flags = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
+            cdDiag = wx.DirDialog(None, dial_text, "", flags)
             cdDiag.ShowModal()
             files_path = cdDiag.GetPath()
             create_xml_and_img_folder(files_path)
@@ -125,9 +126,15 @@ class ButtonDialogBase(wx.Dialog):
 
 
 class TwoButtonDialogBase(ButtonDialogBase):
-
-    def setup(self, pnl: wx.Panel, shoot_label: str, cancel_label: str,
-              bind_self_to_on_close: bool = True, shoot_fun=None, cancel_fun=None):
+    def setup(
+        self,
+        pnl: wx.Panel,
+        shoot_label: str,
+        cancel_label: str,
+        bind_self_to_on_close: bool = True,
+        shoot_fun: Callable = None,
+        cancel_fun: Callable = None,
+    ):
         if shoot_fun is None:
             shoot_fun = self.OnTakePic
         if cancel_fun is None:
@@ -155,6 +162,7 @@ class TwoButtonDialogBase(ButtonDialogBase):
 
 class ChangeDateDialog(TwoButtonDialogBase):
     """Date and Time picker dialog"""
+
     dt: wx.DateTime
     cal: wx.adv.CalendarCtrl
     timePicker: wx.adv.TimePickerCtrl
@@ -171,7 +179,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
         pnl = wx.Panel(self)
 
         # Calendar and Time Picker
-        sb = wx.StaticBox(pnl, label='Select Date and Time')
+        sb = wx.StaticBox(pnl, label="Select Date and Time")
         sbs = wx.StaticBoxSizer(sb, orient=wx.HORIZONTAL)
         self.cal = wx.adv.CalendarCtrl(pnl)
         sbs.Add(self.cal, flag=wx.ALL, border=5)
@@ -181,7 +189,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
 
         # Add buttons
         self.v_box = wx.BoxSizer(wx.VERTICAL)
-        self.setup(pnl, 'Ok', 'Cancel', False, self.OnOK, self.OnClose)
+        self.setup(pnl, "Ok", "Cancel", False, self.OnOK, self.OnClose)
 
     def OnClose(self, e):
         print("Closed Change Date Dialog")
@@ -207,13 +215,18 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
     next_button: wx.Button
     prev_button: wx.Button
 
-    def __init__(self, file_list, parent=None, title="Image with same date already exists"):
+    def __init__(
+        self,
+        file_list: Sequence,
+        parent=None,
+        title: str = "Image with same date already exists",
+    ):
         super(PhotoWithSameDateExistsDialog, self).__init__(parent, title=title)
 
-        self.fileList = file_list
+        self.file_list = file_list
         self.chosenImgInd = None
         self.shownImgInd = 0
-        self.maxInd = len(file_list)
+        self.n_files = len(file_list)
         self.InitUI()
         self.SetSize((400, 300))
         self.SetTitle(title)
@@ -231,14 +244,14 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
 
         # Buttons
         h_box = wx.BoxSizer(wx.HORIZONTAL)
-        selectButton = wx.Button(self, label='Select')
-        newButton = wx.Button(self, label='New')
+        selectButton = wx.Button(self, label="Select")
+        newButton = wx.Button(self, label="New")
 
         h_box.Add(selectButton)
 
-        if self.maxInd > 1:  # No next / previous if there is only one
-            self.next_button = wx.Button(self, label='Next')
-            self.prev_button = wx.Button(self, label='Previous')
+        if self.n_files > 1:  # No next / previous if there is only one
+            self.next_button = wx.Button(self, label="Next")
+            self.prev_button = wx.Button(self, label="Previous")
             self.prev_button.Disable()
             h_box.Add(self.prev_button)
             h_box.Add(self.next_button)
@@ -250,7 +263,8 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         newButton.Bind(wx.EVT_BUTTON, self.OnNew)
 
     def get_img_at_ind(self, ind):
-        return getImageToShow(os.path.join(img_folder, self.fileList[ind]), size=100, border=5)
+        pth = os.path.join(img_folder, self.file_list[ind])
+        return getImageToShow(pth, size=100, border=5)
 
     def updateImg(self):
         ind = self.shownImgInd
@@ -260,7 +274,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
     def OnNext(self, _):
         print("Next Image")
         self.shownImgInd += 1
-        if self.shownImgInd == self.maxInd - 1:
+        if self.shownImgInd == self.n_files - 1:
             self.next_button.Disable()
         if self.shownImgInd == 1:
             self.prev_button.Enable()
@@ -271,7 +285,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         self.shownImgInd -= 1
         if self.shownImgInd == 0:
             self.prev_button.Disable()
-        if self.shownImgInd == self.maxInd - 2:
+        if self.shownImgInd == self.n_files - 2:
             self.next_button.Enable()
         self.updateImg()
         print("Prev img")
@@ -322,8 +336,18 @@ def pad_int_str(int_to_pad: int, n: int = 2) -> str:
 def get_img_name_from_time(wx_dt: wx.DateTime) -> str:
     """Gives the image basename from the wx.DateTime.
     """
-    name = "IMG_" + pad_int_str(wx_dt.GetYear(), 4) + pad_int_str(wx_dt.GetMonth() + 1) + pad_int_str(wx_dt.GetDay())
-    name = name + "_" + pad_int_str(wx_dt.GetHour()) + pad_int_str(wx_dt.GetMinute()) + pad_int_str(wx_dt.GetSecond())
+    name = (
+        "IMG_"
+        + pad_int_str(wx_dt.GetYear(), 4)
+        + pad_int_str(wx_dt.GetMonth() + 1)
+        + pad_int_str(wx_dt.GetDay())
+    )
+    name = (
+        f"{name}_"
+        + pad_int_str(wx_dt.GetHour())
+        + pad_int_str(wx_dt.GetMinute())
+        + pad_int_str(wx_dt.GetSecond())
+    )
     return name
 
 
@@ -336,7 +360,7 @@ def extract_date_from_image_name(img_file: str):
     """
     p, filename = os.path.split(img_file)
     # Extract all numbers from string
-    nums = re.findall(r'\d+', filename)
+    nums = re.findall(r"\d+", filename)
     num_nums = len(nums)
     if num_nums < 1:
         print("No Date extracted!")
@@ -348,7 +372,7 @@ def extract_date_from_image_name(img_file: str):
         return None
     year = date // 10000
     rem = date - year * 10000
-    month = (rem // 100)
+    month = rem // 100
     day = rem - month * 100
     hour = mins = sec = 0
 
@@ -616,7 +640,7 @@ class ShowCapture(wx.Panel):
         self.bmp = wx.Bitmap.FromBuffer(self.h, self.w, frame)
 
         self.timer = wx.Timer(self)
-        self.timer.Start(1000. / fps)
+        self.timer.Start(1000.0 / fps)
 
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_TIMER, self.NextFrame)
@@ -670,7 +694,7 @@ class AcceptPhoto(TwoButtonDialogBase):
         bmp = wx.StaticBitmap(self, -1, bmp, size=new_size)
         self.v_box.Add(bmp, proportion=0, flag=wx.ALL, border=5)
 
-        self.setup(pnl, 'Accept', 'Throw')
+        self.setup(pnl, "Accept", "Throw")
 
     # Captures the current frame
     def OnTakePic(self, e):
@@ -715,7 +739,7 @@ class SelfieDialog(TwoButtonDialogBase):
         self.v_box.Add(self._img_cap, proportion=0, flag=wx.ALL, border=5)
         self._img_cap.Show()
 
-        self.setup(pnl, 'Shoot', 'Cancel')
+        self.setup(pnl, "Shoot", "Cancel")
 
     def OnTakePic(self, e):
         """Takes a picture with the webcam.

@@ -12,9 +12,24 @@ import wx
 
 from lib import util
 from lib.XML_write import saveEntryInXml, addImgs, convertFromTxt, getLastXMLEntry
-from lib.util import FileDrop, icon_path, ChangeDateDialog, get_info_from_file, update_folder, scale_bitmap, \
-    format_date_time, getImageToShow, SelfieDialog, get_img_name_from_time, temp_folder, create_dir, \
-    copyImgFileToImgsIfNotExistFull, create_xml_and_img_folder, write_folder_to_file, rep_newlines_with_space
+from lib.util import (
+    FileDrop,
+    icon_path,
+    ChangeDateDialog,
+    get_info_from_file,
+    update_folder,
+    scale_bitmap,
+    format_date_time,
+    getImageToShow,
+    SelfieDialog,
+    get_img_name_from_time,
+    temp_folder,
+    create_dir,
+    copyImgFileToImgsIfNotExistFull,
+    create_xml_and_img_folder,
+    write_folder_to_file,
+    rep_newlines_with_space,
+)
 
 
 ID_MENU_PHOTO = wx.NewId()
@@ -25,6 +40,8 @@ ID_MENU_IMPORT = wx.NewId()
 ID_CLICK_BUTTON = wx.NewId()
 ID_CLICK_OK_BUTTON = wx.NewId()
 
+LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
+
 
 class StoryTimeApp(wx.Frame):
     """The Story Time App.
@@ -33,6 +50,7 @@ class StoryTimeApp(wx.Frame):
     and opens other frames / dialogs when certain buttons
     are pushed.
     """
+
     count: int
 
     # GUI elements
@@ -60,9 +78,11 @@ class StoryTimeApp(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(StoryTimeApp, self).__init__(*args, **kwargs)
         self.defaultImg = os.path.join(icon_path, "default_img.png")
-        self.cdDialog = ChangeDateDialog(None, title='Change Date of entry')
+        self.cdDialog = ChangeDateDialog(None, title="Change Date of entry")
         icon = wx.Icon()
-        icon.CopyFromBitmap(wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY))
+        icon.CopyFromBitmap(
+            wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY)
+        )
         self.SetIcon(icon)
         files_path = get_info_from_file()
         update_folder(files_path)
@@ -70,7 +90,7 @@ class StoryTimeApp(wx.Frame):
         print("util.img_folder", util.img_folder)
         self.InitUI()
         self.SetSize((700, 600))
-        self.SetTitle('Story Time')
+        self.SetTitle("Story Time")
         self.Center()
 
         self.imgLoaded = False
@@ -83,16 +103,47 @@ class StoryTimeApp(wx.Frame):
         self.toolbar.SetToolBitmapSize(iconSize)
 
         tool_list = [
-            ('save_icon.png', wx.ID_SAVE, 'Save', "Save entry.", self.OnSave),
-            ('photo_icon.png', ID_MENU_PHOTO, 'Photo', "Change to photo mode.", self.OnPhoto),
-            ('calendar_icon.png', ID_MENU_CHANGE_DATE, 'Change', "Choose another date and time.", self.OnChangeDate),
-            ('folder_icon.png', ID_MENU_CHOOSE_DIR, 'Dir', "Change directory.", self.OnChangeDir),
-            ('import_icon.png', ID_MENU_IMPORT, 'Import', "Import text or images from old version.", self.OnImport),
-            ('webcam_icon.png', ID_MENU_SELFIE, 'Selfie', "Take a picture with your webcam.", self.OnSelfie),
+            ("save_icon.png", wx.ID_SAVE, "Save", "Save entry.", self.OnSave),
+            (
+                "photo_icon.png",
+                ID_MENU_PHOTO,
+                "Photo",
+                "Change to photo mode.",
+                self.OnPhoto,
+            ),
+            (
+                "calendar_icon.png",
+                ID_MENU_CHANGE_DATE,
+                "Change",
+                "Choose another date and time.",
+                self.OnChangeDate,
+            ),
+            (
+                "folder_icon.png",
+                ID_MENU_CHOOSE_DIR,
+                "Dir",
+                "Change directory.",
+                self.OnChangeDir,
+            ),
+            (
+                "import_icon.png",
+                ID_MENU_IMPORT,
+                "Import",
+                "Import text or images from old version.",
+                self.OnImport,
+            ),
+            (
+                "webcam_icon.png",
+                ID_MENU_SELFIE,
+                "Selfie",
+                "Take a picture with your webcam.",
+                self.OnSelfie,
+            ),
         ]
         for ct, t in enumerate(tool_list):
             icon_name, tool_id, name, help_txt, met = t
-            icon = scale_bitmap(wx.Bitmap(os.path.join(icon_path, icon_name)), *iconSize)
+            b_map = wx.Bitmap(os.path.join(icon_path, icon_name))
+            icon = scale_bitmap(b_map, *iconSize)
             tool = self.toolbar.AddTool(tool_id, name, icon, shortHelp=help_txt)
             self.Bind(wx.EVT_TOOL, met, tool)
             tool_list[ct] = tool
@@ -117,18 +168,19 @@ class StoryTimeApp(wx.Frame):
 
         # Datum
         self.h_box_1 = wx.BoxSizer(wx.HORIZONTAL)
-        self.dateLabel = wx.StaticText(self.main_panel, label='Date: ' + format_date_time(self.cdDialog.dt))
+        lab = "Date: " + format_date_time(self.cdDialog.dt)
+        self.dateLabel = wx.StaticText(self.main_panel, label=lab)
         self.dateLabel.SetFont(font)
         self.h_box_1.Add(self.dateLabel, flag=wx.RIGHT, border=8)
         tc = wx.StaticText(self.main_panel)
         self.h_box_1.Add(tc, proportion=1)
-        self.v_box.Add(self.h_box_1, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+        self.v_box.Add(self.h_box_1, flag=LR_EXPAND | wx.TOP, border=10)
 
         self.v_box.Add((-1, 10))
 
         # Text
         h_box_2 = wx.BoxSizer(wx.HORIZONTAL)
-        st2 = wx.StaticText(self.main_panel, label='Input text below')
+        st2 = wx.StaticText(self.main_panel, label="Input text below")
         st2.SetFont(font)
         h_box_2.Add(st2)
         self.v_box.Add(h_box_2, flag=wx.LEFT | wx.TOP, border=10)
@@ -139,7 +191,7 @@ class StoryTimeApp(wx.Frame):
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
         self.input_text_field = wx.TextCtrl(self.main_panel, style=wx.TE_MULTILINE)
         h_box_3.Add(self.input_text_field, proportion=1, flag=wx.EXPAND)
-        self.v_box.Add(h_box_3, proportion=1, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=10)
+        self.v_box.Add(h_box_3, proportion=1, flag=LR_EXPAND, border=10)
 
         self.v_box.Add((-1, 25))
 
@@ -154,19 +206,24 @@ class StoryTimeApp(wx.Frame):
         self.h_box_4.Add(self.image_drop_space, proportion=0, flag=wx.ALL, border=5)
 
         # Bottom right text field
-        text_shown = 'Default text.'
-        self.fix_text_box = wx.StaticText(self.main_panel, label=text_shown, style=wx.TE_MULTILINE, size=(-1, 190))
-        self.h_box_4.Add(self.fix_text_box, proportion=1, flag=wx.EXPAND | wx.ALL, border=5)
-        self.v_box.Add(self.h_box_4, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
+        text_shown = "Default text."
+        self.fix_text_box = wx.StaticText(
+            self.main_panel, label=text_shown, style=wx.TE_MULTILINE, size=(-1, 190)
+        )
+        EXP_ALL = wx.EXPAND | wx.ALL
+        self.h_box_4.Add(self.fix_text_box, proportion=1, flag=EXP_ALL, border=5)
+        self.v_box.Add(self.h_box_4, proportion=1, flag=EXP_ALL, border=5)
 
         self.v_box.Add((-1, 25))
 
         # Buttons
         h_box_5 = wx.BoxSizer(wx.HORIZONTAL)
-        btn1 = wx.Button(self.main_panel, ID_CLICK_OK_BUTTON, label='Save', size=(70, 30))
+        btn1 = wx.Button(
+            self.main_panel, ID_CLICK_OK_BUTTON, label="Save", size=(70, 30)
+        )
         self.Bind(wx.EVT_BUTTON, self.OnOKButtonClick, id=ID_CLICK_OK_BUTTON)
         h_box_5.Add(btn1)
-        btn2 = wx.Button(self.main_panel, ID_CLICK_BUTTON, label='Close', size=(70, 30))
+        btn2 = wx.Button(self.main_panel, ID_CLICK_BUTTON, label="Close", size=(70, 30))
         self.Bind(wx.EVT_BUTTON, self.OnCloseButtonClick, id=ID_CLICK_BUTTON)
         h_box_5.Add(btn2, flag=wx.LEFT | wx.BOTTOM, border=5)
         self.v_box.Add(h_box_5, flag=wx.ALIGN_RIGHT | wx.RIGHT, border=10)
@@ -235,13 +292,13 @@ class StoryTimeApp(wx.Frame):
         """
         textStr = self.input_text_field.GetValue()
         if textStr != "" or self.imgLoaded:
-            add_string = ', the loaded image' if self.imgLoaded else ''
+            add_string = ", the loaded image" if self.imgLoaded else ""
             tog = self.photoTool.IsToggled()
-            msg = 'If you change mode, the text' + add_string + \
-                  ' and the chosen time will be lost. Do you want to proceed?'
-            dial = wx.MessageDialog(None, msg, 'Warning',
-                                    wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
-            dial.SetYesNoLabels('Fuck yeah!', 'No fucking way!')
+            msg = f"If you change mode, the text{add_string} and the chosen time will be lost. Do you want to proceed?"
+            dial = wx.MessageDialog(
+                None, msg, "Warning", wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION
+            )
+            dial.SetYesNoLabels("Fuck yeah!", "No fucking way!")
             ans = dial.ShowModal()
             if ans == wx.ID_NO:
                 # Toggle back
@@ -287,7 +344,7 @@ class StoryTimeApp(wx.Frame):
         # Check if there is any text at all
         textStr = self.input_text_field.GetValue()
         if textStr == "":
-            wx.MessageBox("No fucking text!!", 'Info', wx.OK | wx.ICON_EXCLAMATION)
+            wx.MessageBox("No fucking text!!", "Info", wx.OK | wx.ICON_EXCLAMATION)
             return
 
         # Check which mode is on
@@ -296,7 +353,7 @@ class StoryTimeApp(wx.Frame):
             # Check if there is an image
             lf = self.fileDrop.loadedFile
             if lf is None:
-                wx.MessageBox("No fucking image!!", 'Info', wx.OK | wx.ICON_EXCLAMATION)
+                wx.MessageBox("No fucking image!!", "Info", wx.OK | wx.ICON_EXCLAMATION)
                 return
 
             # Save image entry
@@ -343,10 +400,10 @@ class StoryTimeApp(wx.Frame):
         self.set_date_to_now()
 
     def OnImport(self, _):
-        msg = 'Do you want to add images in a folder or text entries from a .txt file?'
-        dial = wx.MessageDialog(None, msg, 'Question',
-                                wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION | wx.CANCEL_DEFAULT)
-        dial.SetYesNoLabels('Text of course!', 'Fucking images!')
+        msg = "Do you want to add images in a folder or text entries from a .txt file?"
+        flags = wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION | wx.CANCEL_DEFAULT
+        dial = wx.MessageDialog(None, msg, "Question", flags)
+        dial.SetYesNoLabels("Text of course!", "Fucking images!")
         imp_imgs = None
         ans = dial.ShowModal()
         if ans == wx.ID_NO:
@@ -367,8 +424,10 @@ class StoryTimeApp(wx.Frame):
                 return
             addImgs(files_path)
         else:
-            with wx.FileDialog(self, "Open Text file", wildcard="Text files (*.txt)|*.txt",
-                               style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
+            wc, style = "Text files (*.txt)|*.txt", wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
+            with wx.FileDialog(
+                self, "Open Text file", wildcard=wc, style=style
+            ) as fileDialog:
 
                 if fileDialog.ShowModal() == wx.ID_CANCEL:
                     return  # the user changed their mind
@@ -412,8 +471,8 @@ class StoryTimeApp(wx.Frame):
         """
         if new_date is not None:
             self.cdDialog.dt = new_date
-        self.dateLabel.SetLabel('Date: ' + format_date_time(self.cdDialog.dt))
-        self.fix_text_box.SetLabel('Hoi')  # Probably unnecessary.
+        self.dateLabel.SetLabel("Date: " + format_date_time(self.cdDialog.dt))
+        self.fix_text_box.SetLabel("This is a bug!")  # Probably unnecessary.
         self.update_preview_text()
 
     @staticmethod
