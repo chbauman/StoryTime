@@ -21,13 +21,16 @@ class TestMain(TestCase):
 
             s_dlg.OnTakePic(None, inner)
 
-        def clickOK(dlg):
+        def click_on_close(dlg):
             dlg.OnClose(None)
+
+        def discard_text(d):
+            d.OnOK(None)
 
         def fun():
             # Set text, change date and save
             ex.input_text_field.SetValue("Sample Text")
-            ex.OnChangeDate(None, clickOK)
+            ex.OnChangeDate(None, click_on_close)
             ex.OnSave(None)
 
             # Change to photo mode, add image and save
@@ -46,6 +49,13 @@ class TestMain(TestCase):
             # Change back to text input and close
             ex.OnPhoto(None)
             ex.toolbar.ToggleTool(ID_MENU_PHOTO, False)
+
+            # Set text and try changing to photo mode
+            ex.input_text_field.SetValue("Image Sample Text")
+            ex.OnSelfie(None, _photo_fun=click_on_close)
+            ex.input_text_field.SetValue("Image Sample Text")
+            ex.OnSelfie(None, take_selfie, _photo_fun=discard_text)
+            ex.toolbar.ToggleTool(ID_MENU_PHOTO, True)
             ex.OnCloseButtonClick(None)
 
         with change_info_txt(DATA_DIR):

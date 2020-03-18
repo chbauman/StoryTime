@@ -30,6 +30,7 @@ from lib.util import (
     write_folder_to_file,
     rep_newlines_with_space,
     copy_img_file_to_imgs,
+    CustomMessageDialog,
 )
 
 ID_MENU_PHOTO = wx.Window.NewControlId()
@@ -263,14 +264,14 @@ class StoryTimeApp(wx.Frame):
         """
         self.OnOKButtonClick(e)
 
-    def OnSelfie(self, e, _diag_fun: Callable = None) -> None:
+    def OnSelfie(self, e, _diag_fun: Callable = None, _photo_fun: Callable = None) -> None:
         """Opens dialog that shows the webcam and lets you take a picture
         with it which is added to the preview window then.
         """
         # Go to photo mode if not there yet
         if not self.photoTool.IsToggled():
             # Abort if canceled
-            if self.OnPhoto(e) == -1:
+            if self.OnPhoto(e, _photo_fun) == -1:
                 self.toolbar.ToggleTool(ID_MENU_PHOTO, False)
                 return
             self.toolbar.ToggleTool(ID_MENU_PHOTO, True)
@@ -293,30 +294,34 @@ class StoryTimeApp(wx.Frame):
             self.set_img_with_date(f_path, curr_dt)
             self.fileDrop.loadedFile = f_path
 
-    def OnPhoto(self, _) -> None:
+    def OnPhoto(self, _, _deb_fun: Callable = None) -> int:
         """Change to photo mode or back.
 
         If there is text in the textfield or an image loaded warn
         the user that it will be lost if he continues.
         """
+        print("photoTool clicked")
         textStr = self.input_text_field.GetValue()
         if textStr != "" or self.imgLoaded:
             add_string = ", the loaded image" if self.imgLoaded else ""
             tog = self.photoTool.IsToggled()
             msg = f"If you change mode, the text{add_string} and the chosen time will be lost. Do you want to proceed?"
-            dial = wx.MessageDialog(
-                None, msg, "Warning", wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION
+
+            md = CustomMessageDialog(
+                msg,
+                "Warning",
+                self,
+                ok_label="Fuck yeah!",
+                cancel_label="No fucking way!",
             )
-            dial.SetYesNoLabels("Fuck yeah!", "No fucking way!")
-            ans = dial.ShowModal()
-            if ans == wx.ID_NO:
-                # Toggle back
+            if _deb_fun is not None:
+                wx.CallAfter(_deb_fun, md)
+            md.ShowModal()
+            if not md.okay:
                 self.toolbar.ToggleTool(ID_MENU_PHOTO, not tog)
                 return -1
-            elif ans == wx.ID_YES:
-                self.remove_written_text()
             else:
-                print("WTF")
+                self.remove_written_text()
 
         # Toggle the showing of the Image (drop space)
         if self.image_drop_space.IsShown():
@@ -329,7 +334,7 @@ class StoryTimeApp(wx.Frame):
         # Update date and time and the layout
         self.set_date_to_now()
         self.main_panel.Layout()
-        print("photoTool clicked")
+        return 0
 
     def OnCloseButtonClick(self, e):
         """Same as clicking X. Closes the application.
@@ -386,7 +391,6 @@ class StoryTimeApp(wx.Frame):
         """
         Shows dialog that lets the user change the current date.
         """
-        assert _fun is not None
         if _fun is not None:
             wx.CallAfter(_fun, self.cdDialog)
         self.cdDialog.ShowModal()

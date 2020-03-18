@@ -63,7 +63,9 @@ def create_xml_and_img_folder(base_folder: str) -> None:
     return
 
 
-def check_date_time(y: int, mon: int, d: int, h: int = 0, minute: int = 0, sec: int = 0) -> bool:
+def check_date_time(
+    y: int, mon: int, d: int, h: int = 0, minute: int = 0, sec: int = 0
+) -> bool:
     """Checks if the provided date and time is valid."""
     try:
         datetime(y, mon, d, h, minute, sec)
@@ -125,6 +127,7 @@ def scale_bitmap(bitmap: wx.Bitmap, width: int, height: int) -> wx.Bitmap:
 
 class ButtonDialogBase(wx.Dialog):
     """Base class for a dialog with a button."""
+
     v_box: wx.BoxSizer
 
     def setup_v_box(self, h_box, h_button, pnl):
@@ -136,6 +139,7 @@ class ButtonDialogBase(wx.Dialog):
 
 class TwoButtonDialogBase(ButtonDialogBase):
     """Base class for a dialog with at least two buttons."""
+
     def setup(
         self,
         pnl: wx.Panel,
@@ -152,8 +156,8 @@ class TwoButtonDialogBase(ButtonDialogBase):
 
         # Buttons
         shootButton = wx.Button(self, label=shoot_label)
-        cancelButton = wx.Button(self, label=cancel_label)
         shootButton.Bind(wx.EVT_BUTTON, shoot_fun)
+        cancelButton = wx.Button(self, label=cancel_label)
         cancelButton.Bind(wx.EVT_BUTTON, cancel_fun)
 
         # Layout
@@ -167,6 +171,49 @@ class TwoButtonDialogBase(ButtonDialogBase):
 
     def OnClose(self, e):
         pass
+
+
+class CustomMessageDialog(TwoButtonDialogBase):
+
+    okay: bool = False
+
+    def __init__(
+        self,
+        message: str = None,
+        title: str = "Message",
+        *args,
+        cancel_only: bool = False,
+        ok_label: str = "Ok",
+        cancel_label: str = "Cancel",
+        **kw,
+    ):
+        super().__init__(*args, **kw)
+        self.SetTitle(title)
+        pnl = wx.Panel(self)
+        self.v_box = wx.BoxSizer(wx.VERTICAL)
+
+        if message is not None:
+            stMsg = wx.StaticText(self, -1, message)
+            self.v_box.Add(stMsg, 1, wx.ALIGN_CENTER | wx.ALL, 10)
+
+        self.SetSizer(self.v_box)
+
+        if cancel_only:
+            h_box = wx.BoxSizer(wx.HORIZONTAL)
+            cancel_butt = wx.Button(self, label=cancel_label)
+            cancel_butt.Bind(wx.EVT_BUTTON, self.OnOK)
+            self.setup_v_box(h_box, cancel_butt, pnl)
+        else:
+            self.setup(pnl, ok_label, cancel_label, self.OnOK, self.OnClose)
+
+    def OnOK(self, _):
+        print("Okay")
+        self.okay = True
+        self.Close()
+
+    def OnClose(self, _):
+        print("cancel")
+        self.Close()
 
 
 class ChangeDateDialog(TwoButtonDialogBase):
@@ -429,8 +476,9 @@ def find_all_imgs_with_same_date(imgs_folder: str, img_name: str) -> List[str]:
     return res
 
 
-def find_new_name(img_name: str, same_date_file_list: List[str],
-                  ext: str, max_n_imgs: int = 10000) -> str:
+def find_new_name(
+    img_name: str, same_date_file_list: List[str], ext: str, max_n_imgs: int = 10000
+) -> str:
     """Chooses a new filename that is not in the list and
     contains the img_name in the beginning by appending an
     int to the filename separated by an underscore.

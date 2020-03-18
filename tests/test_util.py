@@ -28,7 +28,10 @@ from lib.util import (
     find_all_imgs_with_same_date,
     copy_img_file_to_imgs,
     create_dir,
-    TwoButtonDialogBase, AcceptPhoto)
+    TwoButtonDialogBase,
+    AcceptPhoto,
+    CustomMessageDialog,
+)
 
 DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
 SAMPLE_IMG_DIR = os.path.join(DATA_DIR, "sample_imgs")
@@ -222,6 +225,32 @@ def run_diag(dlg, fun, destroy: bool = True):
 
 
 class TestGUIElements(TestCase):
+    def test_message_dlg(self):
+        def abort(d):
+            d.OnClose(None)
+
+        def ok(d):
+            d.OnOK(None)
+
+        with create_app():
+            app, frame = init_app()
+            md = CustomMessageDialog("Message", "title", frame)
+            wx.CallAfter(abort, md)
+            assert md.ShowModal() == wx.ID_CANCEL
+
+            print(f"Cancel: {wx.ID_CANCEL}")
+            print(f"Ok: {wx.ID_OK}")
+            print(f"Cancel: {wx.ID_YES}")
+
+            md = CustomMessageDialog("Message", "title", frame)
+            wx.CallAfter(ok, md)
+            assert md.ShowModal() == wx.ID_CANCEL
+
+            md = CustomMessageDialog("Message", "title", frame, cancel_only=True)
+            wx.CallAfter(ok, md)
+            ans = md.ShowModal()
+            assert ans == wx.ID_CANCEL
+
     def test_file_drop(self):
         class DummyFrame:
             def set_img_with_date(self, *args, **kwargs):
@@ -310,4 +339,5 @@ class TestGUIElements(TestCase):
             img = cv2.imread(os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg"), 0)
             img2 = cv2.merge((img, img, img))
             AcceptPhoto(img=img2)
+
     pass
