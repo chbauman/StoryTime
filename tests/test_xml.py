@@ -1,4 +1,5 @@
 import os
+import shutil
 from unittest import TestCase
 import xml.etree.cElementTree as elTree
 
@@ -12,7 +13,7 @@ from lib.XML_write import (
     getXMLAndFilename,
     saveEntryInXml,
     findLatestInDoc,
-)
+    getLastXMLEntry)
 from lib import util
 from tests.test_util import DATA_DIR
 
@@ -81,4 +82,23 @@ class TestXML(TestCase):
         wx_dt_found, t = findLatestInDoc(el_tree, wx_dt_find, newer=False)
         assert wx.DateTime(2, 11, 2020, n, 31).IsEqualTo(wx_dt_found)
 
+    def test_get_last_entry(self):
+        lib.util.xml_folder = XML_DIR
+        try:
+            n = 3
+            for k in range(n):
+                wx_dt = wx.DateTime(2, 11, 2020 + k, 4, 31)
+                saveEntryInXml(f"Test{k}", wx_dt, "text")
+                wx_dt = wx.DateTime(2, 11, 2020 + k, 5, 31)
+                saveEntryInXml(f"Test{k}_photo", wx_dt, "photo", f"test_photo_{k}.jpg")
+
+            search_dt = wx.DateTime(2, 11, 2021, 5, 11)
+            dt, ch_txt = getLastXMLEntry(search_dt, True)
+            assert ch_txt.get("type") == "photo"
+            dt, ch_txt = getLastXMLEntry(search_dt, False)
+            assert ch_txt.text == "Test1"
+            dt, ch_txt = getLastXMLEntry(wx.DateTime(2, 11, 2021, 1, 11), False)
+            assert ch_txt.get("type") == "photo"
+        finally:
+            shutil.rmtree(XML_DIR)
     pass

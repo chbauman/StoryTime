@@ -35,7 +35,7 @@ def init_XML(comm: str, year: int) -> elTree.ElementTree:
 
 
 def insertXmlTextEntryElement(
-    doc: elTree.Element, date_time: wx.DateTime, text: str
+        doc: elTree.Element, date_time: wx.DateTime, text: str
 ) -> None:
     """Inserts a text entry into the XML element tree."""
     dt = date_time.FormatISOCombined()
@@ -43,7 +43,7 @@ def insertXmlTextEntryElement(
 
 
 def insertXmlPhotoEntryElement(
-    doc: elTree.Element, date_time: wx.DateTime, img_filename: str, text: str
+        doc: elTree.Element, date_time: wx.DateTime, img_filename: str, text: str
 ) -> None:
     """Inserts a photo entry element as a child of the elTree doc.
 
@@ -77,10 +77,10 @@ def getXMLAndFilename(year: int, create: bool = True) -> Tuple:
 
 
 def saveEntryInXml(
-    comm: str,
-    date_time: wx.DateTime,
-    entry_type: str = "text",
-    img_filename: str = None,
+        comm: str,
+        date_time: wx.DateTime,
+        entry_type: str = "text",
+        img_filename: str = None,
 ) -> None:
     """Reads the XML file and adds an entry element with the specified content
 
@@ -119,9 +119,7 @@ def find_next_older_xml_file(year: int, newer: bool = False):
     Returns:
 
     """
-    closest_year = -100000
-    if newer:
-        closest_year = 100000
+    closest_year = 100000 if newer else -100000
     for f in os.listdir(util.xml_folder):
         y = int(f.split(".")[0])
         if not newer and year > y > closest_year:
@@ -151,12 +149,10 @@ def findLatestInDoc(tree, date_time: wx.DateTime, newer: bool = False):
     temp = wx.DateTime(1, 1, 100000 if newer else 0)
     curr_child = None
     for child in doc:
-        if child.get("type") != "text":
-            continue
         wxDT = wx.DateTime()
         wxDT.ParseISOCombined(child.get("date_time"))
         if (not newer and temp < wxDT < date_time) or (
-            newer and temp > wxDT > date_time
+                newer and temp > wxDT > date_time
         ):
             temp = wxDT
             curr_child = child
@@ -165,7 +161,7 @@ def findLatestInDoc(tree, date_time: wx.DateTime, newer: bool = False):
     return temp, curr_child
 
 
-def getLastXMLEntry(dt, newer=False):
+def getLastXMLEntry(dt: wx.DateTime, newer: bool = False):
     """Get the latest entry before 'dt', if any
 
     Args:
@@ -195,7 +191,7 @@ def getLastXMLEntry(dt, newer=False):
 
     assert date_child is not None
     date, child = date_child
-    return date, child.text
+    return date, child
 
 
 def convertFromTxt(txt_file):
@@ -216,7 +212,7 @@ def convertFromTxt(txt_file):
             date, text = k.split("\n\n")
             day, mon, year = int(date[8:10]), int(date[5:7]) - 1, int(date[:4])
             hour, minute = int(date[17:19]), int(date[20:22])
-            wxDT = wx.DateTime(day, mon, year, hour, minute,)
+            wxDT = wx.DateTime(day, mon, year, hour, minute, )
             saveEntryInXml(text, wxDT)
         return
 

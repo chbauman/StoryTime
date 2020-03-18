@@ -163,6 +163,7 @@ class StoryTimeApp(wx.Frame):
         self.toolbar.Realize()
 
     def setup_one_line_static(self, lab: str, font):
+        """Adds a static textbox spanning one line."""
         h_box_1 = wx.BoxSizer(wx.HORIZONTAL)
         stat_text = wx.StaticText(self.main_panel, label=lab)
         stat_text.SetFont(font)
@@ -173,7 +174,7 @@ class StoryTimeApp(wx.Frame):
         self.v_box.Add((-1, 10))
         return h_box_1, stat_text
 
-    def InitUI(self):
+    def InitUI(self) -> None:
 
         self.count = 5
 
@@ -489,27 +490,26 @@ class StoryTimeApp(wx.Frame):
         self.fix_text_box.SetLabel("This is a bug!")  # Probably unnecessary.
         self.update_preview_text()
 
-    @staticmethod
-    def _get_text_to_put(date_and_text: Sequence = None, last: bool = True) -> str:
-        if date_and_text is None:
+    def _get_text_to_put(self, last: bool = True) -> str:
+        ret_val = getLastXMLEntry(self.cdDialog.dt, not last)
+        if ret_val is None:
             return ""
+        date, child = ret_val
+        child_text = child.text if child.get("type") == "text" else "Photo: " + child.find("text").text
         ret_str = "Last" if last else "Next"
-        ret_str += format_date_time(date_and_text[0]) + "\n\n"
-        ret_str += rep_newlines_with_space(date_and_text[1]) + "\n\n"
+        ret_str += " entry: " + format_date_time(date) + "\n\n"
+        ret_str += rep_newlines_with_space(child_text) + "\n\n"
         return ret_str
 
     def update_preview_text(self):
         """Fills the static datetime text with the most recent entries
         for preview.
         """
-        # Get most recent last and next XML text entries (if existing).
-        date_and_text = getLastXMLEntry(self.cdDialog.dt)
-        next_date_and_text = getLastXMLEntry(self.cdDialog.dt, True)
 
         # Construct the text to put into the preview panel.
         text_to_put = ""
-        text_to_put += self._get_text_to_put(date_and_text, True)
-        text_to_put += self._get_text_to_put(next_date_and_text, False)
+        text_to_put += self._get_text_to_put(True)
+        text_to_put += self._get_text_to_put(False)
         if text_to_put == "":
             text_to_put = "No older entry present."
 
