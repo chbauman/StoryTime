@@ -52,7 +52,7 @@ def rep_newlines_with_space(string: str) -> str:
 
 
 def create_xml_and_img_folder(base_folder: str) -> None:
-    """Create a folder for the XML and the image files.
+    """Create a folder for the XML and the image files in `base_folder`.
     """
     xml_pth = os.path.join(base_folder, "XML")
     if not os.path.isdir(xml_pth):
@@ -63,22 +63,32 @@ def create_xml_and_img_folder(base_folder: str) -> None:
     return
 
 
-def get_info_from_file(ask: bool = True) -> Optional[str]:
+def check_date_time(y: int, mon: int, d: int, h: int = 0, minute: int = 0, sec: int = 0) -> bool:
+    """Checks if the provided date and time is valid."""
+    try:
+        datetime(y, mon, d, h, minute, sec)
+    except ValueError:
+        return False
+    return True
+
+
+def get_info_from_file(ask: bool = True, _fun: Callable = None) -> Optional[str]:
     """Read the info file and get necessary information
+
+    Also creates sub-folders if they do not exist.
 
     Args:
         ask: Whether to ask for a directory.
+        _fun: Function to call when dialog pops up. For testing.
 
     Returns:
-
+        Contents of the file.
     """
     if not os.path.exists("Info.txt"):
         with open("Info.txt", "w") as f:
             f.write("NoDirectorySpecified")
     with open("Info.txt") as file:
         data = file.readlines()
-        print(data)
-
         if data != [] and os.path.isdir(data[0]):
             fol_path = data[0]
             create_xml_and_img_folder(fol_path)
@@ -87,21 +97,22 @@ def get_info_from_file(ask: bool = True) -> Optional[str]:
             dial_text = "Choose directory to store Imgs and Text data."
             flags = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
             cdDiag = wx.DirDialog(None, dial_text, "", flags)
+            if _fun is not None:
+                wx.CallAfter(_fun, cdDiag)
             cdDiag.ShowModal()
             files_path = cdDiag.GetPath()
             create_xml_and_img_folder(files_path)
             return files_path
-    return None
 
 
 def write_folder_to_file() -> None:
-    """Write the current working directory to file Info.txt
+    """Write the current working directory to file `Info.txt`.
     """
     with open("Info.txt", "w") as f:
         f.write(data_path)
 
 
-def scale_bitmap(bitmap: wx.Bitmap, width, height) -> wx.Bitmap:
+def scale_bitmap(bitmap: wx.Bitmap, width: int, height: int) -> wx.Bitmap:
     """Rescales a bitmap to a given size.
 
     Converting it to image, rescaling and converting it back.
@@ -113,6 +124,7 @@ def scale_bitmap(bitmap: wx.Bitmap, width, height) -> wx.Bitmap:
 
 
 class ButtonDialogBase(wx.Dialog):
+    """Base class for a dialog with a button."""
     v_box: wx.BoxSizer
 
     def setup_v_box(self, h_box, h_button, pnl):
@@ -123,6 +135,7 @@ class ButtonDialogBase(wx.Dialog):
 
 
 class TwoButtonDialogBase(ButtonDialogBase):
+    """Base class for a dialog with at least two buttons."""
     def setup(
         self,
         pnl: wx.Panel,
@@ -131,6 +144,7 @@ class TwoButtonDialogBase(ButtonDialogBase):
         shoot_fun: Callable = None,
         cancel_fun: Callable = None,
     ):
+        """Layout setup, to be called in self.InitUI."""
         if shoot_fun is None:
             shoot_fun = self.OnTakePic
         if cancel_fun is None:
@@ -170,7 +184,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
         self.SetSize((400, 300))
         self.SetTitle("Change Date of entry")
 
-    def InitUI(self):
+    def InitUI(self) -> None:
         pnl = wx.Panel(self)
 
         # Calendar and Time Picker
@@ -186,11 +200,12 @@ class ChangeDateDialog(TwoButtonDialogBase):
         self.v_box = wx.BoxSizer(wx.VERTICAL)
         self.setup(pnl, "Ok", "Cancel", self.OnOK, self.OnClose)
 
-    def OnClose(self, e):
+    def OnClose(self, e) -> None:
         print("Closed Change Date Dialog")
         self.Close()
 
-    def OnOK(self, _):
+    def OnOK(self, _) -> None:
+        """Sets `self.dt` to the current time."""
         timeTuple = self.timePicker.GetTime()
         self.dt = self.cal.GetDate()
         self.dt.SetHour(timeTuple[0])
@@ -226,7 +241,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         self.SetSize((400, 300))
         self.SetTitle(title)
 
-    def InitUI(self):
+    def InitUI(self) -> None:
 
         pnl = wx.Panel(self)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
@@ -262,12 +277,12 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         pth = os.path.join(img_folder, self.file_list[ind])
         return getImageToShow(pth, size=100, border=5)
 
-    def updateImg(self):
+    def updateImg(self) -> None:
         ind = self.shownImgInd
         img_to_show = self.get_img_at_ind(ind)
         self.img.SetBitmap(img_to_show)
 
-    def OnNext(self, _):
+    def OnNext(self, _) -> None:
         print("Next Image")
         self.shownImgInd += 1
         if self.shownImgInd == self.n_files - 1:
@@ -277,7 +292,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         self.updateImg()
         print("next img")
 
-    def OnPrev(self, _):
+    def OnPrev(self, _) -> None:
         self.shownImgInd -= 1
         if self.shownImgInd == 0:
             self.prev_button.Disable()
@@ -382,18 +397,13 @@ def extract_date_from_image_name(img_file: str) -> Optional[wx.DateTime]:
             mins = num_curr % 100
             hour = num_curr // 100
 
-    valid = 0 < month <= 12 and 0 <= hour < 24 and 0 <= mins < 60
-    # TODO: Check better for valid date!
+    if not check_date_time(year, month, day, hour, mins, sec):
+        print("Invalid date extracted!")
+        return None
 
     # Check if date is valid
-    if not valid:
-        return None
-    try:
-        wx_dt = wx.DateTime(day, month - 1, year, hour, mins, sec)
-        return wx_dt if wx_dt.IsValid() else None
-    except Exception as e:
-        print(f"Exception: {e} happened :(")
-        return None
+    wx_dt = wx.DateTime(day, month - 1, year, hour, mins, sec)
+    return wx_dt if wx_dt.IsValid() else None
 
 
 def get_time_from_file(img_file: str) -> wx.DateTime:
@@ -419,19 +429,20 @@ def find_all_imgs_with_same_date(imgs_folder: str, img_name: str) -> List[str]:
     return res
 
 
-def find_new_name(img_name: str, same_date_file_list: List[str], ext: str) -> str:
+def find_new_name(img_name: str, same_date_file_list: List[str],
+                  ext: str, max_n_imgs: int = 10000) -> str:
     """Chooses a new filename that is not in the list and
     contains the img_name in the beginning by appending an
     int to the filename separated by an underscore.
     """
-    for k in range(10000):
+    for k in range(max_n_imgs):
         new_name = img_name + "_" + str(k) + ext
         try:
             same_date_file_list.index(new_name)
         except ValueError:
             return img_name + "_" + str(k)
 
-    # If there are already more than 10000 images, gives up.
+    # If there are already more than `max_n_imgs` images, gives up.
     raise ValueError("ERROR: Way too many fucking images.")
 
 
@@ -597,7 +608,6 @@ class ShowCapture(wx.Panel):
         ret, frame = self.capture.read()
         if ret:
             return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        return None
 
     def OnPaint(self, _):
         dc = wx.BufferedPaintDC(self)

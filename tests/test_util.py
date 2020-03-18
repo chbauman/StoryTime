@@ -1,8 +1,10 @@
 import os
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 from unittest import TestCase
 
+import cv2
 import wx
 
 import lib
@@ -26,10 +28,29 @@ from lib.util import (
     find_all_imgs_with_same_date,
     copy_img_file_to_imgs,
     create_dir,
-)
+    TwoButtonDialogBase, AcceptPhoto)
 
 DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
 SAMPLE_IMG_DIR = os.path.join(DATA_DIR, "sample_imgs")
+img_dir = os.path.join(DATA_DIR, "Img")
+xml_dir = os.path.join(DATA_DIR, "XML")
+
+
+@contextmanager
+def create_test_dirs():
+    """Creates and removes temporary folders for testing."""
+    create_dir(img_dir)
+    create_dir(xml_dir)
+    yield
+    shutil.rmtree(img_dir)
+    shutil.rmtree(xml_dir)
+
+
+@contextmanager
+def create_app():
+    a = wx.App()
+    yield
+    a.Destroy()
 
 
 class TestFileSystem(TestCase):
@@ -39,8 +60,6 @@ class TestFileSystem(TestCase):
             os.mkdir(DATA_DIR)
 
     def test_dir_creation(self):
-        img_dir = os.path.join(DATA_DIR, "Img")
-        xml_dir = os.path.join(DATA_DIR, "XML")
         try:
             create_xml_and_img_folder(DATA_DIR)
             create_xml_and_img_folder(DATA_DIR)
@@ -77,9 +96,27 @@ class TestFileSystem(TestCase):
 
             f_path = get_info_from_file(False)
             assert f_path == DATA_DIR
+
+            os.remove("Info.txt")
+
+            def fun(dlg):
+                dlg.Close(True)
+                dlg.EndModal(wx.CANCEL)
+                raise FileNotFoundError("Fuck")
+
+            # TODO: Get this running!
+            a = wx.App()
+            # get_info_from_file(True, fun)
+            a.Destroy()
+
         finally:
             with open("Info.txt", "w") as f:
                 f.write(curr_info_txt)
+
+            if os.path.isdir(img_dir):
+                os.removedirs(img_dir)
+            if os.path.isdir(xml_dir):
+                os.removedirs(xml_dir)
 
     def test_img_finding(self):
         f_img = "Entwurf.jpg"
@@ -104,6 +141,11 @@ class TestFileSystem(TestCase):
             dlg.OnClose(None)
 
         copy_img_file_to_imgs(img_path, None, fun2)
+
+        def fun3(dlg):
+            dlg.OnSelect(None)
+
+        copy_img_file_to_imgs(img_path, None, fun3)
 
         shutil.rmtree(lib.util.img_folder)
         os.removedirs(lib.util.xml_folder)
@@ -140,6 +182,9 @@ class TestUtil(TestCase):
         f_path = "test/IMG_00001202_053100.jpg"
         wx_dt = extract_date_from_image_name(f_path)
         assert wx_dt is None
+        f_path = "test/IMG_20003202_053100.jpg"
+        wx_dt = extract_date_from_image_name(f_path)
+        assert wx_dt is None
 
     def test_update_folder(self):
         update_folder(DATA_DIR)
@@ -157,6 +202,8 @@ class TestUtil(TestCase):
         img_list = [f"{img_name}_{k}{ext}" for k in range(5)]
         new_name = find_new_name(img_name, img_list[:-1], ext)
         assert new_name + ext == img_list[-1]
+        with self.assertRaises(ValueError):
+            find_new_name(img_name, img_list, ext, max_n_imgs=3)
 
     pass
 
@@ -183,6 +230,12 @@ class TestGUIElements(TestCase):
         assert fd.OnDropFiles(0, 0, ["test/IMG_20201202_053100.jpg"])
         assert fd.OnDropFiles(0, 0, ["test/IMG_20201202_053100.jpg", "fail"])
         assert not fd.OnDropFiles(0, 0, ["fail"])
+
+    def test_dialog_base(self):
+        with create_app():
+            d = TwoButtonDialogBase()
+            d.OnTakePic(None)
+            d.OnClose(None)
 
     def test_change_date_dialog(self):
         app, frame = init_app()
@@ -250,4 +303,9 @@ class TestGUIElements(TestCase):
         run_diag(photo_dlg, test_2)
         assert photo_dlg.taken_img is None
 
+    def test_accept_photo(self):
+        with create_app():
+            img = cv2.imread(os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg"), 0)
+            img2 = cv2.merge((img, img, img))
+            AcceptPhoto(img=img2)
     pass

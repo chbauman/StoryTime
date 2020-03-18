@@ -16,7 +16,7 @@ from lib.XML_write import (
     find_closest_entry,
 )
 from lib import util
-from tests.test_util import DATA_DIR
+from tests.test_util import DATA_DIR, create_test_dirs
 
 XML_DIR = os.path.join(DATA_DIR, "XML")
 
@@ -60,21 +60,22 @@ class TestXML(TestCase):
         assert f == os.path.join(XML_DIR, f"{y}.xml")
 
     def test_entry_saving(self):
-        lib.util.xml_folder = XML_DIR
-        y = 2020
+        with create_test_dirs():
+            lib.util.xml_folder = XML_DIR
+            y = 2020
+            wx_dt = wx.DateTime(2, 11, y, 5, 31)
 
-        wx_dt = wx.DateTime(2, 11, y, 5, 31)
-        save_entry("Test", wx_dt, "text")
-        save_entry("Test", wx_dt, "photo", "test_photo.jpg")
-        with self.assertRaises(ValueError):
-            save_entry("Test", wx_dt, "blah", "test_photo.jpg")
+            save_entry("Test", wx_dt, "text")
+            save_entry("Test", wx_dt, "photo", "test_photo.jpg")
+            with self.assertRaises(ValueError):
+                save_entry("Test", wx_dt, "blah", "test_photo.jpg")
 
-        tree, f = load_XML(y)
-        assert os.path.isfile(f)
-        os.remove(f)
+            tree, f = load_XML(y)
+            assert os.path.isfile(f)
+            os.remove(f)
 
-        with self.assertRaises(FileNotFoundError):
-            load_XML(100000000, create=False)
+            with self.assertRaises(FileNotFoundError):
+                load_XML(100000000, create=False)
 
     def test_find_latest(self):
         el_tree = init_XML("Test", 2020)
@@ -89,8 +90,8 @@ class TestXML(TestCase):
         assert wx.DateTime(2, 11, 2020, n, 31).IsEqualTo(wx_dt_found)
 
     def test_get_last_entry(self):
-        lib.util.xml_folder = XML_DIR
-        try:
+        with create_test_dirs():
+            lib.util.xml_folder = XML_DIR
             n = 3
             for k in range(n):
                 wx_dt = wx.DateTime(2, 11, 2020 + k, 4, 31)
@@ -108,7 +109,5 @@ class TestXML(TestCase):
             dt, ch_txt = find_closest_entry(wx.DateTime(2, 11, 2021, 8, 11), True)
             assert ch_txt.get("type") == "text"
             assert find_closest_entry(wx.DateTime(2, 11, 3000, 1, 11), True) is None
-        finally:
-            shutil.rmtree(XML_DIR)
 
     pass
