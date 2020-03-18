@@ -8,7 +8,7 @@ in the file.
 import os
 import xml.etree.cElementTree as elTree
 from shutil import copy2
-from typing import Tuple
+from typing import Tuple, Optional
 
 import wx
 
@@ -34,24 +34,28 @@ def init_XML(comm: str, year: int) -> elTree.ElementTree:
     return elTree.ElementTree(root)
 
 
-def insertXmlTextEntryElement(
-        doc: elTree.Element, date_time: wx.DateTime, text: str
-) -> None:
-    """Inserts a text entry into the XML element tree."""
+def insert_text_entry(doc: elTree.Element, date_time: wx.DateTime, text: str) -> None:
+    """Inserts a text entry into the XML element tree.
+
+    Args:
+        doc: The doc element. Entry will be inserted as child.
+        date_time: The DateTime of the entry.
+        text: The text of the entry.
+    """
     dt = date_time.FormatISOCombined()
     elTree.SubElement(doc, "entry", date_time=dt, type="text").text = text
 
 
-def insertXmlPhotoEntryElement(
-        doc: elTree.Element, date_time: wx.DateTime, img_filename: str, text: str
+def insert_photo_entry(
+    doc: elTree.Element, date_time: wx.DateTime, img_filename: str, text: str
 ) -> None:
     """Inserts a photo entry element as a child of the elTree doc.
 
     Args:
-        doc:
-        date_time:
-        img_filename:
-        text:
+        doc: The doc element. Entry will be inserted as child.
+        date_time: The DateTime of the entry.
+        img_filename: The file name referring to the image.
+        text: The text of the entry.
     """
     if img_filename is None:
         print("ERROR: No fucking filename provided for inserting into XML.")
@@ -64,7 +68,18 @@ def insertXmlPhotoEntryElement(
     elTree.SubElement(ent, "photo").text = img_filename
 
 
-def getXMLAndFilename(year: int, create: bool = True) -> Tuple:
+def load_XML(year: int, create: bool = True) -> Tuple[elTree.ElementTree, str]:
+    """Loads an existing XML file and returns the Element tree.
+
+    If it does not exist, a new element tree is initializes.
+
+    Args:
+        year: The year specifying the XML file.
+        create: Whether to return a new tree if file not found.
+
+    Returns:
+        The element tree and the filename.
+    """
     yearStr = str(year)
     xml_file = os.path.join(util.xml_folder, f"{yearStr}.xml")
     if os.path.exists(xml_file):
@@ -76,48 +91,51 @@ def getXMLAndFilename(year: int, create: bool = True) -> Tuple:
     return tree, xml_file
 
 
-def saveEntryInXml(
-        comm: str,
-        date_time: wx.DateTime,
-        entry_type: str = "text",
-        img_filename: str = None,
+def save_entry(
+    comm: str,
+    date_time: wx.DateTime,
+    entry_type: str = "text",
+    img_filename: str = None,
 ) -> None:
-    """Reads the XML file and adds an entry element with the specified content
+    """Reads the XML file and adds an entry element with the specified content.
+
+    Then saves the tree back to the file.
 
     Args:
         comm: The text for the entry.
         date_time: The DateTime of the entry.
         entry_type: The type of the entry, either "text" or "photo".
         img_filename:
-
-    Returns:
-
     """
     year = date_time.GetYear()
-    tree, xml_file = getXMLAndFilename(year)
+    tree, xml_file = load_XML(year)
 
     doc = tree.getroot().find("doc")
     if entry_type == "text":
-        insertXmlTextEntryElement(doc, date_time, comm)
+        insert_text_entry(doc, date_time, comm)
     elif entry_type == "photo":
-        insertXmlPhotoEntryElement(doc, date_time, os.path.basename(img_filename), comm)
+        insert_photo_entry(doc, date_time, os.path.basename(img_filename), comm)
     else:
-        print("WTF are you doing??")
+        raise ValueError(f"Entry of type: {entry_type} is not supported!")
     tree.write(xml_file)
 
 
-def find_next_older_xml_file(year: int, newer: bool = False):
+def find_next_older_xml_file(
+    year: int, newer: bool = False
+) -> Optional[Tuple[int, elTree.ElementTree]]:
     """Finds the most recent XML file before year 'year'.
 
-    If there is none return None, else the found year and the tree of the XML.
-    If newer == True, then it finds the next newer one
+    If there is none, returns None, otherwise, the found year and the tree of the XML
+    is returned.
+    If `newer` == True, then it finds the next newer one
 
     Args:
         year:
         newer:
 
     Returns:
-
+        The year of the closest entry and the element tree of the
+        closes XML file.
     """
     closest_year = 100000 if newer else -100000
     for f in os.listdir(util.xml_folder):
@@ -128,22 +146,24 @@ def find_next_older_xml_file(year: int, newer: bool = False):
             closest_year = y
     if abs(closest_year) == 100000:
         return None
-    return closest_year, getXMLAndFilename(closest_year, False)[0]
+    return closest_year, load_XML(closest_year, False)[0]
 
 
-def findLatestInDoc(tree, date_time: wx.DateTime, newer: bool = False):
-    """Finds most recent date_time entry in doc.
+def find_closest_entry_in_tree(
+    tree: elTree.ElementTree, date_time: wx.DateTime, newer: bool = False
+) -> Optional[Tuple[wx.DateTime, elTree.Element]]:
+    """Finds entry closest to `date_time` in doc.
 
-    If there is no earlier entry than 'date_time' returns None
-    if newer == True, then it finds the next newer one
+    If there is no earlier entry than 'date_time' returns None.
+    If newer == True, then it finds the next newer one
 
     Args:
-        tree:
-        date_time:
-        newer:
+        tree: The element tree to search.
+        date_time: The search date and time.
+        newer: Whether to find the closest newer entry.
 
     Returns:
-
+        The date of the found entry and the entry element.
     """
     doc = tree.getroot().find("doc")
     temp = wx.DateTime(1, 1, 100000 if newer else 0)
@@ -152,7 +172,7 @@ def findLatestInDoc(tree, date_time: wx.DateTime, newer: bool = False):
         wxDT = wx.DateTime()
         wxDT.ParseISOCombined(child.get("date_time"))
         if (not newer and temp < wxDT < date_time) or (
-                newer and temp > wxDT > date_time
+            newer and temp > wxDT > date_time
         ):
             temp = wxDT
             curr_child = child
@@ -161,35 +181,46 @@ def findLatestInDoc(tree, date_time: wx.DateTime, newer: bool = False):
     return temp, curr_child
 
 
-def getLastXMLEntry(dt: wx.DateTime, newer: bool = False):
-    """Get the latest entry before 'dt', if any
+def find_closest_entry(
+    dt: wx.DateTime, newer: bool = False
+) -> Optional[Tuple[wx.DateTime, elTree.Element]]:
+    """Finds the latest entry before 'dt', if any.
+
+    Searches all available XML files.
 
     Args:
-        dt:
-        newer:
+        dt: The search date and time.
+        newer: Whether to find the closest newer entry.
 
     Returns:
-
+        The date of the found entry and the entry element.
+        If there is no next entry, None is returned.
     """
     curr_year = dt.GetYear()
-    tree = getXMLAndFilename(curr_year, False)
+
+    # Load XML file with specified year
+    tree = load_XML(curr_year, False)
     date_child = None
     if tree is not None:
         tree = tree[0]
-        date_child = findLatestInDoc(tree, dt, newer)
+        date_child = find_closest_entry_in_tree(tree, dt, newer)
         if date_child is None:
             tree = None
+
+    # Entry not found yet, search next XML files
     if tree is None:
         date_child = None
         while date_child is None:
             res = find_next_older_xml_file(curr_year, newer)
             if res is None:
+                # No next file found, return None
                 return None
             tree = res[1]
             curr_year = res[0]
-            date_child = findLatestInDoc(tree, dt, newer)
+            date_child = find_closest_entry_in_tree(tree, dt, newer)
 
-    assert date_child is not None
+    # Return
+    assert date_child is not None, f"Terrible bug is happening!"
     date, child = date_child
     return date, child
 
@@ -212,8 +243,8 @@ def convertFromTxt(txt_file):
             date, text = k.split("\n\n")
             day, mon, year = int(date[8:10]), int(date[5:7]) - 1, int(date[:4])
             hour, minute = int(date[17:19]), int(date[20:22])
-            wxDT = wx.DateTime(day, mon, year, hour, minute, )
-            saveEntryInXml(text, wxDT)
+            wxDT = wx.DateTime(day, mon, year, hour, minute,)
+            save_entry(text, wxDT)
         return
 
 
@@ -246,4 +277,4 @@ def addImgs(base_folder) -> None:
                 break
 
         copy2(full_img_filename, new_img_name)
-        saveEntryInXml(text, dateTime, "photo", new_img_name)
+        save_entry(text, dateTime, "photo", new_img_name)

@@ -12,7 +12,7 @@ import wx
 
 import lib
 from lib import util
-from lib.XML_write import saveEntryInXml, addImgs, convertFromTxt, getLastXMLEntry
+from lib.XML_write import save_entry, addImgs, convertFromTxt, find_closest_entry
 from lib.util import (
     FileDrop,
     icon_path,
@@ -373,9 +373,9 @@ class StoryTimeApp(wx.Frame):
             # Save image entry
             curr_dat = self.cdDialog.dt
             copied_file_name = copy_img_file_to_imgs(lf, curr_dat)
-            saveEntryInXml(textStr, curr_dat, "photo", copied_file_name)
+            save_entry(textStr, curr_dat, "photo", copied_file_name)
         else:
-            saveEntryInXml(textStr, self.cdDialog.dt)
+            save_entry(textStr, self.cdDialog.dt)
 
         # Clear the contents
         self.removeImg()
@@ -491,11 +491,15 @@ class StoryTimeApp(wx.Frame):
         self.update_preview_text()
 
     def _get_text_to_put(self, last: bool = True) -> str:
-        ret_val = getLastXMLEntry(self.cdDialog.dt, not last)
+        ret_val = find_closest_entry(self.cdDialog.dt, not last)
         if ret_val is None:
             return ""
         date, child = ret_val
-        child_text = child.text if child.get("type") == "text" else "Photo: " + child.find("text").text
+        child_text = (
+            child.text
+            if child.get("type") == "text"
+            else "Photo: " + child.find("text").text
+        )
         ret_str = "Last" if last else "Next"
         ret_str += " entry: " + format_date_time(date) + "\n\n"
         ret_str += rep_newlines_with_space(child_text) + "\n\n"
