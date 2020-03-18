@@ -8,6 +8,7 @@ import cv2
 import wx
 
 import lib
+from lib import util
 from lib.util import (
     create_xml_and_img_folder,
     rep_newlines_with_space,
@@ -31,6 +32,7 @@ from lib.util import (
     TwoButtonDialogBase,
     AcceptPhoto,
     CustomMessageDialog,
+    ask_for_dir,
 )
 
 DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
@@ -65,6 +67,14 @@ def change_info_txt(dir_to_set):
     yield
     with open("Info.txt", "w") as f:
         f.write(curr_info_txt)
+
+
+@contextmanager
+def replace_dir_ask(new_ask_fun):
+    ask_fun = lib.util.ask_for_dir
+    lib.util.ask_for_dir = new_ask_fun
+    yield
+    lib.util.ask_for_dir = ask_fun
 
 
 class TestFileSystem(TestCase):
@@ -108,15 +118,11 @@ class TestFileSystem(TestCase):
 
             os.remove("Info.txt")
 
-            def fun(dlg):
-                dlg.Close(True)
-                dlg.EndModal(wx.CANCEL)
-                raise FileNotFoundError("Fuck")
+            def new_ask(_=None):
+                return DATA_DIR
 
-            # TODO: Get this running!
-            a = wx.App()
-            # get_info_from_file(True, fun)
-            a.Destroy()
+            with replace_dir_ask(new_ask):
+                get_info_from_file(True)
 
         if os.path.isdir(img_dir):
             os.removedirs(img_dir)
@@ -225,6 +231,14 @@ def run_diag(dlg, fun, destroy: bool = True):
 
 
 class TestGUIElements(TestCase):
+    def test_dir_asking(self):
+        def dummy_fun(_):
+            pass
+
+        with create_app():
+            fol = ask_for_dir(dummy_fun, show=False)
+            assert fol is None or fol == ""
+
     def test_message_dlg(self):
         def abort(d):
             d.OnClose(None)

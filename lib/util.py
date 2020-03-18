@@ -18,6 +18,8 @@ import wx
 import wx.adv
 
 # Paths to app code and temp folder
+import lib
+
 project_path = Path(os.path.dirname(os.path.realpath(__file__))).parent
 icon_path = os.path.join(project_path, "Icons")
 temp_folder = "tmp"  #: Temporary folder to store images temporarily.
@@ -74,6 +76,17 @@ def check_date_time(
     return True
 
 
+def ask_for_dir(_fun: Callable = None, show: bool = True):
+    """Ask the user to select a directory."""
+    dial_text = "Choose directory to store Imgs and Text data."
+    flags = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
+    cdDiag = wx.DirDialog(None, dial_text, "", flags)
+    if _fun is not None:
+        _fun(cdDiag)
+    cdDiag.ShowModal() if show else None
+    return cdDiag.GetPath()
+
+
 def get_info_from_file(ask: bool = True, _fun: Callable = None) -> Optional[str]:
     """Read the info file and get necessary information
 
@@ -96,13 +109,7 @@ def get_info_from_file(ask: bool = True, _fun: Callable = None) -> Optional[str]
             create_xml_and_img_folder(fol_path)
             return fol_path
         elif ask:
-            dial_text = "Choose directory to store Imgs and Text data."
-            flags = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
-            cdDiag = wx.DirDialog(None, dial_text, "", flags)
-            if _fun is not None:
-                wx.CallAfter(_fun, cdDiag)
-            cdDiag.ShowModal()
-            files_path = cdDiag.GetPath()
+            files_path = lib.util.ask_for_dir(_fun)
             create_xml_and_img_folder(files_path)
             return files_path
 

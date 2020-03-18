@@ -31,6 +31,7 @@ from lib.util import (
     rep_newlines_with_space,
     copy_img_file_to_imgs,
     CustomMessageDialog,
+    ask_for_dir,
 )
 
 ID_MENU_PHOTO = wx.Window.NewControlId()
@@ -89,7 +90,6 @@ class StoryTimeApp(wx.Frame):
         self.SetIcon(icon)
         files_path = get_info_from_file()
         update_folder(files_path)
-        print("img_folder", util.img_folder)
         print("util.img_folder", util.img_folder)
         self.InitUI()
         self.SetSize((700, 700))
@@ -259,12 +259,14 @@ class StoryTimeApp(wx.Frame):
         self.imgLoaded = True
         self.set_img(curr_file)
 
-    def OnSave(self, e) -> None:
+    def OnSave(self, *args, **kwargs) -> None:
         """Same as if the save button was clicked.
         """
-        self.OnOKButtonClick(e)
+        self.OnOKButtonClick(*args, **kwargs)
 
-    def OnSelfie(self, e, _diag_fun: Callable = None, _photo_fun: Callable = None) -> None:
+    def OnSelfie(
+        self, e, _diag_fun: Callable = None, _photo_fun: Callable = None
+    ) -> None:
         """Opens dialog that shows the webcam and lets you take a picture
         with it which is added to the preview window then.
         """
@@ -336,20 +338,20 @@ class StoryTimeApp(wx.Frame):
         self.main_panel.Layout()
         return 0
 
-    def OnCloseButtonClick(self, e):
+    def OnCloseButtonClick(self, e) -> None:
         """Same as clicking X. Closes the application.
         """
         print("Close Button clicked")
         self.OnQuit(e)
 
-    def removeImg(self):
+    def removeImg(self) -> None:
         """Set the image in the image drop space to the default.
         """
         self.fileDrop.loadedFile = None
         self.set_img(self.defaultImg)
         self.imgLoaded = False
 
-    def OnOKButtonClick(self, _):
+    def OnOKButtonClick(self, _, _no_text_fun: Callable = None) -> None:
         """Saves the text (and the photo in photo mode) in an XML entry.
 
         Does nothing if text (or image in photo mode) is missing.
@@ -358,7 +360,16 @@ class StoryTimeApp(wx.Frame):
         # Check if there is any text at all
         textStr = self.input_text_field.GetValue()
         if textStr == "":
-            wx.MessageBox("No fucking text!!", "Info", wx.OK | wx.ICON_EXCLAMATION)
+            md = CustomMessageDialog(
+                "No fucking text specified!!",
+                "Info",
+                self,
+                cancel_only=True,
+                cancel_label="Got it",
+            )
+            if _no_text_fun is not None:
+                wx.CallAfter(_no_text_fun, md)
+            md.ShowModal()
             return
 
         # Check which mode is on
@@ -367,7 +378,17 @@ class StoryTimeApp(wx.Frame):
             # Check if there is an image
             lf = self.fileDrop.loadedFile
             if lf is None:
-                wx.MessageBox("No fucking image!!", "Info", wx.OK | wx.ICON_EXCLAMATION)
+                md = CustomMessageDialog(
+                    "No fucking image specified!!",
+                    "Info",
+                    self,
+                    cancel_only=True,
+                    cancel_label="Got it",
+                )
+                if _no_text_fun is not None:
+                    wx.CallAfter(_no_text_fun, md)
+                md.ShowModal()
+                # wx.MessageBox("No fucking image!!", "Info", wx.OK | wx.ICON_EXCLAMATION)
                 return
 
             # Save image entry
@@ -381,13 +402,13 @@ class StoryTimeApp(wx.Frame):
         self.removeImg()
         self.remove_written_text()
 
-    def remove_written_text(self):
+    def remove_written_text(self) -> None:
         """Clear text field and update date and time to now.
         """
         self.input_text_field.Clear()
         self.set_date_to_now()
 
-    def OnChangeDate(self, _, _fun: Callable = None):
+    def OnChangeDate(self, _, _fun: Callable = None) -> None:
         """
         Shows dialog that lets the user change the current date.
         """
@@ -396,14 +417,11 @@ class StoryTimeApp(wx.Frame):
         self.cdDialog.ShowModal()
         self.update_date()
 
-    def OnChangeDir(self, _):
+    def OnChangeDir(self, _) -> None:
         """Shows dialog that lets the user change the current directory.
         """
         # Show dialog and get folder
-        cdDiag = wx.DirDialog(None)
-        cdDiag.ShowModal()
-        files_path = cdDiag.GetPath()
-        cdDiag.Destroy()
+        files_path = util.ask_for_dir()
 
         # If none selected return
         if files_path == "" or files_path is None:
@@ -416,7 +434,7 @@ class StoryTimeApp(wx.Frame):
         create_xml_and_img_folder(files_path)
         self.set_date_to_now()
 
-    def OnQuit(self, _):
+    def OnQuit(self, _) -> None:
         """Closing the app, writes the working directory to file for next use,
         empties temp folder and closes the app.
 
@@ -428,19 +446,19 @@ class StoryTimeApp(wx.Frame):
             shutil.rmtree(temp_folder)
         self.Close()
 
-    def Cleanup(self, _):
+    def Cleanup(self, _) -> None:
         # Is this even used???
         print("Cleanup")
         self.cdDialog.Destroy()
         write_folder_to_file()
         self.Destroy()
 
-    def set_date_to_now(self):
+    def set_date_to_now(self) -> None:
         """Updates the date and time to now.
         """
         self.update_date(wx.DateTime.Now())
 
-    def update_date(self, new_date=None):
+    def update_date(self, new_date=None) -> None:
         """Updates the date to specified datetime.
 
         Updates the static datetime text and looks
@@ -467,7 +485,7 @@ class StoryTimeApp(wx.Frame):
         ret_str += rep_newlines_with_space(child_text) + "\n\n"
         return ret_str
 
-    def update_preview_text(self):
+    def update_preview_text(self) -> None:
         """Fills the static datetime text with the most recent entries
         for preview.
         """
