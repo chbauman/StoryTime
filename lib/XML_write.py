@@ -7,13 +7,11 @@ in the file.
 """
 import os
 import xml.etree.cElementTree as elTree
-from shutil import copy2
 from typing import Tuple, Optional
 
 import wx
 
 from lib import util
-from lib.util import get_time_from_file, img_folder, get_img_name_from_time
 
 
 def init_XML(comm: str, year: int) -> elTree.ElementTree:
@@ -224,58 +222,3 @@ def find_closest_entry(
     assert date_child is not None, f"Terrible bug is happening!"
     date, child = date_child
     return date, child
-
-
-def convertFromTxt(txt_file):
-    """Takes the text document written by the old program and adds all the entries to the XML
-
-    Args:
-        txt_file:
-
-    Returns:
-
-    """
-    with open(txt_file, "r", encoding="utf-8-sig") as f:
-        data = f.read()
-        entry_list = data.split("\n\nDate: ")
-        if entry_list[0][:6] == "Date: ":
-            entry_list[0] = entry_list[0][6:]
-        for k in entry_list:
-            date, text = k.split("\n\n")
-            day, mon, year = int(date[8:10]), int(date[5:7]) - 1, int(date[:4])
-            hour, minute = int(date[17:19]), int(date[20:22])
-            wxDT = wx.DateTime(day, mon, year, hour, minute,)
-            save_entry(text, wxDT)
-        return
-
-
-def addImgs(base_folder) -> None:
-    """Takes the text document written by the old program and adds all the entries to the XML.
-
-    Args:
-        base_folder:
-    """
-    imgFolder = os.path.join(base_folder, "Img")
-    imgDescFolder = os.path.join(base_folder, "ImgDesc")
-    for f in os.listdir(imgFolder):
-        base = os.path.basename(f)
-        f_name, file_ext = os.path.splitext(base)
-        full_img_filename = os.path.join(imgFolder, f)
-        img_desc_f_name = os.path.join(imgDescFolder, f_name + ".txt")
-
-        dateTime = get_time_from_file(full_img_filename)
-        text = "No Desc."
-        if os.path.exists(img_desc_f_name):
-            with open(img_desc_f_name, "r", encoding="utf-8-sig") as f_2:
-                text = f_2.read()
-        b_name_date = get_img_name_from_time(dateTime)
-        ct = 0
-        while True:
-            f_name = f"{b_name_date}_{ct}{file_ext}"
-            new_img_name = os.path.join(img_folder, f_name)
-            ct += 1
-            if not os.path.exists(new_img_name):
-                break
-
-        copy2(full_img_filename, new_img_name)
-        save_entry(text, dateTime, "photo", new_img_name)

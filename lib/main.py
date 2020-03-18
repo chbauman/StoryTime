@@ -5,14 +5,13 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 
 import os
 import shutil
-from typing import Sequence
 
 import cv2
 import wx
 
 import lib
 from lib import util
-from lib.XML_write import save_entry, addImgs, convertFromTxt, find_closest_entry
+from lib.XML_write import save_entry, find_closest_entry
 from lib.util import (
     FileDrop,
     icon_path,
@@ -127,13 +126,6 @@ class StoryTimeApp(wx.Frame):
                 "Dir",
                 "Change directory.",
                 self.OnChangeDir,
-            ),
-            (
-                "import_icon.png",
-                ID_MENU_IMPORT,
-                "Import",
-                "Import text or images from old version.",
-                self.OnImport,
             ),
             (
                 "webcam_icon.png",
@@ -412,46 +404,6 @@ class StoryTimeApp(wx.Frame):
         update_folder(files_path)
         self.cwd.SetLabelText(lib.util.data_path)
         create_xml_and_img_folder(files_path)
-        self.set_date_to_now()
-
-    def OnImport(self, _):
-        msg = "Do you want to add images in a folder or text entries from a .txt file?"
-        flags = wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION | wx.CANCEL_DEFAULT
-        dial = wx.MessageDialog(None, msg, "Question", flags)
-        dial.SetYesNoLabels("Text of course!", "Fucking images!")
-        imp_imgs = None
-        ans = dial.ShowModal()
-        if ans == wx.ID_NO:
-            imp_imgs = True
-        elif ans == wx.ID_YES:
-            imp_imgs = False
-
-        print("Fuck, ", imp_imgs)
-        if imp_imgs is None:
-            return
-
-        if imp_imgs:
-            cdDiag = wx.DirDialog(None, message="Hoi", name="Choose Location")
-            cdDiag.ShowModal()
-            files_path = cdDiag.GetPath()
-            if files_path == "" or files_path is None:
-                print("Null String")
-                return
-            addImgs(files_path)
-        else:
-            wc, style = "Text files (*.txt)|*.txt", wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
-            with wx.FileDialog(
-                self, "Open Text file", wildcard=wc, style=style
-            ) as fileDialog:
-
-                if fileDialog.ShowModal() == wx.ID_CANCEL:
-                    return  # the user changed their mind
-
-                pathname = fileDialog.GetPath()
-                try:
-                    convertFromTxt(pathname)
-                except IOError:
-                    wx.LogError("Cannot open file '%s'." % pathname)
         self.set_date_to_now()
 
     def OnQuit(self, _):
