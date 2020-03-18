@@ -5,15 +5,17 @@
 Run this file to run the app.
 
 TODO:
-- Preview including image entries.
-- Add more type hints.
-- Add more documentation, esp. for function arguments.
-- PDF generation?
+    - Preview including image entries.
+    - Add more documentation, esp. for function arguments.
+    - PDF generation!
+    - Fix webcam glitches.
+    - Resize images (and text?) when resizing window.
+    - Indicate diary entries in calendar.
 """
 
 import wx
 
-from lib.main import StoryTimeApp, StoryTimeAppUITest
+from lib.main import StoryTimeAppUITest
 
 
 def main():

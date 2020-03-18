@@ -17,6 +17,25 @@ TEST_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
 
 
 class TestMain2(TestCase):
+    @staticmethod
+    def play_with_app_exit(ex, app):
+        def discard_text(d):
+            d.OnOK(None)
+
+        def click_on_close(dlg):
+            dlg.OnClose(None)
+
+        def fun():
+            # Set text and try to exit
+            ex.input_text_field.SetValue("Sample Text")
+            ex.OnX(None, click_on_close)
+            ex.OnX(None, discard_text)
+
+        with change_info_txt(DATA_DIR):
+            with create_test_dirs():
+                wx.CallAfter(fun)
+                app.MainLoop()
+                app.Destroy()
 
     @staticmethod
     def play_with_app(ex, app):
@@ -76,7 +95,8 @@ class TestMain2(TestCase):
                 ex.OnChangeDir(None)
 
             # Exit
-            ex.OnCloseButtonClick(None)
+            ex.OnCloseButtonClick(None, click_on_close)
+            ex.OnCloseButtonClick(None, discard_text)
 
         with change_info_txt(DATA_DIR):
             with create_test_dirs():
@@ -94,3 +114,8 @@ class TestMain2(TestCase):
         app = wx.App()
         ex = StoryTimeAppUITest(None)
         self.play_with_app(ex, app)
+
+    def test_UI_exit(self):
+        app = wx.App()
+        ex = StoryTimeAppUITest(None)
+        self.play_with_app_exit(ex, app)

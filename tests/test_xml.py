@@ -1,11 +1,11 @@
 import os
-import shutil
-from unittest import TestCase
 import xml.etree.cElementTree as elTree
+from unittest import TestCase
 
 import wx
 
 import lib
+from lib import util
 from lib.XML_write import (
     init_XML,
     insert_text_entry,
@@ -15,7 +15,6 @@ from lib.XML_write import (
     find_closest_entry_in_tree,
     find_closest_entry,
 )
-from lib import util
 from tests.test_util import DATA_DIR, create_test_dirs
 
 XML_DIR = os.path.join(DATA_DIR, "XML")

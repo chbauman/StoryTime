@@ -137,11 +137,12 @@ class ToolbarPanel(wx.Panel):
         ("folder_icon.png", "Dir", "Change directory.",),
         ("webcam_icon.png", "Selfie", "Take a picture with your webcam.",),
     ]
-    tools = []
+    tools = None
     photoTool = None
 
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
+        self.tools = []
         self.toolbar = wx.ToolBar(self, -1)
         self.setup_toolbar()
         self.SetBackgroundColour("Yellow")
@@ -166,7 +167,11 @@ class ToolbarPanel(wx.Panel):
             b_map = wx.Bitmap(os.path.join(icon_path, icon_name))
             icon = scale_bitmap(b_map, *iconSize)
             args = (tool_id, name, icon)
-            fun = self.toolbar.AddCheckTool if rest is not None and rest else self.toolbar.AddTool
+            fun = (
+                self.toolbar.AddCheckTool
+                if rest is not None and rest
+                else self.toolbar.AddTool
+            )
             tool = fun(*args, shortHelp=help_txt)
             self.tools.append(tool)
 
@@ -176,7 +181,7 @@ class ToolbarPanel(wx.Panel):
         self.toolbar.Realize()
 
     def bind_tools(self, met_list: List[Callable]):
-        assert len(met_list) == 5 == len(self.tools)
+        assert len(met_list) == 5 == len(self.tools), f"Tools: {self.tools}"
         for met, tool in zip(met_list, self.tools):
             self.Bind(wx.EVT_TOOL, met, tool)
 
@@ -406,7 +411,7 @@ class StoryTimeApp(wx.Frame):
         self.set_date_txt()
         self.set_folder_txt()
 
-        self.Bind(wx.EVT_CLOSE, self.Cleanup)
+        self.Bind(wx.EVT_CLOSE, self.OnQuit)
 
     def set_date_txt(self):
         """Sets the text in the date textbox."""
@@ -477,19 +482,15 @@ class StoryTimeApp(wx.Frame):
             self.prev_img_space.Show()
         self.main_panel.Layout()
 
-    def OnPhoto(self, _, _deb_fun: Callable = None) -> int:
-        """Change to photo mode or back.
+    def check_if_discard_changes(self, _deb_fun: Callable = None) -> int:
+        """Checks whether there is unsaved info.
 
-        If there is text in the textfield or an image loaded warn
-        the user that it will be lost if he continues.
-        """
-        print("photoTool clicked")
+        Returns 0 if there is None, 1 if it may be discarded
+        and -1 if the user wants to keep it."""
         textStr = self.input_text_field.GetValue()
         if textStr != "" or self.imgLoaded:
             add_string = ", the loaded image" if self.imgLoaded else ""
-            tog = self.photoTool.IsToggled()
-            msg = f"If you change mode, the text{add_string} and the chosen time will be lost. Do you want to proceed?"
-
+            msg = f"If you proceed, the text{add_string} and the chosen time will be lost. Do you want to proceed?"
             md = CustomMessageDialog(
                 msg,
                 "Warning",
@@ -501,10 +502,25 @@ class StoryTimeApp(wx.Frame):
                 wx.CallAfter(_deb_fun, md)
             md.ShowModal()
             if not md.okay:
-                self.toolbar.ToggleTool(self.photoTool.Id, not tog)
                 return -1
             else:
-                self.remove_written_text()
+                return 1
+        return 0
+
+    def OnPhoto(self, _, _deb_fun: Callable = None) -> int:
+        """Change to photo mode or back.
+
+        If there is text in the textfield or an image loaded warn
+        the user that it will be lost if he continues.
+        """
+        print("photoTool clicked")
+        discard_int = self.check_if_discard_changes(_deb_fun)
+        if discard_int == -1:
+            tog = self.photoTool.IsToggled()
+            self.toolbar.ToggleTool(self.photoTool.Id, not tog)
+            return -1
+        elif discard_int == 1:
+            self.remove_written_text()
 
         # Toggle the showing of the Image (drop space)
         if self.image_drop_space.IsShown():
@@ -519,11 +535,11 @@ class StoryTimeApp(wx.Frame):
         self.main_panel.Layout()
         return 0
 
-    def OnCloseButtonClick(self, e) -> None:
+    def OnCloseButtonClick(self, *args, **kwargs) -> None:
         """Same as clicking X. Closes the application.
         """
         print("Close Button clicked")
-        self.OnQuit(e)
+        self.OnQuit(*args, **kwargs)
 
     def removeImg(self) -> None:
         """Set the image in the image drop space to the default.
@@ -615,23 +631,31 @@ class StoryTimeApp(wx.Frame):
         create_xml_and_img_folder(files_path)
         self.set_date_to_now()
 
-    def OnQuit(self, _) -> None:
+    def OnX(self, _, _deb_fun: Callable = None):
+        """Called when the X is clicked to close.
+
+        Also if self.Close() is called."""
+        print("OnX")
+        if self.check_if_discard_changes(_deb_fun) == -1:
+            print("Not exiting because of unsaved data.")
+            return
+        self.Cleanup(None)
+
+    def OnQuit(self, _, _deb_fun: Callable = None) -> None:
         """Closing the app, writes the working directory to file for next use,
         empties temp folder and closes the app.
-
-        Should always be executed before closing the app.
         """
-        self.cdDialog.Destroy()
-        write_folder_to_file()
-        if os.path.isdir(temp_folder):
-            shutil.rmtree(temp_folder)
-        self.Close()
+        print("Quit")
+        if self.check_if_discard_changes(_deb_fun) != -1:
+            self.Cleanup(None)
 
     def Cleanup(self, _) -> None:
         # Is this even used???
         print("Cleanup")
         self.cdDialog.Destroy()
         write_folder_to_file()
+        if os.path.isdir(temp_folder):
+            shutil.rmtree(temp_folder)
         self.Destroy()
 
     def set_date_to_now(self) -> None:
@@ -768,5 +792,6 @@ class StoryTimeAppUITest(StoryTimeApp):
         self.update_preview_text()
         self.set_date_txt()
         self.set_folder_txt()
+        self.Bind(wx.EVT_CLOSE, self.OnX)
 
     pass
