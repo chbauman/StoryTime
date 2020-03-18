@@ -13,14 +13,14 @@ TODO:
 
 import wx
 
-from lib.main import StoryTimeApp
+from lib.main import StoryTimeApp, StoryTimeAppUITest
 
 
 def main():
     """DO ALL THE STUFF.
     """
     app = wx.App()
-    ex = StoryTimeApp(None)
+    ex = StoryTimeAppUITest(None)
     ex.Show()
     app.MainLoop()
 

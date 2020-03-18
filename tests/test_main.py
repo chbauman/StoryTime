@@ -1,10 +1,10 @@
 import os
-
-import wx
 from unittest import TestCase
 
+import wx
+
 from lib import util
-from lib.main import StoryTimeApp, ID_MENU_PHOTO
+from lib.main import StoryTimeApp, StoryTimeAppUITest
 from tests.test_util import (
     SAMPLE_IMG_DIR,
     DATA_DIR,
@@ -16,12 +16,10 @@ from tests.test_util import (
 TEST_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
 
 
-class TestMain(TestCase):
-    def test_main(self):
+class TestMain2(TestCase):
 
-        app = wx.App()
-        ex = StoryTimeApp(None)
-
+    @staticmethod
+    def play_with_app(ex, app):
         def take_selfie(s_dlg):
             def inner():
                 s_dlg.accept_diag.OnTakePic(None)
@@ -43,7 +41,7 @@ class TestMain(TestCase):
 
             # Change to photo mode, add image and save
             ex.OnPhoto(None)
-            ex.toolbar.ToggleTool(ID_MENU_PHOTO, True)
+            ex.toolbar.ToggleTool(ex.photoTool.Id, True)
             ex.input_text_field.SetValue("Image Sample Text")
             ex.OnSave(None, _no_text_fun=click_on_close)
             ex.fileDrop.loadedFile = TEST_IMG
@@ -57,14 +55,14 @@ class TestMain(TestCase):
 
             # Change back to text input and close
             ex.OnPhoto(None)
-            ex.toolbar.ToggleTool(ID_MENU_PHOTO, False)
+            ex.toolbar.ToggleTool(ex.photoTool.Id, False)
 
             # Set text and try changing to photo mode
             ex.input_text_field.SetValue("Image Sample Text")
             ex.OnSelfie(None, _photo_fun=click_on_close)
             ex.input_text_field.SetValue("Image Sample Text")
             ex.OnSelfie(None, take_selfie, _photo_fun=discard_text)
-            ex.toolbar.ToggleTool(ID_MENU_PHOTO, True)
+            ex.toolbar.ToggleTool(ex.photoTool.Id, True)
 
             def new_ask_fun():
                 return None
@@ -85,3 +83,14 @@ class TestMain(TestCase):
                 wx.CallAfter(fun)
                 app.MainLoop()
                 app.Destroy()
+        pass
+
+    def test_main(self):
+        app = wx.App()
+        ex = StoryTimeApp(None)
+        self.play_with_app(ex, app)
+
+    def test_main_UI(self):
+        app = wx.App()
+        ex = StoryTimeAppUITest(None)
+        self.play_with_app(ex, app)
