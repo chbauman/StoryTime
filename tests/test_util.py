@@ -53,6 +53,17 @@ def create_app():
     a.Destroy()
 
 
+@contextmanager
+def change_info_txt(dir_to_set):
+    with open("Info.txt", "r") as f:
+        curr_info_txt = f.read()
+    lib.util.data_path = dir_to_set
+    write_folder_to_file()
+    yield
+    with open("Info.txt", "w") as f:
+        f.write(curr_info_txt)
+
+
 class TestFileSystem(TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -85,12 +96,7 @@ class TestFileSystem(TestCase):
             os.remove(test_file)
 
     def test_info_file(self):
-        with open("Info.txt", "r") as f:
-            curr_info_txt = f.read()
-
-        try:
-            lib.util.data_path = DATA_DIR
-            write_folder_to_file()
+        with change_info_txt(DATA_DIR):
             with open("Info.txt", "r") as f:
                 assert f.read().strip() == DATA_DIR
 
@@ -109,14 +115,10 @@ class TestFileSystem(TestCase):
             # get_info_from_file(True, fun)
             a.Destroy()
 
-        finally:
-            with open("Info.txt", "w") as f:
-                f.write(curr_info_txt)
-
-            if os.path.isdir(img_dir):
-                os.removedirs(img_dir)
-            if os.path.isdir(xml_dir):
-                os.removedirs(xml_dir)
+        if os.path.isdir(img_dir):
+            os.removedirs(img_dir)
+        if os.path.isdir(xml_dir):
+            os.removedirs(xml_dir)
 
     def test_img_finding(self):
         f_img = "Entwurf.jpg"

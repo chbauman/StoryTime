@@ -5,6 +5,7 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 
 import os
 import shutil
+from typing import Callable
 
 import cv2
 import wx
@@ -78,7 +79,7 @@ class StoryTimeApp(wx.Frame):
 
     def __init__(self, *args, **kwargs):
         super(StoryTimeApp, self).__init__(*args, **kwargs)
-        self.defaultImg = os.path.join(icon_path, "default_img.png")
+        self.defaultImg = os.path.join(icon_path, "default_img_txt.png")
         self.cdDialog = ChangeDateDialog(None, title="Change Date of entry")
         icon = wx.Icon()
         icon.CopyFromBitmap(
@@ -242,7 +243,7 @@ class StoryTimeApp(wx.Frame):
 
         self.Bind(wx.EVT_CLOSE, self.Cleanup)
 
-    def set_img(self, name):
+    def set_img(self, name: str) -> None:
         """Sets an image in the preview panel in photo mode.
 
         Given the path of the image.
@@ -250,19 +251,19 @@ class StoryTimeApp(wx.Frame):
         self.bmp_shown = getImageToShow(name)
         self.img.SetBitmap(self.bmp_shown)
 
-    def set_img_with_date(self, curr_file, img_date):
+    def set_img_with_date(self, curr_file: str, img_date: wx.DateTime) -> None:
         """Sets an image and updates the time.
         """
         self.update_date(img_date)
         self.imgLoaded = True
         self.set_img(curr_file)
 
-    def OnSave(self, e):
+    def OnSave(self, e) -> None:
         """Same as if the save button was clicked.
         """
         self.OnOKButtonClick(e)
 
-    def OnSelfie(self, e):
+    def OnSelfie(self, e, _diag_fun: Callable = None) -> None:
         """Opens dialog that shows the webcam and lets you take a picture
         with it which is added to the preview window then.
         """
@@ -276,6 +277,8 @@ class StoryTimeApp(wx.Frame):
 
         # Show the dialog
         sDiag = SelfieDialog()
+        if _diag_fun is not None:
+            wx.CallAfter(_diag_fun, sDiag)
         sDiag.ShowModal()
         sDiag.Destroy()
         img = sDiag.taken_img
@@ -290,7 +293,7 @@ class StoryTimeApp(wx.Frame):
             self.set_img_with_date(f_path, curr_dt)
             self.fileDrop.loadedFile = f_path
 
-    def OnPhoto(self, _):
+    def OnPhoto(self, _) -> None:
         """Change to photo mode or back.
 
         If there is text in the textfield or an image loaded warn
@@ -379,10 +382,13 @@ class StoryTimeApp(wx.Frame):
         self.input_text_field.Clear()
         self.set_date_to_now()
 
-    def OnChangeDate(self, _):
+    def OnChangeDate(self, _, _fun: Callable = None):
         """
         Shows dialog that lets the user change the current date.
         """
+        assert _fun is not None
+        if _fun is not None:
+            wx.CallAfter(_fun, self.cdDialog)
         self.cdDialog.ShowModal()
         self.update_date()
 
