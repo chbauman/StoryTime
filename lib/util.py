@@ -693,6 +693,7 @@ class SelfieDialog(TwoButtonDialogBase):
         self._img_cap.Show()
 
         self.setup(pnl, "Shoot", "Cancel")
+        # self.Bind(wx.EVT_CLOSE, self.release_cap)
 
     def OnTakePic(self, e, fun: Callable = None):
         """Takes a picture with the webcam.
@@ -708,16 +709,21 @@ class SelfieDialog(TwoButtonDialogBase):
         self.accept_diag.ShowModal()
         if self.accept_diag.accepted:
             self.taken_img = self.accept_diag.orig_img
-            self.Cleanup()
+            self.release_cap()
 
-    def Cleanup(self):
-        """Release the video capture.
-        """
+    def release_cap(self, _=None):
+        print("Releasing capture")
         self._vid_capture.release()
         cv2.destroyAllWindows()
         self.accept_diag.Destroy()
         self.Close()
 
+    def Destroy(self):
+        self._vid_capture.release()
+        cv2.destroyAllWindows()
+        self.accept_diag.Destroy()
+        super().Destroy()
+
     def OnClose(self, e):
         print("Cancelled Selfie Dialog")
-        self.Cleanup()
+        self.release_cap()

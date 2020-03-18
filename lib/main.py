@@ -10,6 +10,7 @@ from typing import Sequence
 import cv2
 import wx
 
+import lib
 from lib import util
 from lib.XML_write import saveEntryInXml, addImgs, convertFromTxt, getLastXMLEntry
 from lib.util import (
@@ -62,6 +63,7 @@ class StoryTimeApp(wx.Frame):
     # Text
     input_text_field: wx.TextCtrl
     dateLabel: wx.StaticText
+    cwd: wx.StaticText
     fix_text_box: wx.StaticText
 
     # Images
@@ -72,6 +74,7 @@ class StoryTimeApp(wx.Frame):
     # Boxes
     v_box: wx.BoxSizer
     h_box_1: wx.BoxSizer
+    h_box_cwd: wx.BoxSizer
     h_box_4: wx.BoxSizer
 
     def __init__(self, *args, **kwargs):
@@ -88,7 +91,7 @@ class StoryTimeApp(wx.Frame):
         print("img_folder", util.img_folder)
         print("util.img_folder", util.img_folder)
         self.InitUI()
-        self.SetSize((700, 600))
+        self.SetSize((700, 700))
         self.SetTitle("Story Time")
         self.Center()
 
@@ -159,6 +162,17 @@ class StoryTimeApp(wx.Frame):
         self.toolbar.AddSeparator()
         self.toolbar.Realize()
 
+    def setup_one_line_static(self, lab: str, font):
+        h_box_1 = wx.BoxSizer(wx.HORIZONTAL)
+        stat_text = wx.StaticText(self.main_panel, label=lab)
+        stat_text.SetFont(font)
+        h_box_1.Add(stat_text, flag=wx.RIGHT, border=8)
+        tc = wx.StaticText(self.main_panel)
+        h_box_1.Add(tc, proportion=1)
+        self.v_box.Add(h_box_1, flag=LR_EXPAND | wx.TOP, border=10)
+        self.v_box.Add((-1, 10))
+        return h_box_1, stat_text
+
     def InitUI(self):
 
         self.count = 5
@@ -172,17 +186,12 @@ class StoryTimeApp(wx.Frame):
 
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
-        # Datum
-        self.h_box_1 = wx.BoxSizer(wx.HORIZONTAL)
+        # Date of entry
         lab = "Date: " + format_date_time(self.cdDialog.dt)
-        self.dateLabel = wx.StaticText(self.main_panel, label=lab)
-        self.dateLabel.SetFont(font)
-        self.h_box_1.Add(self.dateLabel, flag=wx.RIGHT, border=8)
-        tc = wx.StaticText(self.main_panel)
-        self.h_box_1.Add(tc, proportion=1)
-        self.v_box.Add(self.h_box_1, flag=LR_EXPAND | wx.TOP, border=10)
+        self.h_box_1, self.dateLabel = self.setup_one_line_static(lab, font)
 
-        self.v_box.Add((-1, 10))
+        # Working directory text
+        self.h_box_cwd, self.cwd = self.setup_one_line_static(lib.util.data_path, font)
 
         # Text
         h_box_2 = wx.BoxSizer(wx.HORIZONTAL)
@@ -275,6 +284,7 @@ class StoryTimeApp(wx.Frame):
         # Show the dialog
         sDiag = SelfieDialog()
         sDiag.ShowModal()
+        sDiag.Destroy()
         img = sDiag.taken_img
 
         # Save the image and show it in the preview
@@ -286,9 +296,6 @@ class StoryTimeApp(wx.Frame):
             cv2.imwrite(f_path, cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             self.set_img_with_date(f_path, curr_dt)
             self.fileDrop.loadedFile = f_path
-
-        # Cleanup
-        sDiag.Destroy()
 
     def OnPhoto(self, _):
         """Change to photo mode or back.
@@ -402,6 +409,7 @@ class StoryTimeApp(wx.Frame):
 
         # Update and create data directories if not existing
         update_folder(files_path)
+        self.cwd.SetLabelText(lib.util.data_path)
         create_xml_and_img_folder(files_path)
         self.set_date_to_now()
 
