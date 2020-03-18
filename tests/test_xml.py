@@ -73,6 +73,9 @@ class TestXML(TestCase):
         assert os.path.isfile(f)
         os.remove(f)
 
+        with self.assertRaises(FileNotFoundError):
+            load_XML(100000000, create=False)
+
     def test_find_latest(self):
         el_tree = init_XML("Test", 2020)
         wx_dt_find = wx.DateTime(2, 11, 2020, 6, 31)
@@ -102,6 +105,9 @@ class TestXML(TestCase):
             assert ch_txt.text == "Test1"
             dt, ch_txt = find_closest_entry(wx.DateTime(2, 11, 2021, 1, 11), False)
             assert ch_txt.get("type") == "photo"
+            dt, ch_txt = find_closest_entry(wx.DateTime(2, 11, 2021, 8, 11), True)
+            assert ch_txt.get("type") == "text"
+            assert find_closest_entry(wx.DateTime(2, 11, 3000, 1, 11), True) is None
         finally:
             shutil.rmtree(XML_DIR)
 

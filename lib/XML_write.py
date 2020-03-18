@@ -57,9 +57,6 @@ def insert_photo_entry(
         img_filename: The file name referring to the image.
         text: The text of the entry.
     """
-    if img_filename is None:
-        print("ERROR: No fucking filename provided for inserting into XML.")
-        return
     # TODO: Check if file exists?
     ent = elTree.SubElement(
         doc, "entry", date_time=date_time.FormatISOCombined(), type="photo"
@@ -120,7 +117,7 @@ def save_entry(
     tree.write(xml_file)
 
 
-def find_next_older_xml_file(
+def find_next_xml_file(
     year: int, newer: bool = False
 ) -> Optional[Tuple[int, elTree.ElementTree]]:
     """Finds the most recent XML file before year 'year'.
@@ -199,7 +196,11 @@ def find_closest_entry(
     curr_year = dt.GetYear()
 
     # Load XML file with specified year
-    tree = load_XML(curr_year, False)
+    tree = None
+    try:
+        tree = load_XML(curr_year, False)
+    except FileNotFoundError:
+        pass
     date_child = None
     if tree is not None:
         tree = tree[0]
@@ -211,7 +212,7 @@ def find_closest_entry(
     if tree is None:
         date_child = None
         while date_child is None:
-            res = find_next_older_xml_file(curr_year, newer)
+            res = find_next_xml_file(curr_year, newer)
             if res is None:
                 # No next file found, return None
                 return None
