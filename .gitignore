@@ -12,3 +12,7 @@ tests/test_data/*
 
 tests/manual_test_data
 docs/sphinx
+
+dist/*
+build/*
+*.egg-info/*

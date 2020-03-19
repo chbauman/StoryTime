@@ -68,7 +68,6 @@ function publish_to_pypi {
     # Run tests
     venv/Scripts/activate.ps1
     run_tests($true)
-    break
 
     # Handle version
     $version = ((Get-Content -Path version.txt) | Out-String).Trim()
@@ -80,7 +79,8 @@ function publish_to_pypi {
     python setup.py sdist bdist_wheel
     $username = "chbauman"
     $pw = (keyring get https://upload.pypi.org/legacy/ $username) | Out-String
-    twine upload dist/* -u $username -p $pw.Trim()
+    twine upload dist/* --repository-url https://test.pypi.org/legacy/ -u $username -p $pw.Trim()
+#    twine upload dist/* -u $username -p $pw.Trim()
 }
 
 # Cleans up some files
