@@ -5,7 +5,7 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 
 import os
 import shutil
-from typing import Callable, List, Union
+from typing import Callable, List, Union, Optional
 
 import cv2
 import wx
@@ -224,6 +224,12 @@ class StoryTimeApp(wx.Frame):
     h_box_cwd: wx.BoxSizer
     h_box_4: wx.BoxSizer
 
+    # Data to keep track of the entry in the preview
+    prev_dt: wx.DateTime
+    newest_reached: Optional[bool] = None
+    max_dt: wx.DateTime = wx.DateTime(1, 1, 10000)
+    min_dt: wx.DateTime = wx.DateTime(1, 1, 1)
+
     def __init__(self, *args, **kwargs):
         super(StoryTimeApp, self).__init__(*args, **kwargs)
         self.default_img_drop = os.path.join(icon_path, "default_img_txt.png")
@@ -429,6 +435,20 @@ class StoryTimeApp(wx.Frame):
         self.bmp_shown = getImageToShow(name)
         self.image_drop_space.SetBitmap(self.bmp_shown)
 
+    def set_prev_img(self, name: str):
+        """Sets an image in the entry preview panel.
+
+        Given the path of the image.
+        """
+        self.bmp_shown = getImageToShow(name)
+        self.prev_img_space.SetBitmap(self.bmp_shown)
+        self.prev_img_space.Show()
+
+    def rem_prev_img(self):
+        """Removes the image by hiding it."""
+        if self.prev_img_space.IsShown():
+            self.prev_img_space.Hide()
+
     def set_img_with_date(self, curr_file: str, img_date: wx.DateTime) -> None:
         """Sets an image and updates the time.
         """
@@ -451,9 +471,9 @@ class StoryTimeApp(wx.Frame):
         if not self.photoTool.IsToggled():
             # Abort if canceled
             if self.OnPhoto(e, _photo_fun) == -1:
-                self.toolbar.ToggleTool(ID_MENU_PHOTO, False)
+                self.toolbar.ToggleTool(self.photoTool.Id, False)
                 return
-            self.toolbar.ToggleTool(ID_MENU_PHOTO, True)
+            self.toolbar.ToggleTool(self.photoTool.Id, True)
 
         # Show the dialog
         sDiag = SelfieDialog()
@@ -675,32 +695,49 @@ class StoryTimeApp(wx.Frame):
         self.fix_text_box.SetLabel("This is a bug!")  # Probably unnecessary.
         self.update_preview_text()
 
-    def _get_text_to_put(self, last: bool = True) -> str:
-        ret_val = find_closest_entry(self.cdDialog.dt, not last)
+    def _get_text_to_put(self, last: bool = True, set_img: bool = False, use_prev_dt: bool = False) -> str:
+        search_dt = self.cdDialog.dt if not use_prev_dt else self.prev_dt
+        ret_val = find_closest_entry(search_dt, not last)
         if ret_val is None:
+            if use_prev_dt:
+                self.newest_reached = not last
+                self.prev_dt = self.min_dt if last else self.max_dt
             return ""
+        self.newest_reached = None
         date, child = ret_val
+        is_text = child.get("type") == "text"
         child_text = (
             child.text
-            if child.get("type") == "text"
+            if is_text
             else "Photo: " + child.find("text").text
         )
+        if set_img:
+            if not is_text:
+                img_name = child.find("photo").text
+                img_path = os.path.join(lib.util.data_path, "Img", img_name)
+                self.set_prev_img(img_path)
+            else:
+                self.rem_prev_img()
+
+        self.prev_dt = date
         ret_str = "Last" if last else "Next"
         ret_str += " entry: " + format_date_time(date) + "\n\n"
         ret_str += rep_newlines_with_space(child_text) + "\n\n"
         return ret_str
 
-    def update_preview_text(self) -> None:
+    def update_preview_text(self, set_next: bool = None) -> None:
         """Fills the static datetime text with the most recent entries
         for preview.
         """
 
         # Construct the text to put into the preview panel.
         text_to_put = ""
-        text_to_put += self._get_text_to_put(True)
-        text_to_put += self._get_text_to_put(False)
+        if set_next is not None:
+            text_to_put += self._get_text_to_put(not set_next, True, True)
+        else:
+            text_to_put += self._get_text_to_put(True, True)
         if text_to_put == "":
-            text_to_put = "No older entry present."
+            text_to_put = f"No {'newer' if self.newest_reached else 'older'} entry present."
 
         # Set text and update layout
         self.fix_text_box.SetLabel(text_to_put)
@@ -757,7 +794,14 @@ class StoryTimeAppUITest(StoryTimeApp):
 
         # Buttons
         next_prev_buttons = TwoButtonPanel(self, labels=["Previous", "Next"])
-        next_prev_buttons.set_but_methods(self.toggle_prev_img, self.toggle_prev_img)
+
+        def next_entry(_):
+            self.update_preview_text(True)
+
+        def prev_entry(_):
+            self.update_preview_text(False)
+
+        next_prev_buttons.set_but_methods(prev_entry, next_entry)
         save_close_buttons = TwoButtonPanel(
             self, labels=["Save", "Close"], center=False
         )
