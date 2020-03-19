@@ -12,7 +12,7 @@ setuptools.setup(
     description="Test",
     packages=setuptools.find_packages(exclude=["docs", "tests"]),
     include_package_data=True,
-    package_data={"": ["*.png", "*.txt"],},
+    package_data={"": ["Info.txt", "*.txt", "*.png"], "Icons": ["*.png"],},
     url="https://github.com/chbauman/StoryTime",
     author="Christian Baumann",
     author_email="chris.python.notifyer@gmail.com",

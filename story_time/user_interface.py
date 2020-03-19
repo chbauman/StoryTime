@@ -101,7 +101,7 @@ class TextAndImgPanel(wx.Panel):
         # The image
         img_name = f"default_img{'_txt' if drop_tgt else ''}.png"
         # self.default_img = os.path.join(icon_path, img_name)
-        self.default_img = resource_filename(__name__, f"../Icons/{img_name}")
+        self.default_img = resource_filename(__name__, f"Icons/{img_name}")
 
         self.bmp_shown = getImageToShow(self.default_img)
         self.img = wx.StaticBitmap(self, -1, self.bmp_shown)
@@ -167,8 +167,9 @@ class ToolbarPanel(wx.Panel):
         for ct, t in enumerate(self.tool_list):
             icon_name, name, help_txt, *rest = t
             tool_id = wx.Window.NewControlId()
-            b_map = wx.Bitmap(os.path.join(icon_path, icon_name))
-            icon = scale_bitmap(b_map, *iconSize)
+            # img_path = os.path.join(icon_path, icon_name)
+            img_path = resource_filename(__name__, f"Icons/{icon_name}")
+            icon = scale_bitmap(wx.Bitmap(img_path), *iconSize)
             args = (tool_id, name, icon)
             fun = (
                 self.toolbar.AddCheckTool

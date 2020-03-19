@@ -22,20 +22,22 @@ import story_time
 
 # Paths to app code and temp folder
 project_path = Path(os.path.dirname(os.path.realpath(__file__))).parent
-icon_path = os.path.join(project_path, "Icons")
+icon_path = os.path.join(project_path, "story_time/Icons")
 temp_folder = os.path.join(
     project_path, "tmp"
 )  #: Temporary folder to store images temporarily.
-# info_file = os.path.join(project_path, "Info.txt")
-info_file = resource_filename(__name__, f"../Info.txt")
+# info_file = os.path.join(project_path, "story_time/Info.txt")
+info_file = resource_filename(__name__, f"Info.txt")
 
 # Path to data (global variables)
 # Initialized values should never be used
 # Also they should not be imported from the module since they change
 # when initializing the app.
 data_path = ""  #: The folder containing the image and the xml folder.
-img_folder = "fuck"  #: The folder where the images are stored.
-xml_folder = "fuck"  #: The folder where the xml documents are stored.
+img_folder = "if/you/see/this/its/a/bug"  #: The folder where the images are stored.
+xml_folder = (
+    "if/you/see/this/its/a/bug"  #: The folder where the xml documents are stored.
+)
 
 
 def update_folder(new_data_path: str) -> None:
