@@ -9,6 +9,7 @@ from typing import Callable, List, Union, Optional
 
 import cv2
 import wx
+from pkg_resources import resource_filename
 
 import story_time
 from story_time import util
@@ -99,7 +100,9 @@ class TextAndImgPanel(wx.Panel):
 
         # The image
         img_name = f"default_img{'_txt' if drop_tgt else ''}.png"
-        self.default_img = os.path.join(icon_path, img_name)
+        # self.default_img = os.path.join(icon_path, img_name)
+        self.default_img = resource_filename(__name__, f"../Icons/{img_name}")
+
         self.bmp_shown = getImageToShow(self.default_img)
         self.img = wx.StaticBitmap(self, -1, self.bmp_shown)
         if drop_tgt:

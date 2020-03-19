@@ -16,6 +16,7 @@ from typing import List, Callable, Sequence, Optional
 import cv2
 import wx
 import wx.adv
+from pkg_resources import resource_filename
 
 import story_time
 
@@ -25,7 +26,8 @@ icon_path = os.path.join(project_path, "Icons")
 temp_folder = os.path.join(
     project_path, "tmp"
 )  #: Temporary folder to store images temporarily.
-info_file = os.path.join(project_path, "Info.txt")
+# info_file = os.path.join(project_path, "Info.txt")
+info_file = resource_filename(__name__, f"../Info.txt")
 
 # Path to data (global variables)
 # Initialized values should never be used
