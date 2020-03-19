@@ -104,7 +104,7 @@ class TextAndImgPanel(wx.Panel):
         self.img = wx.StaticBitmap(self, -1, self.bmp_shown)
         if drop_tgt:
             self.img.Hide()
-            self.fileDrop = FileDrop(self.img, self)
+            self.fileDrop = FileDrop(self.img, parent)
             self.img.SetDropTarget(self.fileDrop)
         self.img.Hide()
 
@@ -509,7 +509,10 @@ class StoryTimeApp(wx.Frame):
         textStr = self.input_text_field.GetValue()
         if textStr != "" or self.imgLoaded:
             add_string = ", the loaded image" if self.imgLoaded else ""
-            msg = f"If you proceed, the text{add_string} and the chosen time will be lost. Do you want to proceed?"
+            msg = (
+                f"If you proceed, the text{add_string} and the chosen "
+                f"time will be lost. Do you want to proceed?"
+            )
             md = CustomMessageDialog(
                 msg,
                 "Warning",
@@ -691,7 +694,8 @@ class StoryTimeApp(wx.Frame):
         if new_date is not None:
             self.cdDialog.dt = new_date
         self.dateLabel.SetLabel("Date: " + format_date_time(self.cdDialog.dt))
-        # The line below is probably unnecessary. Actually has already been helpful in some cases!
+        # The line below is probably unnecessary.
+        # Actually has already been helpful in some cases!
         self.fix_text_box.SetLabel("This is a bug!")
         self.prev_dt = self.cdDialog.dt
         self.update_preview_text(set_next=False)

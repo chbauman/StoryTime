@@ -506,7 +506,7 @@ def copy_img_file_to_imgs(lf: str, img_date=None, photo_diag_fun: Callable = Non
 
     If there exists one with
     the same date and time, a dialog pops up
-    to let the user select if he wants to add 
+    to let the user select if he wants to add
     text to an existing image or save the image
     If he doesn't decide, returns None
     """

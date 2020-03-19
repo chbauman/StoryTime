@@ -11,6 +11,8 @@ TODO:
     - Fix webcam glitches.
     - Resize images (and text?) when resizing window.
     - Indicate diary entries in calendar.
+    - Smoother UI changes (e.g. image loading)
+    - Enlarge image when clicked.
 """
 
 import wx

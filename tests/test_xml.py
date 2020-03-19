@@ -5,7 +5,6 @@ from unittest import TestCase
 import wx
 
 import lib
-from lib import util
 from lib.XML_write import (
     init_XML,
     insert_text_entry,

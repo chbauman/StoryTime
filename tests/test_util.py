@@ -8,7 +8,6 @@ import cv2
 import wx
 
 import lib
-from lib import util
 from lib.util import (
     create_xml_and_img_folder,
     rep_newlines_with_space,
