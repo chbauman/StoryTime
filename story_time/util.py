@@ -17,12 +17,15 @@ import cv2
 import wx
 import wx.adv
 
-# Paths to app code and temp folder
-import lib
+import story_time
 
+# Paths to app code and temp folder
 project_path = Path(os.path.dirname(os.path.realpath(__file__))).parent
 icon_path = os.path.join(project_path, "Icons")
-temp_folder = "tmp"  #: Temporary folder to store images temporarily.
+temp_folder = os.path.join(
+    project_path, "tmp"
+)  #: Temporary folder to store images temporarily.
+info_file = os.path.join(project_path, "Info.txt")
 
 # Path to data (global variables)
 # Initialized values should never be used
@@ -99,17 +102,17 @@ def get_info_from_file(ask: bool = True, _fun: Callable = None) -> Optional[str]
     Returns:
         Contents of the file.
     """
-    if not os.path.exists("Info.txt"):
-        with open("Info.txt", "w") as f:
+    if not os.path.exists(info_file):
+        with open(info_file, "w") as f:
             f.write("NoDirectorySpecified")
-    with open("Info.txt") as file:
+    with open(info_file) as file:
         data = file.readlines()
         if data != [] and os.path.isdir(data[0]):
             fol_path = data[0]
             create_xml_and_img_folder(fol_path)
             return fol_path
         elif ask:
-            files_path = lib.util.ask_for_dir(_fun)
+            files_path = story_time.util.ask_for_dir(_fun)
             create_xml_and_img_folder(files_path)
             return files_path
 
@@ -117,7 +120,7 @@ def get_info_from_file(ask: bool = True, _fun: Callable = None) -> Optional[str]
 def write_folder_to_file() -> None:
     """Write the current working directory to file `Info.txt`.
     """
-    with open("Info.txt", "w") as f:
+    with open(info_file, "w") as f:
         f.write(data_path)
 
 

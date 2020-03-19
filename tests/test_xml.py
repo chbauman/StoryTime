@@ -4,8 +4,8 @@ from unittest import TestCase
 
 import wx
 
-import lib
-from lib.XML_write import (
+import story_time
+from story_time.XML_write import (
     init_XML,
     insert_text_entry,
     insert_photo_entry,
@@ -52,14 +52,14 @@ class TestXML(TestCase):
         assert entry.get("type") == "photo"
 
     def test_get_xml(self):
-        lib.util.xml_folder = XML_DIR
+        story_time.util.xml_folder = XML_DIR
         y = 2020
         tree, f = load_XML(y)
         assert f == os.path.join(XML_DIR, f"{y}.xml")
 
     def test_entry_saving(self):
         with create_test_dirs():
-            lib.util.xml_folder = XML_DIR
+            story_time.util.xml_folder = XML_DIR
             y = 2020
             wx_dt = wx.DateTime(2, 11, y, 5, 31)
 
@@ -89,7 +89,7 @@ class TestXML(TestCase):
 
     def test_get_last_entry(self):
         with create_test_dirs():
-            lib.util.xml_folder = XML_DIR
+            story_time.util.xml_folder = XML_DIR
             n = 3
             for k in range(n):
                 wx_dt = wx.DateTime(2, 11, 2020 + k, 4, 31)

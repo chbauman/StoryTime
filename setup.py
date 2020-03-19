@@ -11,6 +11,7 @@ setuptools.setup(
     version=v_num,
     description="Test",
     packages=setuptools.find_packages(exclude=["docs", "tests"]),
+    include_package_data=True,
     url="https://github.com/chbauman/StoryTime",
     author="Christian Baumann",
     author_email="chris.python.notifyer@gmail.com",
@@ -18,12 +19,12 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     python_requires=">=3.6",
-    install_requires=[],
+    install_requires=["wxPython", "opencv-python", "numpy", "Pillow", "six",],
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.6",
         "Operating System :: OS Independent",
         "Topic :: Utilities",
     ],
-    entry_points={"console_scripts": ["story-time=story_time:main"],},
+    entry_points={"console_scripts": ["story-time=story_time.main:main"],},
 )

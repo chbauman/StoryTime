@@ -7,8 +7,8 @@ from unittest import TestCase
 import cv2
 import wx
 
-import lib
-from lib.util import (
+import story_time
+from story_time.util import (
     create_xml_and_img_folder,
     rep_newlines_with_space,
     pad_int_str,
@@ -61,7 +61,7 @@ def create_app():
 def change_info_txt(dir_to_set):
     with open("Info.txt", "r") as f:
         curr_info_txt = f.read()
-    lib.util.data_path = dir_to_set
+    story_time.util.data_path = dir_to_set
     write_folder_to_file()
     yield
     with open("Info.txt", "w") as f:
@@ -70,10 +70,10 @@ def change_info_txt(dir_to_set):
 
 @contextmanager
 def replace_dir_ask(new_ask_fun):
-    ask_fun = lib.util.ask_for_dir
-    lib.util.ask_for_dir = new_ask_fun
+    ask_fun = story_time.util.ask_for_dir
+    story_time.util.ask_for_dir = new_ask_fun
     yield
-    lib.util.ask_for_dir = ask_fun
+    story_time.util.ask_for_dir = ask_fun
 
 
 class TestFileSystem(TestCase):
@@ -135,8 +135,8 @@ class TestFileSystem(TestCase):
 
     def test_img_copying(self):
         update_folder(DATA_DIR)
-        create_dir(lib.util.img_folder)
-        create_dir(lib.util.xml_folder)
+        create_dir(story_time.util.img_folder)
+        create_dir(story_time.util.xml_folder)
         img_path = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
         copy_img_file_to_imgs(img_path)
         a = wx.App()
@@ -157,8 +157,8 @@ class TestFileSystem(TestCase):
 
         copy_img_file_to_imgs(img_path, None, fun3)
 
-        shutil.rmtree(lib.util.img_folder)
-        os.removedirs(lib.util.xml_folder)
+        shutil.rmtree(story_time.util.img_folder)
+        os.removedirs(story_time.util.xml_folder)
         a.Destroy()
 
     pass
@@ -198,7 +198,7 @@ class TestUtil(TestCase):
 
     def test_update_folder(self):
         update_folder(DATA_DIR)
-        assert lib.util.data_path == DATA_DIR
+        assert story_time.util.data_path == DATA_DIR
 
     def test_format_dt(self):
         wx_dt = wx.DateTime(2, 11, 2020, 5, 31)

@@ -11,7 +11,7 @@ from typing import Tuple, Optional
 
 import wx
 
-from lib import util
+from story_time import util
 
 
 def init_XML(comm: str, year: int) -> elTree.ElementTree:

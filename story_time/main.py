@@ -15,7 +15,7 @@ TODO:
 
 import wx
 
-from lib.main import StoryTimeAppUITest
+from story_time.user_interface import StoryTimeAppUITest
 
 
 def main():

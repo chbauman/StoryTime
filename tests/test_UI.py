@@ -3,8 +3,8 @@ from unittest import TestCase
 
 import wx
 
-from lib import util
-from lib.main import StoryTimeApp, StoryTimeAppUITest
+from story_time import util
+from story_time.user_interface import StoryTimeApp, StoryTimeAppUITest
 from tests.test_util import (
     SAMPLE_IMG_DIR,
     DATA_DIR,

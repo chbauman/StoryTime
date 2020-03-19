@@ -45,7 +45,7 @@ function activate_env {
 # Runs the tests using pytest
 function run_tests ($abort = $false) {
     activate_env
-    pytest tests --cov=lib --cov-report html -v
+    pytest tests --cov=story_time --cov-report html -v
     if ($abort){
         abort_failure
     }
@@ -55,6 +55,11 @@ function run_tests ($abort = $false) {
 # Publish changes to PyPI. Checks if the tests are run successfully
 # and if the code formatting is fine.
 function publish_to_pypi {
+    # Remove old stuff
+    Remove-Item dist -Recurse -ErrorAction Ignore
+    Remove-Item build -Recurse -ErrorAction Ignore
+    Remove-Item *.egg-info -Recurse -ErrorAction Ignore
+
     # Check formatting and style
     black --check .
     abort_failure

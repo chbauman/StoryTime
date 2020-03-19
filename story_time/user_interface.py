@@ -10,10 +10,10 @@ from typing import Callable, List, Union, Optional
 import cv2
 import wx
 
-import lib
-from lib import util
-from lib.XML_write import save_entry, find_closest_entry
-from lib.util import (
+import story_time
+from story_time import util
+from story_time.XML_write import save_entry, find_closest_entry
+from story_time.util import (
     FileDrop,
     icon_path,
     ChangeDateDialog,
@@ -427,7 +427,7 @@ class StoryTimeApp(wx.Frame):
 
     def set_folder_txt(self):
         """Sets the text in the directory textbox."""
-        self.cwd.SetLabelText("Working directory: " + lib.util.data_path)
+        self.cwd.SetLabelText("Working directory: " + story_time.util.data_path)
 
     def set_img(self, name: str) -> None:
         """Sets an image in the preview panel in photo mode.
@@ -649,7 +649,7 @@ class StoryTimeApp(wx.Frame):
 
         # Update and create data directories if not existing
         update_folder(files_path)
-        self.cwd.SetLabelText(lib.util.data_path)
+        self.cwd.SetLabelText(story_time.util.data_path)
         create_xml_and_img_folder(files_path)
         self.set_date_to_now()
 
@@ -718,7 +718,7 @@ class StoryTimeApp(wx.Frame):
         if set_img:
             if not is_text:
                 img_name = child.find("photo").text
-                img_path = os.path.join(lib.util.data_path, "Img", img_name)
+                img_path = os.path.join(story_time.util.data_path, "Img", img_name)
                 self.set_prev_img(img_path)
             else:
                 self.rem_prev_img()
