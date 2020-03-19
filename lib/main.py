@@ -202,7 +202,7 @@ class StoryTimeApp(wx.Frame):
     toolbar = None
     photoTool = None
 
-    main_panel: wx.Panel
+    main_panel: Union[wx.BoxSizer, wx.Panel]
     fileDrop: FileDrop
 
     # Text

@@ -12,21 +12,21 @@ param(
 
 # Builds the documentation. Use `rebuild` = true, if a module has been
 # added, or conf.py changed.
-#function make_docs ($rebuild = $true) {
-#    Set-Location docs
-#    if ($rebuild) {
-#        Remove-Item sphinx -Force -Recurse
-#        mkdir sphinx
-#        Set-Location sphinx
-#        sphinx-apidoc -F -H 'Emeki' -A 'Chris' -o . '../../' "../../setup.py"
-#        Copy-Item ../conf.py .
-#        Set-Location ..
-#        python doc_helper.py
-#    }
-#    Set-Location sphinx
-#    ./make html SPHINXBUILD='python $(shell which sphinx-build)'
-#    Set-Location ../..
-#}
+function make_docs ($rebuild = $true) {
+    Set-Location docs
+    if ($rebuild) {
+        Remove-Item sphinx -Force -Recurse -ErrorAction Ignore
+        mkdir sphinx
+        Set-Location sphinx
+        sphinx-apidoc -F -H 'Story Time' -A 'Chris' -o . '../../' "../../setup.py"
+        Copy-Item ../conf.py .
+        Set-Location ..
+        python doc_helper.py
+    }
+    Set-Location sphinx
+    ./make html SPHINXBUILD='python $(shell which sphinx-build)'
+    Set-Location ../..
+}
 
 # Aborts script if previous command failed
 function abort_failure {
@@ -95,7 +95,7 @@ if ($h) {
     Get-Help .\make.ps1
 }
 if ($docs) {
-#    make_docs(-Not $no_rebuild)
+    make_docs(-Not $no_rebuild)
 }
 if ($pub) {
     publish_to_pypi
