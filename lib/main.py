@@ -224,7 +224,9 @@ class StoryTimeApp(wx.Frame):
     h_box_cwd: wx.BoxSizer
     h_box_4: wx.BoxSizer
 
-    # Data to keep track of the entry in the preview
+    # Data to keep track of the entry in the preview. `prev_dt` contains the
+    # wx.DateTime of the previewed entry. If it reaches the end, it is either
+    # `max_dt` or `min_dt`.
     prev_dt: wx.DateTime
     newest_reached: Optional[bool] = None
     max_dt: wx.DateTime = wx.DateTime(1, 1, 10000)
@@ -493,14 +495,11 @@ class StoryTimeApp(wx.Frame):
             self.set_img_with_date(f_path, curr_dt)
             self.fileDrop.loadedFile = f_path
 
-    def toggle_prev_img(self, _):
+    @staticmethod
+    def toggle_prev_img(_):
         """Toggles the preview image."""
         print("Toggling")
-        if self.prev_img_space.IsShown():
-            self.prev_img_space.Hide()
-        else:
-            self.prev_img_space.Show()
-        self.main_panel.Layout()
+        pass
 
     def check_if_discard_changes(self, _deb_fun: Callable = None) -> int:
         """Checks whether there is unsaved info.
@@ -683,7 +682,7 @@ class StoryTimeApp(wx.Frame):
         """
         self.update_date(wx.DateTime.Now())
 
-    def update_date(self, new_date=None) -> None:
+    def update_date(self, new_date: wx.DateTime = None) -> None:
         """Updates the date to specified datetime.
 
         Updates the static datetime text and looks
@@ -692,25 +691,26 @@ class StoryTimeApp(wx.Frame):
         if new_date is not None:
             self.cdDialog.dt = new_date
         self.dateLabel.SetLabel("Date: " + format_date_time(self.cdDialog.dt))
-        self.fix_text_box.SetLabel("This is a bug!")  # Probably unnecessary.
-        self.update_preview_text()
+        # The line below is probably unnecessary. Actually has already been helpful in some cases!
+        self.fix_text_box.SetLabel("This is a bug!")
+        self.prev_dt = self.cdDialog.dt
+        self.update_preview_text(set_next=False)
 
-    def _get_text_to_put(self, last: bool = True, set_img: bool = False, use_prev_dt: bool = False) -> str:
+    def _get_text_to_put(
+        self, last: bool = True, set_img: bool = False, use_prev_dt: bool = False
+    ) -> str:
         search_dt = self.cdDialog.dt if not use_prev_dt else self.prev_dt
         ret_val = find_closest_entry(search_dt, not last)
         if ret_val is None:
             if use_prev_dt:
                 self.newest_reached = not last
                 self.prev_dt = self.min_dt if last else self.max_dt
+                self.rem_prev_img()
             return ""
         self.newest_reached = None
         date, child = ret_val
         is_text = child.get("type") == "text"
-        child_text = (
-            child.text
-            if is_text
-            else "Photo: " + child.find("text").text
-        )
+        child_text = child.text if is_text else "Photo: " + child.find("text").text
         if set_img:
             if not is_text:
                 img_name = child.find("photo").text
@@ -737,7 +737,11 @@ class StoryTimeApp(wx.Frame):
         else:
             text_to_put += self._get_text_to_put(True, True)
         if text_to_put == "":
-            text_to_put = f"No {'newer' if self.newest_reached else 'older'} entry present."
+            text_to_put = (
+                f"No {'newer' if self.newest_reached else 'older'} entry present."
+            )
+            if set_next is None:
+                self.prev_dt = self.min_dt
 
         # Set text and update layout
         self.fix_text_box.SetLabel(text_to_put)
@@ -768,6 +772,12 @@ class StoryTimeAppUITest(StoryTimeApp):
 
         self.imgLoaded = False
 
+    def next_entry(self, _):
+        self.update_preview_text(True)
+
+    def prev_entry(self, _):
+        self.update_preview_text(False)
+
     def InitUI(self) -> None:
 
         # Setup toolbar
@@ -795,13 +805,7 @@ class StoryTimeAppUITest(StoryTimeApp):
         # Buttons
         next_prev_buttons = TwoButtonPanel(self, labels=["Previous", "Next"])
 
-        def next_entry(_):
-            self.update_preview_text(True)
-
-        def prev_entry(_):
-            self.update_preview_text(False)
-
-        next_prev_buttons.set_but_methods(prev_entry, next_entry)
+        next_prev_buttons.set_but_methods(self.prev_entry, self.next_entry)
         save_close_buttons = TwoButtonPanel(
             self, labels=["Save", "Close"], center=False
         )
