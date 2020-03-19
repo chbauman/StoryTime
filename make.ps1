@@ -1,12 +1,14 @@
 # Parameter definition
 param(
 [switch]$docs = $false,
+[switch]$run = $false,
 [switch]$act = $false,
 [switch]$no_rebuild = $false,
 [switch]$format = $false,
 [switch]$clean = $false,
 [switch]$test = $false,
 [switch]$pub = $false,
+[switch]$to_pypi = $false,
 [switch]$h = $false)
 
 
@@ -34,6 +36,12 @@ function abort_failure {
         Write-Host("ERROR: Publishing failed!")
         Break
     }
+}
+
+# Runs the tests using pytest
+function run{
+    activate_env
+    python .\story_time\main.py
 }
 
 # Runs the tests using pytest
@@ -84,8 +92,11 @@ function publish_to_pypi {
     python setup.py sdist bdist_wheel
     $username = "chbauman"
     $pw = (keyring get https://upload.pypi.org/legacy/ $username) | Out-String
-    twine upload dist/* --repository-url https://test.pypi.org/legacy/ -u $username -p $pw.Trim()
-#    twine upload dist/* -u $username -p $pw.Trim()
+    if($to_pypi){
+        twine upload dist/* -u $username -p $pw.Trim()
+    } else {
+        twine upload dist/* --repository-url https://test.pypi.org/legacy/ -u $username -p $pw.Trim()
+    }
 }
 
 # Cleans up some files
@@ -101,6 +112,9 @@ if ($h) {
 }
 if ($docs) {
     make_docs(-Not $no_rebuild)
+}
+if ($run) {
+    run
 }
 if ($pub) {
     publish_to_pypi

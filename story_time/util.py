@@ -26,7 +26,6 @@ icon_path = os.path.join(project_path, "story_time/Icons")
 temp_folder = os.path.join(
     project_path, "tmp"
 )  #: Temporary folder to store images temporarily.
-# info_file = os.path.join(project_path, "story_time/Info.txt")
 info_file = resource_filename(__name__, f"Info.txt")
 
 # Path to data (global variables)

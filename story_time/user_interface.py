@@ -167,7 +167,6 @@ class ToolbarPanel(wx.Panel):
         for ct, t in enumerate(self.tool_list):
             icon_name, name, help_txt, *rest = t
             tool_id = wx.Window.NewControlId()
-            # img_path = os.path.join(icon_path, icon_name)
             img_path = resource_filename(__name__, f"Icons/{icon_name}")
             icon = scale_bitmap(wx.Bitmap(img_path), *iconSize)
             args = (tool_id, name, icon)
