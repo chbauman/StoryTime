@@ -1,3 +1,2 @@
 global-include story_time/Icons/*
-global-include Info.txt
-global-include *.txt, *.png
+global-include story_time/Info.txt

@@ -32,6 +32,7 @@ from story_time.util import (
     AcceptPhoto,
     CustomMessageDialog,
     ask_for_dir,
+    info_file,
 )
 
 DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
@@ -59,12 +60,12 @@ def create_app():
 
 @contextmanager
 def change_info_txt(dir_to_set):
-    with open("Info.txt", "r") as f:
+    with open(info_file, "r") as f:
         curr_info_txt = f.read()
     story_time.util.data_path = dir_to_set
     write_folder_to_file()
     yield
-    with open("Info.txt", "w") as f:
+    with open(info_file, "w") as f:
         f.write(curr_info_txt)
 
 
@@ -109,13 +110,13 @@ class TestFileSystem(TestCase):
 
     def test_info_file(self):
         with change_info_txt(DATA_DIR):
-            with open("Info.txt", "r") as f:
+            with open(info_file, "r") as f:
                 assert f.read().strip() == DATA_DIR
 
             f_path = get_info_from_file(False)
             assert f_path == DATA_DIR
 
-            os.remove("Info.txt")
+            os.remove(info_file)
 
             def new_ask(_=None):
                 return DATA_DIR

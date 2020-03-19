@@ -122,7 +122,7 @@ def get_info_from_file(ask: bool = True, _fun: Callable = None) -> Optional[str]
 
 
 def write_folder_to_file() -> None:
-    """Write the current working directory to file `Info.txt`.
+    """Write the current working directory to file `info_file`.
     """
     with open(info_file, "w") as f:
         f.write(data_path)
