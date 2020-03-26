@@ -11,6 +11,8 @@ TODO:
     - Indicate diary entries in calendar.
     - Smoother UI changes (e.g. image loading)
     - Enlarge image when clicked.
+    - Host documentation somewhere.
+
 """
 
 import wx
