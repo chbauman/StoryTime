@@ -12,7 +12,10 @@ TODO:
     - Smoother UI changes (e.g. image loading)
     - Enlarge image when clicked.
     - Host documentation somewhere.
-
+    - Adjust colors.
+    - Achieve 100% test coverage.
+    - Preview: Resolve issue with multiple entries on same Date and time.
+    - Center toolbar?
 """
 
 import wx
