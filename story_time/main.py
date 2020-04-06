@@ -18,6 +18,7 @@ TODO:
     - Better fonts (size and family!)
     - Color buttons!
     - Make header color changeable: https://stackoverflow.com/questions/51000320/wxpython-change-the-headers-color
+    - Handle image deletion while app is running
 """
 
 import wx
