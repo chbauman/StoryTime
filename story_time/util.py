@@ -38,6 +38,20 @@ xml_folder = (
     "if/you/see/this/its/a/bug"  #: The folder where the xml documents are stored.
 )
 
+# Set colors
+# dark_green = wx.Colour(1, 92, 68)
+green = wx.Colour(0, 143, 105)
+light_green = wx.Colour(169, 245, 213)
+very_light_green = wx.Colour(212, 252, 235)
+
+header_col = light_green
+but_bg_col = green
+text_bg_col = very_light_green
+
+# Fonts
+header_f_info = wx.FontInfo(12).Bold().Family(wx.FONTFAMILY_SWISS)
+button_f_info = wx.FontInfo(12).Family(wx.FONTFAMILY_SWISS).Bold()
+
 
 def update_folder(new_data_path: str) -> None:
     """Update global path variables if data folder is changed.
@@ -148,6 +162,7 @@ class ButtonDialogBase(wx.Dialog):
         self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
         self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
         self.SetSizer(self.v_box)
+        self.SetBackgroundColour(text_bg_col)
 
 
 class TwoButtonDialogBase(ButtonDialogBase):
@@ -169,9 +184,13 @@ class TwoButtonDialogBase(ButtonDialogBase):
 
         # Buttons
         shootButton = wx.Button(self, label=shoot_label)
+        # shootButton.SetBackgroundColour(but_bg_col)
         shootButton.Bind(wx.EVT_BUTTON, shoot_fun)
         cancelButton = wx.Button(self, label=cancel_label)
         cancelButton.Bind(wx.EVT_BUTTON, cancel_fun)
+        # cancelButton.SetBackgroundColour(but_bg_col)
+        shootButton.SetFont(wx.Font(button_f_info))
+        cancelButton.SetFont(wx.Font(button_f_info))
 
         # Layout
         h_box = wx.BoxSizer(wx.HORIZONTAL)
@@ -207,6 +226,7 @@ class CustomMessageDialog(TwoButtonDialogBase):
 
         if message is not None:
             stMsg = wx.StaticText(self, -1, message)
+            # stMsg.SetBackgroundColour(green)
             self.v_box.Add(stMsg, 1, wx.ALIGN_CENTER | wx.ALL, 10)
 
         self.SetSizer(self.v_box)
@@ -215,6 +235,7 @@ class CustomMessageDialog(TwoButtonDialogBase):
             h_box = wx.BoxSizer(wx.HORIZONTAL)
             cancel_butt = wx.Button(self, label=cancel_label)
             cancel_butt.Bind(wx.EVT_BUTTON, self.OnOK)
+            cancel_butt.SetFont(wx.Font(button_f_info))
             self.setup_v_box(h_box, cancel_butt, pnl)
         else:
             self.setup(pnl, ok_label, cancel_label, self.OnOK, self.OnClose)

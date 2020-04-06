@@ -16,6 +16,9 @@ TODO:
     - Achieve 100% test coverage.
     - Preview: Resolve issue with multiple entries on same Date and time.
     - Center toolbar?
+    - Better fonts (size and family!)
+    - Color buttons!
+    - Make header color changeable: https://stackoverflow.com/questions/51000320/wxpython-change-the-headers-color
 """
 
 import wx

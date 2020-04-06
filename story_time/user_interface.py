@@ -32,7 +32,9 @@ from story_time.util import (
     rep_newlines_with_space,
     copy_img_file_to_imgs,
     CustomMessageDialog,
-)
+    header_col,
+    but_bg_col,
+    text_bg_col, header_f_info, button_f_info)
 
 ID_MENU_PHOTO = wx.Window.NewControlId()
 ID_MENU_CHANGE_DATE = wx.Window.NewControlId()
@@ -51,25 +53,40 @@ EXPAND_ALL = wx.ALL | wx.EXPAND
 class TextLinePanel(wx.Panel):
     stat_text: wx.StaticText
 
-    def __init__(self, parent, text: str = "Test Text", center_text: bool = False):
+    def __init__(
+        self,
+        parent,
+        text: str = "Test Text",
+        center_text: bool = False,
+        bg_col: wx.Colour = "Red",
+    ):
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
         s = wx.ALIGN_CENTRE_HORIZONTAL if center_text else wx.ALIGN_LEFT
         self.stat_text = wx.StaticText(self, label=text, style=s)
+        self.stat_text.SetFont(wx.Font(header_f_info))
         box.Add(self.stat_text, 1, wx.ALIGN_CENTER_HORIZONTAL | EXPAND_ALL, 5)
         box.Fit(self)
         self.SetAutoLayout(True)
         self.SetSizer(box)
-        self.SetBackgroundColour("Red")
+        self.SetBackgroundColour(bg_col)
 
 
 class TwoButtonPanel(wx.Panel):
-    def __init__(self, parent, labels: List[str], center: bool = True):
+    def __init__(
+        self,
+        parent,
+        labels: List[str],
+        center: bool = True,
+        bg_col: wx.Colour = "Green",
+    ):
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
         # Next and previous entry buttons
         self.but_1 = wx.Button(self, wx.ID_ANY, label=labels[0], size=(70, 30))
         self.but_2 = wx.Button(self, wx.ID_ANY, label=labels[1], size=(70, 30))
+        self.but_1.SetFont(wx.Font(button_f_info))
+        self.but_2.SetFont(wx.Font(button_f_info))
 
         h_box_p_but = wx.BoxSizer(wx.HORIZONTAL)
         h_box_p_but.Add(self.but_1)
@@ -84,7 +101,7 @@ class TwoButtonPanel(wx.Panel):
         box.Fit(self)
         self.SetAutoLayout(True)
         self.SetSizer(box)
-        self.SetBackgroundColour("Green")
+        self.SetBackgroundColour(bg_col)
 
     def set_but_methods(self, met_1, met_2):
         self.Bind(wx.EVT_BUTTON, met_1, id=self.but_1.Id)
@@ -94,7 +111,13 @@ class TwoButtonPanel(wx.Panel):
 class TextAndImgPanel(wx.Panel):
     text_box: Union[wx.TextCtrl, wx.StaticText]
 
-    def __init__(self, parent, editable: bool = False, drop_tgt: bool = False):
+    def __init__(
+        self,
+        parent,
+        editable: bool = False,
+        drop_tgt: bool = False,
+        bg_col: wx.Colour = wx.Colour(200, 255, 200),
+    ):
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
 
@@ -118,7 +141,7 @@ class TextAndImgPanel(wx.Panel):
             self.text_box = wx.TextCtrl(self, **kws)
         else:
             self.text_box = wx.StaticText(self, label=text_shown, **kws)
-        self.text_box.SetBackgroundColour(wx.Colour(200, 255, 200))
+        self.text_box.SetBackgroundColour(bg_col)
 
         EXP_ALL = wx.EXPAND | wx.ALL
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
@@ -129,7 +152,7 @@ class TextAndImgPanel(wx.Panel):
         box.Fit(self)
         self.SetAutoLayout(True)
         self.SetSizer(box)
-        self.SetBackgroundColour("Blue")
+        self.SetBackgroundColour(bg_col)
 
 
 class ToolbarPanel(wx.Panel):
@@ -143,7 +166,7 @@ class ToolbarPanel(wx.Panel):
     tools = None
     photoTool = None
 
-    def __init__(self, parent):
+    def __init__(self, parent, bg_col: wx.Colour = wx.Colour(140, 140, 255)):
         wx.Panel.__init__(self, parent)
         self.tools = []
         self.toolbar = wx.ToolBar(self, -1)
@@ -156,7 +179,7 @@ class ToolbarPanel(wx.Panel):
         box.Fit(self)
         self.SetAutoLayout(True)
         self.SetSizer(box)
-        self.toolbar.SetBackgroundColour(wx.Colour(140, 140, 255))
+        self.toolbar.SetBackgroundColour(bg_col)
 
     def setup_toolbar(self) -> None:
         """Sets the toolbar up."""
@@ -795,37 +818,46 @@ class StoryTimeAppUITest(StoryTimeApp):
             self.OnChangeDir,
             self.OnSelfie,
         ]
-        tool_panel = ToolbarPanel(self)
+        tool_panel = ToolbarPanel(self, bg_col=header_col)
         tool_panel.bind_tools(met_list)
         self.photoTool = tool_panel.photoTool
         self.toolbar = tool_panel.toolbar
 
         path_text = TextLinePanel(
-            self, text="Working directory: Path/to/the/working/directory"
+            self,
+            text="Working directory: Path/to/the/working/directory",
+            bg_col=header_col,
         )
         self.cwd = path_text.stat_text
         time_text = TextLinePanel(
-            self, text="Current date and time: 12.12.1212, 23:12:55", center_text=True
+            self,
+            text="Current date and time: 12.12.1212, 23:12:55",
+            center_text=True,
+            bg_col=but_bg_col,
         )
         self.dateLabel = time_text.stat_text
 
         # Buttons
-        next_prev_buttons = TwoButtonPanel(self, labels=["Previous", "Next"])
+        next_prev_buttons = TwoButtonPanel(
+            self, labels=["Previous", "Next"], bg_col=but_bg_col
+        )
 
         next_prev_buttons.set_but_methods(self.prev_entry, self.next_entry)
         save_close_buttons = TwoButtonPanel(
-            self, labels=["Save", "Close"], center=False
+            self, labels=["Save", "Close"], center=False, bg_col=but_bg_col
         )
         save_close_buttons.set_but_methods(
             self.OnOKButtonClick, self.OnCloseButtonClick
         )
 
         # Text and images
-        text_edit = TextAndImgPanel(self, editable=True, drop_tgt=True)
+        text_edit = TextAndImgPanel(
+            self, editable=True, drop_tgt=True, bg_col=text_bg_col
+        )
         self.fileDrop = text_edit.fileDrop
         self.image_drop_space = text_edit.img
         self.input_text_field = text_edit.text_box
-        text_preview = TextAndImgPanel(self, editable=False)
+        text_preview = TextAndImgPanel(self, editable=False, bg_col=text_bg_col)
         self.fix_text_box = text_preview.text_box
         self.prev_img_space = text_preview.img
 
