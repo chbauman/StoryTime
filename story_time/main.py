@@ -19,6 +19,8 @@ TODO:
     - Color buttons!
     - Make header color changeable: https://stackoverflow.com/questions/51000320/wxpython-change-the-headers-color
     - Handle image deletion while app is running
+    - Handle app resizing! (Similar as for the photo enlargement)
+    - Remove prints for non-debug scenario
 """
 
 import wx
