@@ -152,6 +152,49 @@ def scale_bitmap(bitmap: wx.Bitmap, width: int, height: int) -> wx.Bitmap:
     return result
 
 
+class PhotoShow(wx.Dialog):
+    okay: bool = False
+    resized = False
+
+    f_name: str
+
+    def __init__(
+        self, parent, f_name,
+    ):
+        super().__init__(parent, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        title: str = "Large photo view"
+        self.SetTitle(title)
+        pnl = wx.Panel(self)
+        self.v_box = wx.BoxSizer(wx.VERTICAL)
+
+        self.f_name = f_name
+        b = getImageToShow(f_name)
+        self.imageCtrl = wx.StaticBitmap(self, wx.ID_ANY, b)
+        self.v_box.Add(self.imageCtrl, 0, wx.ALL | wx.EXPAND, 0)
+
+        self.SetSizer(self.v_box)
+
+        self.SetBackgroundColour(text_bg_col)
+        self.Size = wx.Size(500, 500)
+
+        self.Bind(wx.EVT_SIZE, self.OnSize)
+        self.Bind(wx.EVT_IDLE, self.OnIdle)
+
+    def OnSize(self, event):
+        self.resized = True  # set dirty
+
+    def OnIdle(self, event):
+        if self.resized:
+            # take action if the dirty flag is set
+            print("Resizing")
+            print(self.Size)
+            s = self.Size
+            s_min = s[0] if s[0] < s[1] else s[1]
+            self.imageCtrl.SetBitmap(getImageToShow(self.f_name, s_min))
+            self.Layout()
+            self.resized = False  # reset the flag
+
+
 class ButtonDialogBase(wx.Dialog):
     """Base class for a dialog with a button."""
 
@@ -206,7 +249,6 @@ class TwoButtonDialogBase(ButtonDialogBase):
 
 
 class CustomMessageDialog(TwoButtonDialogBase):
-
     okay: bool = False
 
     def __init__(

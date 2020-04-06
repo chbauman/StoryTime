@@ -10,7 +10,6 @@ TODO:
     - Resize images (and text?) when resizing window.
     - Indicate diary entries in calendar.
     - Smoother UI changes (e.g. image loading)
-    - Enlarge image when clicked.
     - Host documentation somewhere.
     - Adjust colors.
     - Achieve 100% test coverage.

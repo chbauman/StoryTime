@@ -34,7 +34,11 @@ from story_time.util import (
     CustomMessageDialog,
     header_col,
     but_bg_col,
-    text_bg_col, header_f_info, button_f_info)
+    text_bg_col,
+    header_f_info,
+    button_f_info,
+    PhotoShow,
+)
 
 ID_MENU_PHOTO = wx.Window.NewControlId()
 ID_MENU_CHANGE_DATE = wx.Window.NewControlId()
@@ -244,6 +248,8 @@ class StoryTimeApp(wx.Frame):
     prev_img_space: wx.StaticBitmap
     bmp_shown: wx.Bitmap
 
+    prev_img_name = None
+
     # Boxes
     v_box: wx.BoxSizer
     h_box_1: wx.BoxSizer
@@ -364,7 +370,6 @@ class StoryTimeApp(wx.Frame):
 
         # Working directory text
         self.h_box_cwd, self.cwd = self.setup_one_line_static("This/is/a/Bug", font)
-        # self.cwd.SetBackgroundColour("Yellow")
 
         # Text
         self.setup_one_line_static("Input text below", font)
@@ -475,6 +480,7 @@ class StoryTimeApp(wx.Frame):
     def rem_prev_img(self):
         """Removes the image by hiding it."""
         if self.prev_img_space.IsShown():
+            self.prev_img_name = None
             self.prev_img_space.Hide()
 
     def set_img_with_date(self, curr_file: str, img_date: wx.DateTime) -> None:
@@ -488,6 +494,20 @@ class StoryTimeApp(wx.Frame):
         """Same as if the save button was clicked.
         """
         self.OnOKButtonClick(*args, **kwargs)
+
+    def on_taken_image_clicked(self, e):
+        lf = self.fileDrop.loadedFile
+        if lf is not None:
+            PhotoShow(self, lf).ShowModal()
+            print("Enlarge taken!")
+        else:
+            print("No photo taken!")
+
+    def on_prev_image_clicked(self, e):
+        prev_i = self.prev_img_name
+        if prev_i is not None:
+            PhotoShow(self, prev_i).ShowModal()
+            print("Enlarged prev!")
 
     def OnSelfie(
         self, e, _diag_fun: Callable = None, _photo_fun: Callable = None
@@ -743,9 +763,11 @@ class StoryTimeApp(wx.Frame):
         child_text = child.text if is_text else "Photo: " + child.find("text").text
         if set_img:
             if not is_text:
-                img_name = child.find("photo").text
-                img_path = os.path.join(story_time.util.data_path, "Img", img_name)
-                self.set_prev_img(img_path)
+                prev_img_name = child.find("photo").text
+                self.prev_img_name = os.path.join(
+                    story_time.util.data_path, "Img", prev_img_name
+                )
+                self.set_prev_img(self.prev_img_name)
             else:
                 self.rem_prev_img()
 
@@ -856,10 +878,13 @@ class StoryTimeAppUITest(StoryTimeApp):
         )
         self.fileDrop = text_edit.fileDrop
         self.image_drop_space = text_edit.img
+        self.image_drop_space.Bind(wx.EVT_LEFT_DOWN, self.on_taken_image_clicked)
+
         self.input_text_field = text_edit.text_box
         text_preview = TextAndImgPanel(self, editable=False, bg_col=text_bg_col)
         self.fix_text_box = text_preview.text_box
         self.prev_img_space = text_preview.img
+        self.prev_img_space.Bind(wx.EVT_LEFT_DOWN, self.on_prev_image_clicked)
 
         # Put it all together
         box = wx.BoxSizer(wx.VERTICAL)
