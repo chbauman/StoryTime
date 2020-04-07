@@ -21,6 +21,9 @@ TODO:
     - Handle image deletion while app is running
     - Handle app resizing! (Similar as for the photo enlargement)
     - Remove prints for non-debug scenario
+    - En-/ Disable Next/Previous button if no other entry present
+    - Handle non-square images in large view
+    - Change black image border to better color
 """
 
 import wx

@@ -158,13 +158,10 @@ class PhotoShow(wx.Dialog):
 
     f_name: str
 
-    def __init__(
-        self, parent, f_name,
-    ):
-        super().__init__(parent, style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
-        title: str = "Large photo view"
-        self.SetTitle(title)
-        pnl = wx.Panel(self)
+    def __init__(self, parent, f_name):
+        super().__init__(parent, style=wx.DEFAULT_FRAME_STYLE | wx.RESIZE_BORDER)
+        self.SetTitle("Large photo view")
+        wx.Panel(self)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         self.f_name = f_name
@@ -180,14 +177,12 @@ class PhotoShow(wx.Dialog):
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_IDLE, self.OnIdle)
 
-    def OnSize(self, event):
+    def OnSize(self, _):
         self.resized = True  # set dirty
 
-    def OnIdle(self, event):
+    def OnIdle(self, _):
         if self.resized:
             # take action if the dirty flag is set
-            print("Resizing")
-            print(self.Size)
             s = self.Size
             s_min = s[0] if s[0] < s[1] else s[1]
             self.imageCtrl.SetBitmap(getImageToShow(self.f_name, s_min))
@@ -676,18 +671,18 @@ def format_date_time(date_time: wx.DateTime) -> str:
     return str_out
 
 
-def getImageToShow(filename, size=180, border=5):
-    """
+def getImageToShow(filename: str, size: int = 180, border: int = 5) -> wx.Bitmap:
+    """Converts the specified image to a bitmap of according size.
 
     Assuming quadratic size.
 
     Args:
-        filename:
-        size:
-        border:
+        filename: The path to the file.
+        size: The size of the returned image.
+        border: Border width.
 
     Returns:
-
+        The bitmap with the specified size
     """
     bor_2 = 2 * border
     wxBmp = wx.Bitmap(filename)

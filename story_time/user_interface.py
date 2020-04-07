@@ -145,12 +145,13 @@ class TextAndImgPanel(wx.Panel):
             self.text_box = wx.TextCtrl(self, **kws)
         else:
             self.text_box = wx.StaticText(self, label=text_shown, **kws)
+            # self.text_box = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 180))
         self.text_box.SetBackgroundColour(bg_col)
 
         EXP_ALL = wx.EXPAND | wx.ALL
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
-        h_box_3.Add(self.text_box, proportion=1, flag=EXP_ALL, border=5)
-        h_box_3.Add(self.img, proportion=0, flag=wx.ALL, border=5)
+        h_box_3.Add(self.text_box, proportion=3, flag=EXP_ALL, border=5)
+        h_box_3.Add(self.img, proportion=1, flag=EXP_ALL, border=5)
 
         box.Add(h_box_3, 1, EXP_ALL, 5)
         box.Fit(self)
@@ -490,12 +491,14 @@ class StoryTimeApp(wx.Frame):
         self.imgLoaded = True
         self.set_img(curr_file)
 
+        self.resized_layout()
+
     def OnSave(self, *args, **kwargs) -> None:
         """Same as if the save button was clicked.
         """
         self.OnOKButtonClick(*args, **kwargs)
 
-    def on_taken_image_clicked(self, e):
+    def on_taken_image_clicked(self, _):
         lf = self.fileDrop.loadedFile
         if lf is not None:
             PhotoShow(self, lf).ShowModal()
@@ -503,11 +506,10 @@ class StoryTimeApp(wx.Frame):
         else:
             print("No photo taken!")
 
-    def on_prev_image_clicked(self, e):
+    def on_prev_image_clicked(self, _):
         prev_i = self.prev_img_name
         if prev_i is not None:
             PhotoShow(self, prev_i).ShowModal()
-            print("Enlarged prev!")
 
     def OnSelfie(
         self, e, _diag_fun: Callable = None, _photo_fun: Callable = None
@@ -538,8 +540,8 @@ class StoryTimeApp(wx.Frame):
             f_path = os.path.join(temp_folder, f_name)
             create_dir(temp_folder)
             cv2.imwrite(f_path, cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            self.set_img_with_date(f_path, curr_dt)
             self.fileDrop.loadedFile = f_path
+            self.set_img_with_date(f_path, curr_dt)
 
     @staticmethod
     def toggle_prev_img(_):
@@ -600,7 +602,8 @@ class StoryTimeApp(wx.Frame):
 
         # Update date and time and the layout
         self.set_date_to_now()
-        self.main_panel.Layout()
+        # self.main_panel.Layout()
+        self.resized_layout()
         return 0
 
     def OnCloseButtonClick(self, *args, **kwargs) -> None:
@@ -799,10 +802,17 @@ class StoryTimeApp(wx.Frame):
         self.fix_text_box.SetLabel(text_to_put)
         self.v_box.Layout()
 
+    def resized_layout(self):
+        self.Layout()
+
 
 class StoryTimeAppUITest(StoryTimeApp):
     photoTool = None
     toolbar = None
+    resized = True
+
+    text_prev_sizer: wx.Sizer
+    input_text_sizer: wx.Sizer
 
     def __init__(self, *args, **kwargs):
         super(StoryTimeApp, self).__init__(*args, **kwargs)
@@ -876,12 +886,16 @@ class StoryTimeAppUITest(StoryTimeApp):
         text_edit = TextAndImgPanel(
             self, editable=True, drop_tgt=True, bg_col=text_bg_col
         )
+        text_edit.SetMinSize((200, 200))
         self.fileDrop = text_edit.fileDrop
         self.image_drop_space = text_edit.img
         self.image_drop_space.Bind(wx.EVT_LEFT_DOWN, self.on_taken_image_clicked)
-
+        self.input_text_sizer = text_edit.GetSizer()
         self.input_text_field = text_edit.text_box
+
         text_preview = TextAndImgPanel(self, editable=False, bg_col=text_bg_col)
+        text_preview.SetMinSize((200, 200))
+        self.text_prev_sizer = text_preview.GetSizer()
         self.fix_text_box = text_preview.text_box
         self.prev_img_space = text_preview.img
         self.prev_img_space.Bind(wx.EVT_LEFT_DOWN, self.on_prev_image_clicked)
@@ -905,5 +919,45 @@ class StoryTimeAppUITest(StoryTimeApp):
         self.set_date_txt()
         self.set_folder_txt()
         self.Bind(wx.EVT_CLOSE, self.OnX)
+
+        self.Bind(wx.EVT_SIZE, self.on_resize)
+        self.Bind(wx.EVT_IDLE, self.OnIdle)
+
+        self.SetMinSize((400, 600))
+
+    def on_resize(self, _):
+        self.resized = True  # set dirty
+        self.Layout()
+
+    def OnIdle(self, _):
+        if self.resized:
+            lf = self.fileDrop.loadedFile
+            s_min = min(self.input_text_sizer.Size)
+            if s_min > 30:
+                set_img = self.default_img_drop if lf is None else lf
+                self.image_drop_space.SetBitmap(getImageToShow(set_img, s_min - 30))
+
+            if self.prev_img_name is not None:
+                s_min = min(self.text_prev_sizer.Size)
+                if s_min > 30:
+                    self.prev_img_space.SetBitmap(
+                        getImageToShow(self.prev_img_name, s_min - 30)
+                    )
+
+            self.Layout()
+            self.resized = False  # reset the flag
+
+    def resized_layout(self):
+        self.on_resize(None)
+        self.OnIdle(None)
+
+    def set_prev_img(self, name: str):
+        """Sets an image in the entry preview panel.
+
+        Given the path of the image.
+        """
+        super().set_prev_img(name)
+
+        self.resized_layout()
 
     pass
