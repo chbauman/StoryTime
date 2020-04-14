@@ -150,8 +150,9 @@ class TextAndImgPanel(wx.Panel):
 
         EXP_ALL = wx.EXPAND | wx.ALL
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
-        h_box_3.Add(self.text_box, proportion=3, flag=EXP_ALL, border=5)
+
         h_box_3.Add(self.img, proportion=1, flag=EXP_ALL, border=5)
+        h_box_3.Add(self.text_box, proportion=3, flag=EXP_ALL, border=5)
 
         box.Add(h_box_3, 1, EXP_ALL, 5)
         box.Fit(self)
