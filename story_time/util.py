@@ -290,6 +290,7 @@ class CustomMessageDialog(TwoButtonDialogBase):
 class ChangeDateDialog(TwoButtonDialogBase):
     """Date and Time picker dialog"""
 
+    start_dt: wx.DateTime
     dt: wx.DateTime
     cal: wx.adv.CalendarCtrl
     timePicker: wx.adv.TimePickerCtrl
@@ -318,18 +319,21 @@ class ChangeDateDialog(TwoButtonDialogBase):
         self.v_box = wx.BoxSizer(wx.VERTICAL)
         self.setup(pnl, "Ok", "Cancel", self.OnOK, self.OnClose)
 
+    def get_time(self):
+        timeTuple = self.timePicker.GetTime()
+        dt = self.cal.GetDate()
+        dt.SetHour(timeTuple[0])
+        dt.SetMinute(timeTuple[1])
+        dt.SetSecond(timeTuple[2])
+        return dt
+
     def OnClose(self, e) -> None:
         print("Closed Change Date Dialog")
         self.Close()
 
     def OnOK(self, _) -> None:
         """Sets `self.dt` to the current time."""
-        timeTuple = self.timePicker.GetTime()
-        self.dt = self.cal.GetDate()
-        self.dt.SetHour(timeTuple[0])
-        self.dt.SetMinute(timeTuple[1])
-        self.dt.SetSecond(timeTuple[2])
-        print(self.dt)
+        self.dt = self.get_time()
         self.Close()
 
 

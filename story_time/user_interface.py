@@ -682,13 +682,17 @@ class StoryTimeApp(wx.Frame):
         self.set_date_to_now()
 
     def OnChangeDate(self, _, _fun: Callable = None) -> None:
-        """
-        Shows dialog that lets the user change the current date.
+        """Shows dialog that lets the user change the current date.
         """
         if _fun is not None:
             wx.CallAfter(_fun, self.cdDialog)
+
+        now = wx.DateTime.Now()
+        self.cdDialog.dt = now
+        cal_time = self.cdDialog.get_time()
         self.cdDialog.ShowModal()
-        self.update_date()
+        if self.cdDialog.dt != now and self.cdDialog.dt != cal_time:
+            self.update_date()
 
     def OnChangeDir(self, _) -> None:
         """Shows dialog that lets the user change the current directory.

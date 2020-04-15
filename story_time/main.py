@@ -21,7 +21,8 @@ TODO:
     - Add screenshots to readme.md
     - Improve button position and size (fit longest text)
     - Adjust dialog fonts (sizes?).
-    - Calendar cancel: No preview image reload
+    - Calendar: Add 'now' option that sets the time to now
+    - Photo mode toggle: No changing of current date! (Implement above point first)
 """
 from typing import Callable
 
@@ -31,7 +32,7 @@ from story_time.user_interface import StoryTimeAppUITest
 
 
 def main(_after_fun: Callable = None):
-    """DO ALL THE STUFF.
+    """Run the app.
     """
     app = wx.App()
     ex = StoryTimeAppUITest(None)
