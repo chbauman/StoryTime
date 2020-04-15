@@ -499,18 +499,23 @@ class StoryTimeApp(wx.Frame):
         """
         self.OnOKButtonClick(*args, **kwargs)
 
-    def on_taken_image_clicked(self, _):
+    def on_taken_image_clicked(self, _, _diag_fun: Callable = None):
+        """Enlarges the shown image."""
         lf = self.fileDrop.loadedFile
         if lf is not None:
-            PhotoShow(self, lf).ShowModal()
-            print("Enlarge taken!")
-        else:
-            print("No photo taken!")
+            ps = PhotoShow(self, lf)
+            if _diag_fun is not None:
+                wx.CallAfter(_diag_fun, ps)
+            ps.ShowModal()
 
-    def on_prev_image_clicked(self, _):
+    def on_prev_image_clicked(self, _, _diag_fun: Callable = None):
+        """Enlarges the preview image."""
         prev_i = self.prev_img_name
         if prev_i is not None:
-            PhotoShow(self, prev_i).ShowModal()
+            ps = PhotoShow(self, prev_i)
+            if _diag_fun is not None:
+                wx.CallAfter(_diag_fun, ps)
+            ps.ShowModal()
 
     def OnSelfie(
         self, e, _diag_fun: Callable = None, _photo_fun: Callable = None
@@ -657,7 +662,6 @@ class StoryTimeApp(wx.Frame):
                 if _no_text_fun is not None:
                     wx.CallAfter(_no_text_fun, md)
                 md.ShowModal()
-                # wx.MessageBox("No fucking image!!", "Info", wx.OK | wx.ICON_EXCLAMATION)
                 return
 
             # Save image entry

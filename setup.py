@@ -9,7 +9,7 @@ with open("version.txt", "r", encoding="utf8") as f:
 setuptools.setup(
     name="story-time",
     version=v_num,
-    description="Test",
+    description="Digital Diary written in wxPython",
     packages=setuptools.find_packages(exclude=["docs", "tests"]),
     include_package_data=True,
     package_data={"story_time": ["*.png", "*.txt"],},
