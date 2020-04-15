@@ -144,6 +144,7 @@ class TestMain2(TestCase):
     def test_main_func(self):
         def close(d):
             d.OnX(None)
+
         with change_info_txt(DATA_DIR):
             with create_test_dirs():
                 main(close)
