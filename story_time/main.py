@@ -7,19 +7,21 @@ Run this file to run the app.
 TODO:
     - PDF generation!
     - Fix webcam glitches.
+    - Make header color changeable: https://stackoverflow.com/questions/51000320/wxpython-change-the-headers-color
+    - Host documentation somewhere.
     - Indicate diary entries in calendar.
     - Smoother UI changes (e.g. image loading)
-    - Host documentation somewhere.
-    - Adjust dialog fonts (sizes?).
     - Preview: Resolve issue with multiple entries on same Date and time.
     - Center toolbar?
-    - Make header color changeable: https://stackoverflow.com/questions/51000320/wxpython-change-the-headers-color
     - Handle image deletion while app is running
     - Remove prints for non-debug scenario
     - En-/ Disable Next/Previous button if no other entry present
-    - Handle non-square images in large view
     - Change black image border to better color
+    - Handle non-square images in large view
     - Add screenshots to readme.md
+    - Improve button position and size (fit longest text)
+    - Adjust dialog fonts (sizes?).
+    - Calendar cancel: No preview image reload
 """
 from typing import Callable
 
