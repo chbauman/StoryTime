@@ -23,6 +23,7 @@ TODO:
     - Adjust dialog fonts (sizes?).
     - Calendar: Add 'now' option that sets the time to now
     - Photo mode toggle: No changing of current date! (Implement above point first)
+    - Preview: Check if current is same as after set and avoid changing unnecessarily (entry need ID?)
 """
 from typing import Callable
 
