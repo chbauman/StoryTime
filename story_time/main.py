@@ -5,11 +5,11 @@
 Run this file to run the app.
 
 TODO:
-    - PDF generation!
-    - Fix webcam glitches.
+    - PDF generation! (Without Latex!)
+    - Fix webcam glitches (HOW??????).
     - Make header color changeable: https://stackoverflow.com/questions/51000320/wxpython-change-the-headers-color
-    - Host documentation somewhere.
-    - Indicate diary entries in calendar.
+    - Host documentation somewhere. (Write it first! (Including automatic screenshot generation!))
+    - Indicate diary entries in calendar. (Probably need a custom calendar...)
     - Smoother UI changes (e.g. image loading)
     - Preview: Resolve issue with multiple entries on same Date and time.
     - Center toolbar?
