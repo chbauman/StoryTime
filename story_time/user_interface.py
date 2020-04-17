@@ -5,7 +5,7 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 
 import os
 import shutil
-from typing import Callable, List, Union, Optional
+from typing import Callable, List, Union, Optional, Tuple
 
 import cv2
 import wx
@@ -252,6 +252,9 @@ class StoryTimeApp(wx.Frame):
 
     prev_img_name = None
 
+    curr_next_prev = None
+    curr_prev_prev = None
+
     # Boxes
     v_box: wx.BoxSizer
     h_box_1: wx.BoxSizer
@@ -479,11 +482,17 @@ class StoryTimeApp(wx.Frame):
         self.prev_img_space.SetBitmap(self.bmp_shown)
         self.prev_img_space.Show()
 
-    def rem_prev_img(self):
-        """Removes the image by hiding it."""
+    def rem_prev_img(self) -> bool:
+        """Removes the image by hiding it.
+
+        Returns True if the image was removed and False if it
+        way not necessary.
+        """
         if self.prev_img_space.IsShown():
             self.prev_img_name = None
             self.prev_img_space.Hide()
+            return True
+        return False
 
     def set_img_with_date(self, curr_file: str, img_date: wx.DateTime) -> None:
         """Sets an image and updates the time.
@@ -607,8 +616,7 @@ class StoryTimeApp(wx.Frame):
             self.image_drop_space.Show()
 
         # Update date and time and the layout
-        self.set_date_to_now()
-        # self.main_panel.Layout()
+        # self.set_date_to_now()
         self.resized_layout()
         return 0
 
@@ -751,16 +759,16 @@ class StoryTimeApp(wx.Frame):
         """
         if new_date is not None:
             self.cdDialog.dt = new_date
-        self.dateLabel.SetLabel("Date: " + format_date_time(self.cdDialog.dt))
-        # The line below is probably unnecessary.
-        # Actually has already been helpful in some cases!
-        self.fix_text_box.SetLabel("This is a bug!")
-        self.prev_dt = self.cdDialog.dt
-        self.update_preview_text(set_next=False)
+        new_lab = "Date: " + format_date_time(self.cdDialog.dt)
+        curr_lt = self.dateLabel.LabelText
+        if curr_lt != new_lab:
+            self.dateLabel.SetLabel(new_lab)
+            self.prev_dt = self.cdDialog.dt
+            self.update_preview_text(set_next=False)
 
     def _get_text_to_put(
         self, last: bool = True, set_img: bool = False, use_prev_dt: bool = False
-    ) -> str:
+    ) -> Tuple[Optional[str], bool]:
         search_dt = self.cdDialog.dt if not use_prev_dt else self.prev_dt
         ret_val = find_closest_entry(search_dt, not last)
         if ret_val is None:
@@ -768,26 +776,32 @@ class StoryTimeApp(wx.Frame):
                 self.newest_reached = not last
                 self.prev_dt = self.min_dt if last else self.max_dt
                 self.rem_prev_img()
-            return ""
+            return "", True
         self.newest_reached = None
         date, child = ret_val
         is_text = child.get("type") == "text"
         child_text = child.text if is_text else "Photo: " + child.find("text").text
+        changed_img = False
         if set_img:
             if not is_text:
                 prev_img_name = child.find("photo").text
-                self.prev_img_name = os.path.join(
+                new_p_img_name = os.path.join(
                     story_time.util.data_path, "Img", prev_img_name
                 )
-                self.set_prev_img(self.prev_img_name)
+                if self.prev_img_name != new_p_img_name:
+                    self.prev_img_name = new_p_img_name
+                    changed_img = True
+                    self.set_prev_img(self.prev_img_name)
             else:
-                self.rem_prev_img()
+                if self.prev_img_name is not None:
+                    r = self.rem_prev_img()
+                    changed_img = not r
 
         self.prev_dt = date
         ret_str = "Last" if last else "Next"
         ret_str += " entry: " + format_date_time(date) + "\n\n"
         ret_str += rep_newlines_with_space(child_text) + "\n\n"
-        return ret_str
+        return ret_str, changed_img
 
     def update_preview_text(self, set_next: bool = None) -> None:
         """Fills the static datetime text with the most recent entries
@@ -796,10 +810,14 @@ class StoryTimeApp(wx.Frame):
 
         # Construct the text to put into the preview panel.
         text_to_put = ""
+        ch_img = True
         if set_next is not None:
-            text_to_put += self._get_text_to_put(not set_next, True, True)
+            nxt, ch_img = self._get_text_to_put(not set_next, True, True)
+            text_to_put += nxt
         else:
-            text_to_put += self._get_text_to_put(True, True)
+            prv, ch_img_prv = self._get_text_to_put(True, True)
+            text_to_put += prv
+            ch_img = ch_img or ch_img_prv
         if text_to_put == "":
             text_to_put = (
                 f"No {'newer' if self.newest_reached else 'older'} entry present."
@@ -807,9 +825,10 @@ class StoryTimeApp(wx.Frame):
             if set_next is None:
                 self.prev_dt = self.min_dt
 
-        # Set text and update layout
-        self.fix_text_box.SetLabel(text_to_put)
-        self.v_box.Layout()
+        if self.fix_text_box.LabelText != text_to_put or ch_img:
+            # Set text and update layout
+            self.fix_text_box.SetLabel(text_to_put)
+            self.v_box.Layout()
 
     def resized_layout(self):
         self.Layout()

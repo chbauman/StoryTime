@@ -21,9 +21,7 @@ TODO:
     - Add screenshots to readme.md
     - Improve button position and size (fit longest text)
     - Adjust dialog fonts (sizes?).
-    - Calendar: Add 'now' option that sets the time to now
-    - Photo mode toggle: No changing of current date! (Implement above point first)
-    - Preview: Check if current is same as after set and avoid changing unnecessarily (entry need ID?)
+    - Calendar: Add 'now' option that sets the time to now (or set default selected time to now)
 """
 from typing import Callable
 
