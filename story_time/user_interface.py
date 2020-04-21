@@ -40,15 +40,6 @@ from story_time.util import (
     PhotoShow,
 )
 
-ID_MENU_PHOTO = wx.Window.NewControlId()
-ID_MENU_CHANGE_DATE = wx.Window.NewControlId()
-ID_MENU_SELFIE = wx.Window.NewControlId()
-ID_MENU_CHOOSE_DIR = wx.Window.NewControlId()
-ID_MENU_IMPORT = wx.Window.NewControlId()
-ID_CLICK_BUTTON = wx.Window.NewControlId()
-ID_CLICK_OK_BUTTON = wx.Window.NewControlId()
-ID_CLICK_NEXT_ENTRY = wx.Window.NewControlId()
-ID_CLICK_PREVIOUS_ENTRY = wx.Window.NewControlId()
 
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 EXPAND_ALL = wx.ALL | wx.EXPAND
@@ -423,7 +414,6 @@ class StoryTimeApp(wx.Frame):
         If there is text in the textfield or an image loaded warn
         the user that it will be lost if he continues.
         """
-        print("photoTool clicked")
         discard_int = self.check_if_discard_changes(_deb_fun)
         if discard_int == -1:
             tog = self.photoTool.IsToggled()
@@ -444,12 +434,6 @@ class StoryTimeApp(wx.Frame):
         # self.set_date_to_now()
         self.resized_layout()
         return 0
-
-    def OnCloseButtonClick(self, *args, **kwargs) -> None:
-        """Same as clicking X. Closes the application.
-        """
-        print("Close Button clicked")
-        self.OnQuit(*args, **kwargs)
 
     def removeImg(self) -> None:
         """Set the image in the image drop space to the default.
@@ -535,7 +519,6 @@ class StoryTimeApp(wx.Frame):
 
         # If none selected return
         if files_path == "" or files_path is None:
-            print("No new folder selected.")
             return
 
         # Update and create data directories if not existing
@@ -548,23 +531,11 @@ class StoryTimeApp(wx.Frame):
         """Called when the X is clicked to close.
 
         Also if self.Close() is called."""
-        print("OnX")
-        if self.check_if_discard_changes(_deb_fun) == -1:
-            print("Not exiting because of unsaved data.")
-            return
-        self.Cleanup(None)
-
-    def OnQuit(self, _, _deb_fun: Callable = None) -> None:
-        """Closing the app, writes the working directory to file for next use,
-        empties temp folder and closes the app.
-        """
-        print("Quit")
         if self.check_if_discard_changes(_deb_fun) != -1:
             self.Cleanup(None)
 
     def Cleanup(self, _) -> None:
-        # Is this even used???
-        print("Cleanup")
+        """Cleanup, should always be called when app is closed."""
         self.cdDialog.Destroy()
         write_folder_to_file()
         if os.path.isdir(temp_folder):
@@ -741,9 +712,7 @@ class StoryTimeAppUI(StoryTimeApp):
         save_close_buttons = TwoButtonPanel(
             self, labels=["Save", "Close"], center=True, bg_col=but_bg_col
         )
-        save_close_buttons.set_but_methods(
-            self.OnOKButtonClick, self.OnCloseButtonClick
-        )
+        save_close_buttons.set_but_methods(self.OnOKButtonClick, self.OnX)
 
         # Text and images
         text_edit = TextAndImgPanel(

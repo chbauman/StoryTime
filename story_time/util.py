@@ -49,8 +49,9 @@ but_bg_col = green
 text_bg_col = very_light_green
 
 # Fonts
-header_f_info = wx.FontInfo(12).Bold().Family(wx.FONTFAMILY_SWISS)
+header_f_info = wx.FontInfo(12).Family(wx.FONTFAMILY_SWISS).Bold()
 button_f_info = wx.FontInfo(12).Family(wx.FONTFAMILY_SWISS).Bold()
+dialog_f_info = wx.FontInfo(17).Family(wx.FONTFAMILY_SWISS).Bold()
 
 
 def update_folder(new_data_path: str) -> None:
@@ -196,8 +197,10 @@ class ButtonDialogBase(wx.Dialog):
 
     def setup_v_box(self, h_box, h_button, pnl):
         h_box.Add(h_button, flag=wx.LEFT, border=5)
-        self.v_box.Add(pnl, proportion=1, flag=wx.ALL | wx.EXPAND, border=5)
-        self.v_box.Add(h_box, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10)
+        self.v_box.Add(pnl, proportion=0, flag=wx.ALL | wx.EXPAND, border=5)
+        self.v_box.Add(
+            h_box, proportion=1, flag=wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, border=10
+        )
         self.SetSizer(self.v_box)
         self.SetBackgroundColour(text_bg_col)
 
@@ -262,8 +265,9 @@ class CustomMessageDialog(TwoButtonDialogBase):
 
         if message is not None:
             stMsg = wx.StaticText(self, -1, message)
+            stMsg.SetFont(wx.Font(dialog_f_info))
             # stMsg.SetBackgroundColour(green)
-            self.v_box.Add(stMsg, 1, wx.ALIGN_CENTER | wx.ALL, 10)
+            self.v_box.Add(stMsg, 1, wx.ALIGN_CENTER | wx.ALL | wx.EXPAND, 5)
 
         self.SetSizer(self.v_box)
 
@@ -277,12 +281,10 @@ class CustomMessageDialog(TwoButtonDialogBase):
             self.setup(pnl, ok_label, cancel_label, self.OnOK, self.OnClose)
 
     def OnOK(self, _):
-        print("Okay")
         self.okay = True
         self.Close()
 
     def OnClose(self, _):
-        print("cancel")
         self.Close()
 
 
@@ -327,7 +329,6 @@ class ChangeDateDialog(TwoButtonDialogBase):
         return dt
 
     def OnClose(self, e) -> None:
-        print("Closed Change Date Dialog")
         self.Close()
 
     def OnOK(self, _) -> None:
@@ -404,14 +405,12 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         self.img.SetBitmap(img_to_show)
 
     def OnNext(self, _) -> None:
-        print("Next Image")
         self.shownImgInd += 1
         if self.shownImgInd == self.n_files - 1:
             self.next_button.Disable()
         if self.shownImgInd == 1:
             self.prev_button.Enable()
         self.updateImg()
-        print("next img")
 
     def OnPrev(self, _) -> None:
         self.shownImgInd -= 1
@@ -420,14 +419,12 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         if self.shownImgInd == self.n_files - 2:
             self.next_button.Enable()
         self.updateImg()
-        print("Prev img")
 
     def OnSelect(self, _):
         self.chosenImgInd = self.shownImgInd
         self.Close()
 
     def OnClose(self, _):
-        print("Closed Change Date Dialog")
         self.Close()
 
     def OnNew(self, _):
@@ -494,12 +491,10 @@ def extract_date_from_image_name(img_file: str) -> Optional[wx.DateTime]:
     nums = re.findall(r"\d+", filename)
     num_nums = len(nums)
     if num_nums < 1:
-        print("No Date extracted!")
         return None
     date = int(nums[0])
     # Year must be greater than 1
     if date < 10000:
-        print("Invalid date.")
         return None
     year = date // 10000
     rem = date - year * 10000
@@ -519,7 +514,6 @@ def extract_date_from_image_name(img_file: str) -> Optional[wx.DateTime]:
             hour = num_curr // 100
 
     if not check_date_time(year, month, day, hour, mins, sec):
-        print("Invalid date extracted!")
         return None
 
     # Check if date is valid
@@ -581,7 +575,6 @@ def copy_img_file_to_imgs(lf: str, img_date=None, photo_diag_fun: Callable = Non
     imgDate = get_time_from_file(lf) if img_date is None else img_date
     imgName = get_img_name_from_time(imgDate)
     sameDateFileList = find_all_imgs_with_same_date(img_folder, imgName)
-    print(sameDateFileList)
 
     # Get image type
     _, file_extension = os.path.splitext(lf)
@@ -811,15 +804,10 @@ class AcceptPhoto(TwoButtonDialogBase):
         self.InitUI()
 
     def OnTakePic(self, e):
-        print("Accepting img")
         self.accepted = True
         self.Close()
 
-    # def Cleanup(self, destroy: bool = False):
-    #     self.Destroy()
-
     def OnClose(self, e):
-        print("Cancelled Accept Dialog")
         self.Close()
 
 
@@ -864,7 +852,6 @@ class SelfieDialog(TwoButtonDialogBase):
         shows the Dialog that lets the user accept the photo or decide
         to take another one.
         """
-        # accept_diag = AcceptPhoto(None, img=self._img_cap.getCurrFrame())
         self.accept_diag.set_img(self._img_cap.getCurrFrame())
         if fun is not None:
             wx.CallAfter(fun)
@@ -874,7 +861,6 @@ class SelfieDialog(TwoButtonDialogBase):
             self.release_cap()
 
     def release_cap(self, _=None):
-        print("Releasing capture")
         self._vid_capture.release()
         cv2.destroyAllWindows()
         self.accept_diag.Destroy()
@@ -887,5 +873,4 @@ class SelfieDialog(TwoButtonDialogBase):
         super().Destroy()
 
     def OnClose(self, e):
-        print("Cancelled Selfie Dialog")
         self.release_cap()

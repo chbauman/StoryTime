@@ -131,8 +131,8 @@ class TestMain2(TestCase):
                 ex.OnChangeDir(None)
 
             # Exit
-            ex.OnCloseButtonClick(None, self.click_on_close)
-            ex.OnCloseButtonClick(None, self.discard_text)
+            ex.OnX(None, self.click_on_close)
+            ex.OnX(None, self.discard_text)
 
         with change_info_txt(DATA_DIR):
             with create_test_dirs():
