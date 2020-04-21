@@ -5,7 +5,7 @@ import wx
 
 from story_time import util
 from story_time.main import main
-from story_time.user_interface import StoryTimeAppUITest
+from story_time.user_interface import StoryTimeAppUI
 from tests.test_util import (
     SAMPLE_IMG_DIR,
     DATA_DIR,
@@ -151,15 +151,15 @@ class TestMain2(TestCase):
 
     def test_main_UI(self):
         app = wx.App()
-        ex = StoryTimeAppUITest(None)
+        ex = StoryTimeAppUI(None)
         self.play_with_app(ex, app)
 
     def test_UI_exit(self):
         app = wx.App()
-        ex = StoryTimeAppUITest(None)
+        ex = StoryTimeAppUI(None)
         self.play_with_app_exit(ex, app)
 
     def test_UI_preview(self):
         app = wx.App()
-        ex = StoryTimeAppUITest(None)
+        ex = StoryTimeAppUI(None)
         self.play_with_app_preview(ex, app)

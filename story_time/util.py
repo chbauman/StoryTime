@@ -183,10 +183,9 @@ class PhotoShow(wx.Dialog):
     def OnIdle(self, _):
         if self.resized:
             # take action if the dirty flag is set
-            s = self.Size
-            s_min = s[0] if s[0] < s[1] else s[1]
-            self.imageCtrl.SetBitmap(getImageToShow(self.f_name, s_min))
             self.Layout()
+            s = self.v_box.Size
+            self.imageCtrl.SetBitmap(getImageToShow(self.f_name, s[1], width=s[0]))
             self.resized = False  # reset the flag
 
 
@@ -397,7 +396,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
 
     def get_img_at_ind(self, ind):
         pth = os.path.join(img_folder, self.file_list[ind])
-        return getImageToShow(pth, size=100, border=5)
+        return getImageToShow(pth, 100, border=5)
 
     def updateImg(self) -> None:
         ind = self.shownImgInd
@@ -675,29 +674,59 @@ def format_date_time(date_time: wx.DateTime) -> str:
     return str_out
 
 
-def getImageToShow(filename: str, size: int = 180, border: int = 5) -> wx.Bitmap:
+def getImageToShow(
+    filename: str, height: int = 180, border: int = 5, width: int = None
+) -> wx.Bitmap:
     """Converts the specified image to a bitmap of according size.
 
-    Assuming quadratic size.
+    Preserves the aspect ratio by padding with a color.
 
     Args:
         filename: The path to the file.
-        size: The size of the returned image.
+        height: The size of the returned image.
         border: Border width.
+        width: The width of the returned image, same as height if not specified.
 
     Returns:
         The bitmap with the specified size
     """
     bor_2 = 2 * border
+    border_col = green
+
+    # Load from file and convert to image
     wxBmp = wx.Bitmap(filename)
     image = wxBmp.ConvertToImage()
+
+    # Handle sizes
+    if width is None:
+        width = height
+
+    # Reserve space for border
+    height -= bor_2
+    width -= bor_2
+
     imgSize = image.GetSize()
-    max_size = imgSize[0] if imgSize[0] > imgSize[1] else imgSize[1]
-    fac = size / max_size
-    s_diff_half = abs(imgSize[0] - imgSize[1]) * fac / 2
-    image.Rescale(fac * imgSize[0], fac * imgSize[1], wx.IMAGE_QUALITY_HIGH)
-    img_sz = wx.Size(size + bor_2, size + bor_2)
-    image.Resize(img_sz, wx.Point(border, border + s_diff_half), 0, 0, 0)
+    img_w, img_h = imgSize
+    too_high = img_h / img_w > height / width
+    fac = height / img_h if too_high else width / img_w
+
+    # Rescale image
+    image.Rescale(fac * img_w, fac * img_h, wx.IMAGE_QUALITY_HIGH)
+    new_img_w, new_img_h = image.GetSize()
+
+    # Pad image
+    border_w = border + (width - new_img_w) // 2
+    border_h = border + (height - new_img_h) // 2
+    img_sz = wx.Size(width + bor_2, height + bor_2)
+    image.Resize(
+        img_sz,
+        wx.Point(border_w, border_h),
+        border_col[0],
+        border_col[1],
+        border_col[2],
+    )
+
+    # Convert to bitmap and return
     result = wx.Bitmap(image)
     return result
 

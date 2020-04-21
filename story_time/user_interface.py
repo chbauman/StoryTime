@@ -669,7 +669,7 @@ class StoryTimeApp(wx.Frame):
         self.Layout()
 
 
-class StoryTimeAppUITest(StoryTimeApp):
+class StoryTimeAppUI(StoryTimeApp):
     photoTool = None
     toolbar = None
     resized = True
