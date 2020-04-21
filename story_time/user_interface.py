@@ -87,8 +87,8 @@ class TwoButtonPanel(wx.Panel):
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
         # Next and previous entry buttons
-        self.but_1 = wx.Button(self, wx.ID_ANY, label=labels[0], size=(70, 30))
-        self.but_2 = wx.Button(self, wx.ID_ANY, label=labels[1], size=(70, 30))
+        self.but_1 = wx.Button(self, wx.ID_ANY, label=labels[0], size=(100, 35))
+        self.but_2 = wx.Button(self, wx.ID_ANY, label=labels[1], size=(100, 35))
         self.but_1.SetFont(wx.Font(button_f_info))
         self.but_2.SetFont(wx.Font(button_f_info))
 
@@ -261,6 +261,8 @@ class StoryTimeApp(wx.Frame):
     h_box_cwd: wx.BoxSizer
     h_box_4: wx.BoxSizer
 
+    next_prev_buttons: TwoButtonPanel
+
     # Data to keep track of the entry in the preview. `prev_dt` contains the
     # wx.DateTime of the previewed entry. If it reaches the end, it is either
     # `max_dt` or `min_dt`.
@@ -269,197 +271,20 @@ class StoryTimeApp(wx.Frame):
     max_dt: wx.DateTime = wx.DateTime(1, 1, 10000)
     min_dt: wx.DateTime = wx.DateTime(1, 1, 1)
 
-    def __init__(self, *args, **kwargs):
-        super(StoryTimeApp, self).__init__(*args, **kwargs)
-        self.default_img_drop = os.path.join(icon_path, "default_img_txt.png")
-        self.default_img = os.path.join(icon_path, "default_img.png")
-        self.cdDialog = ChangeDateDialog(None, title="Change Date of entry")
-        icon = wx.Icon()
-        icon.CopyFromBitmap(
-            wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY)
-        )
-        self.SetIcon(icon)
-        files_path = get_info_from_file()
-        update_folder(files_path)
-        print("util.img_folder", util.img_folder)
-        self.InitUI()
-        self.SetSize((700, 800))
-        self.SetTitle("Story Time")
-        self.Center()
+    cdDialog: ChangeDateDialog
+    default_img_drop: str
+    default_img: str
+    imgLoaded: bool
 
-        self.imgLoaded = False
+    @staticmethod
+    def date_txt(dt: wx.DateTime):
+        return f"Date: {format_date_time(dt)}"
 
-    def setup_toolbar(self, panel: wx.Panel = None) -> None:
-        """Sets the toolbar up."""
-        iconSize = (50, 50)
-
-        self.toolbar = self.CreateToolBar() if panel is None else panel.CreateToolBar()
-        self.toolbar.SetToolBitmapSize(iconSize)
-
-        tool_list = [
-            ("save_icon.png", wx.ID_SAVE, "Save", "Save entry.", self.OnSave),
-            (
-                "photo_icon.png",
-                ID_MENU_PHOTO,
-                "Photo",
-                "Change to photo mode.",
-                self.OnPhoto,
-                True,
-            ),
-            (
-                "calendar_icon.png",
-                ID_MENU_CHANGE_DATE,
-                "Change",
-                "Choose another date and time.",
-                self.OnChangeDate,
-            ),
-            (
-                "folder_icon.png",
-                ID_MENU_CHOOSE_DIR,
-                "Dir",
-                "Change directory.",
-                self.OnChangeDir,
-            ),
-            (
-                "webcam_icon.png",
-                ID_MENU_SELFIE,
-                "Selfie",
-                "Take a picture with your webcam.",
-                self.OnSelfie,
-            ),
-        ]
-        for ct, t in enumerate(tool_list):
-            icon_name, tool_id, name, help_txt, met, *rest = t
-            b_map = wx.Bitmap(os.path.join(icon_path, icon_name))
-            icon = scale_bitmap(b_map, *iconSize)
-            if rest is not None and rest:
-                tool = self.toolbar.AddCheckTool(
-                    tool_id, name, icon, shortHelp=help_txt
-                )
-            else:
-                tool = self.toolbar.AddTool(tool_id, name, icon, shortHelp=help_txt)
-
-            self.Bind(wx.EVT_TOOL, met, tool)
-            tool_list[ct] = tool
-
-        self.photoTool = tool_list[1]
-
-        self.toolbar.AddSeparator()
-        self.toolbar.Realize()
-
-    def setup_one_line_static(self, lab: str, font):
-        """Adds a static textbox spanning one line."""
-        h_box_1 = wx.BoxSizer(wx.HORIZONTAL)
-        stat_text = wx.StaticText(self.main_panel, label=lab)
-        stat_text.SetFont(font)
-        h_box_1.Add(stat_text, flag=wx.RIGHT, border=8)
-        tc = wx.StaticText(self.main_panel)
-        h_box_1.Add(tc, proportion=1)
-        self.v_box.Add(h_box_1, flag=LR_EXPAND | wx.TOP, border=10)
-        self.v_box.Add((-1, 10))
-        return h_box_1, stat_text
-
-    def InitUI(self) -> None:
-
-        self.count = 5
-
-        self.main_panel = wx.Panel(self)
-
-        self.setup_toolbar()
-        font = wx.SystemSettings.GetFont(wx.SYS_SYSTEM_FONT)
-        font.SetPointSize(9)
-        self.v_box = wx.BoxSizer(wx.VERTICAL)
-
-        # Date of entry
-        self.h_box_1, self.dateLabel = self.setup_one_line_static("Date", font)
-
-        # Working directory text
-        self.h_box_cwd, self.cwd = self.setup_one_line_static("This/is/a/Bug", font)
-
-        # Text
-        self.setup_one_line_static("Input text below", font)
-
-        # Text input field
-        self.input_text_field = wx.TextCtrl(
-            self.main_panel, style=wx.TE_MULTILINE, size=(-1, 180)
-        )
-
-        # Drop Target
-        self.bmp_shown = getImageToShow(self.default_img_drop)
-        self.image_drop_space = wx.StaticBitmap(self.main_panel, -1, self.bmp_shown)
-        self.image_drop_space.Hide()
-        self.fileDrop = FileDrop(self.image_drop_space, self)
-        self.image_drop_space.SetDropTarget(self.fileDrop)
-
-        # Preview text field
-        text_shown = "Default text."
-        self.fix_text_box = wx.StaticText(
-            self.main_panel, label=text_shown, style=wx.TE_MULTILINE, size=(-1, 180)
-        )
-
-        # Preview image field
-        self.bmp_shown = getImageToShow(self.default_img)
-        self.img_prev = wx.StaticBitmap(self.main_panel, -1, self.bmp_shown)
-        self.prev_img_space = self.img_prev
-        self.prev_img_space.Hide()
-
-        # Next and previous entry buttons
-        next_but = wx.Button(
-            self.main_panel, ID_CLICK_NEXT_ENTRY, label="Next", size=(70, 30)
-        )
-        self.Bind(wx.EVT_BUTTON, self.toggle_prev_img, id=ID_CLICK_NEXT_ENTRY)
-        prev_but = wx.Button(
-            self.main_panel, ID_CLICK_PREVIOUS_ENTRY, label="Previous", size=(70, 30)
-        )
-        self.Bind(wx.EVT_BUTTON, self.toggle_prev_img, id=ID_CLICK_PREVIOUS_ENTRY)
-
-        h_box_p_but = wx.BoxSizer(wx.HORIZONTAL)
-        h_box_p_but.Add(prev_but)
-        h_box_p_but.Add(next_but, flag=wx.LEFT, border=5)
-
-        # Add stuff to horizontal boxes
-        EXP_ALL = wx.EXPAND | wx.ALL
-        h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
-        h_box_3.Add(self.fix_text_box, proportion=1, flag=EXP_ALL, border=5)
-        h_box_3.Add(self.prev_img_space, proportion=0, flag=wx.ALL, border=5)
-        self.h_box_4 = wx.BoxSizer(wx.HORIZONTAL)
-        self.h_box_4.Add(self.input_text_field, proportion=1, flag=EXP_ALL, border=5)
-        self.h_box_4.Add(self.image_drop_space, proportion=0, flag=wx.ALL, border=5)
-
-        # Add to vertical box
-        self.v_box.Add(self.h_box_4, proportion=1, flag=EXP_ALL, border=5)
-        # self.v_box.Add((-1, 25))
-
-        self.v_box.Add(h_box_p_but, flag=LR_EXPAND | wx.TOP, border=5)
-        # self.v_box.Add((-1, 25))
-
-        self.v_box.Add(h_box_3, proportion=1, flag=LR_EXPAND, border=10)
-        self.v_box.Add((-1, 25))
-
-        # Save and close buttons
-        btn1 = wx.Button(
-            self.main_panel, ID_CLICK_OK_BUTTON, label="Save", size=(70, 30)
-        )
-        self.Bind(wx.EVT_BUTTON, self.OnOKButtonClick, id=ID_CLICK_OK_BUTTON)
-        btn2 = wx.Button(self.main_panel, ID_CLICK_BUTTON, label="Close", size=(70, 30))
-        self.Bind(wx.EVT_BUTTON, self.OnCloseButtonClick, id=ID_CLICK_BUTTON)
-
-        h_box_5 = wx.BoxSizer(wx.HORIZONTAL)
-        h_box_5.Add(btn1)
-        h_box_5.Add(btn2, flag=wx.LEFT | wx.BOTTOM, border=5)
-        self.v_box.Add(h_box_5, flag=wx.ALIGN_RIGHT | wx.RIGHT, border=10)
-
-        self.main_panel.SetSizer(self.v_box)
-
-        self.update_preview_text()
-        self.set_date_txt()
-        self.set_folder_txt()
-
-        self.Bind(wx.EVT_CLOSE, self.OnQuit)
-
-    def set_date_txt(self):
+    def set_date_txt(self, dt: wx.DateTime = None):
         """Sets the text in the date textbox."""
-        self.dateLabel.SetLabelText("Date: " + format_date_time(self.cdDialog.dt))
+        if dt is None:
+            dt = self.cdDialog.dt
+        self.dateLabel.SetLabelText(self.date_txt(dt))
 
     def set_folder_txt(self):
         """Sets the text in the directory textbox."""
@@ -759,12 +584,13 @@ class StoryTimeApp(wx.Frame):
         """
         if new_date is not None:
             self.cdDialog.dt = new_date
-        new_lab = "Date: " + format_date_time(self.cdDialog.dt)
+        new_lab = self.date_txt(self.cdDialog.dt)
         curr_lt = self.dateLabel.LabelText
         if curr_lt != new_lab:
-            self.dateLabel.SetLabel(new_lab)
+            self.set_date_txt()
             self.prev_dt = self.cdDialog.dt
             self.update_preview_text(set_next=False)
+            self.Layout()
 
     def _get_text_to_put(
         self, last: bool = True, set_img: bool = False, use_prev_dt: bool = False
@@ -822,8 +648,17 @@ class StoryTimeApp(wx.Frame):
             text_to_put = (
                 f"No {'newer' if self.newest_reached else 'older'} entry present."
             )
+            if self.newest_reached:
+                self.next_prev_buttons.but_2.Disable()
+            else:
+                self.next_prev_buttons.but_1.Disable()
             if set_next is None:
                 self.prev_dt = self.min_dt
+        else:
+            if not self.next_prev_buttons.but_2.IsEnabled():
+                self.next_prev_buttons.but_2.Enable()
+            if not self.next_prev_buttons.but_1.IsEnabled():
+                self.next_prev_buttons.but_1.Enable()
 
         if self.fix_text_box.LabelText != text_to_put or ch_img:
             # Set text and update layout
@@ -898,13 +733,13 @@ class StoryTimeAppUITest(StoryTimeApp):
         self.dateLabel = time_text.stat_text
 
         # Buttons
-        next_prev_buttons = TwoButtonPanel(
+        self.next_prev_buttons = TwoButtonPanel(
             self, labels=["Previous", "Next"], bg_col=but_bg_col
         )
 
-        next_prev_buttons.set_but_methods(self.prev_entry, self.next_entry)
+        self.next_prev_buttons.set_but_methods(self.prev_entry, self.next_entry)
         save_close_buttons = TwoButtonPanel(
-            self, labels=["Save", "Close"], center=False, bg_col=but_bg_col
+            self, labels=["Save", "Close"], center=True, bg_col=but_bg_col
         )
         save_close_buttons.set_but_methods(
             self.OnOKButtonClick, self.OnCloseButtonClick
@@ -936,7 +771,7 @@ class StoryTimeAppUITest(StoryTimeApp):
         box.Add(text_edit, 1, LR_EXPAND)
         box.Add(save_close_buttons, 0, LR_EXPAND)
         box.Add(text_preview, 1, LR_EXPAND)
-        box.Add(next_prev_buttons, 0, LR_EXPAND)
+        box.Add(self.next_prev_buttons, 0, LR_EXPAND)
         box.Fit(self)
         self.v_box = box
         self.main_panel = box

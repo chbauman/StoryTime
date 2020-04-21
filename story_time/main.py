@@ -15,11 +15,9 @@ TODO:
     - Center toolbar?
     - Handle image deletion while app is running
     - Remove prints for non-debug scenario
-    - En-/ Disable Next/Previous button if no other entry present
     - Change black image border to better color
     - Handle non-square images in large view
     - Add screenshots to readme.md
-    - Improve button position and size (fit longest text)
     - Adjust dialog fonts (sizes?).
     - Calendar: Add 'now' option that sets the time to now (or set default selected time to now)
 """
