@@ -35,5 +35,4 @@ def main(_after_fun: Callable = None) -> None:
     app.MainLoop()
 
 
-if __name__ == "__main__":
-    main()
+main() if __name__ == "__main__" else None

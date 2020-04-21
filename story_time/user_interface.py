@@ -621,8 +621,12 @@ class StoryTimeApp(wx.Frame):
             )
             if self.newest_reached:
                 self.next_prev_buttons.but_2.Disable()
+                if not self.next_prev_buttons.but_1.IsEnabled():
+                    self.next_prev_buttons.but_1.Enable()
             else:
                 self.next_prev_buttons.but_1.Disable()
+                if not self.next_prev_buttons.but_2.IsEnabled():
+                    self.next_prev_buttons.but_2.Enable()
             if set_next is None:
                 self.prev_dt = self.min_dt
         else:

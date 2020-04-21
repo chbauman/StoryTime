@@ -57,7 +57,6 @@ function run_tests ($abort = $false) {
     if ($abort){
         abort_failure
     }
-    deactivate
 }
 
 # Publish changes to PyPI. Checks if the tests are run successfully
