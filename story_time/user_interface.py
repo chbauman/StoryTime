@@ -60,7 +60,7 @@ class TextLinePanel(wx.Panel):
         s = wx.ALIGN_CENTRE_HORIZONTAL if center_text else wx.ALIGN_LEFT
         self.stat_text = wx.StaticText(self, label=text, style=s)
         self.stat_text.SetFont(wx.Font(header_f_info))
-        box.Add(self.stat_text, 1, wx.ALIGN_CENTER_HORIZONTAL | EXPAND_ALL, 5)
+        box.Add(self.stat_text, 1, EXPAND_ALL, 5)
         box.Fit(self)
         self.SetAutoLayout(True)
         self.SetSizer(box)
@@ -172,7 +172,7 @@ class ToolbarPanel(wx.Panel):
 
         box = wx.BoxSizer(wx.VERTICAL)
         tb = self.toolbar
-        box.Add(tb, 1, wx.ALIGN_RIGHT | EXPAND_ALL, 0)
+        box.Add(tb, 1, EXPAND_ALL, 0)
         box.Fit(self)
         self.SetAutoLayout(True)
         self.SetSizer(box)
