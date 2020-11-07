@@ -219,6 +219,6 @@ def find_closest_entry(
             date_child = find_closest_entry_in_tree(tree, dt, newer)
 
     # Return
-    assert date_child is not None, f"Terrible bug is happening!"
+    assert date_child is not None, "Terrible bug is happening!"
     date, child = date_child
     return date, child

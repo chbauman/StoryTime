@@ -26,7 +26,7 @@ icon_path = os.path.join(project_path, "story_time/Icons")
 temp_folder = os.path.join(
     project_path, "tmp"
 )  #: Temporary folder to store images temporarily.
-info_file = resource_filename(__name__, f"Info.txt")
+info_file = resource_filename(__name__, "Info.txt")
 
 # Path to data (global variables)
 # Initialized values should never be used
@@ -54,14 +54,8 @@ button_f_info = wx.FontInfo(12).Family(wx.FONTFAMILY_SWISS).Bold()
 dialog_f_info = wx.FontInfo(17).Family(wx.FONTFAMILY_SWISS).Bold()
 
 
-def get_font(kind: str) -> wx.Font:
-    if kind == "dialog":
-        return wx.Font(17, wx.SWISS, wx.NORMAL, wx.BOLD)
-
-
 def update_folder(new_data_path: str) -> None:
-    """Update global path variables if data folder is changed.
-    """
+    """Update global path variables if data folder is changed."""
     global data_path
     global img_folder
     global xml_folder
@@ -80,8 +74,7 @@ def rep_newlines_with_space(string: str) -> str:
 
 
 def create_xml_and_img_folder(base_folder: str) -> None:
-    """Create a folder for the XML and the image files in `base_folder`.
-    """
+    """Create a folder for the XML and the image files in `base_folder`."""
     xml_pth = os.path.join(base_folder, "XML")
     if not os.path.isdir(xml_pth):
         os.mkdir(xml_pth)
@@ -141,8 +134,7 @@ def get_info_from_file(ask: bool = True, _fun: Callable = None) -> Optional[str]
 
 
 def write_folder_to_file() -> None:
-    """Write the current working directory to file `info_file`.
-    """
+    """Write the current working directory to file `info_file`."""
     with open(info_file, "w") as f:
         f.write(data_path)
 
@@ -442,8 +434,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
 
 
 def datetime_to_wx_datetime(date: datetime) -> wx.DateTime:
-    """Converts a python datetime to a wx.DateTime.
-    """
+    """Converts a python datetime to a wx.DateTime."""
     year = date.year
     month = date.month
     day = date.day
@@ -471,8 +462,7 @@ def pad_int_str(int_to_pad: int, n: int = 2) -> str:
 
 
 def get_img_name_from_time(wx_dt: wx.DateTime) -> str:
-    """Gives the image basename from the wx.DateTime.
-    """
+    """Gives the image basename from the wx.DateTime."""
     name = (
         "IMG_"
         + pad_int_str(wx_dt.GetYear(), 4)
@@ -618,16 +608,14 @@ def copy_img_file_to_imgs(lf: str, img_date=None, photo_diag_fun: Callable = Non
 
 
 def create_dir(dir_name: str) -> None:
-    """Creates the given directory recursively.
-    """
+    """Creates the given directory recursively."""
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     return
 
 
 class FileDrop(wx.FileDropTarget):
-    """Drop Target to drop images to be added.
-    """
+    """Drop Target to drop images to be added."""
 
     origImgDate = None
 
@@ -664,8 +652,7 @@ class FileDrop(wx.FileDropTarget):
 
 
 def format_date_time(date_time: wx.DateTime) -> str:
-    """Format the given datetime in a string.
-    """
+    """Format the given datetime in a string."""
     dt: wx.DateTime = date_time
     d, mon, y = dt.GetDay(), dt.GetMonth() + 1, dt.GetYear()
     h, m = pad_int_str(dt.GetHour()), pad_int_str(dt.GetMinute())
@@ -713,7 +700,9 @@ def getImageToShow(
     fac = height / img_h if too_high else width / img_w
 
     # Rescale image
-    image.Rescale(int(round(fac * img_w)), int(round(fac * img_h)), wx.IMAGE_QUALITY_HIGH)
+    image.Rescale(
+        int(round(fac * img_w)), int(round(fac * img_h)), wx.IMAGE_QUALITY_HIGH
+    )
     new_img_w, new_img_h = image.GetSize()
 
     # Pad image
@@ -821,8 +810,7 @@ class AcceptPhoto(TwoButtonDialogBase):
 
 
 class SelfieDialog(TwoButtonDialogBase):
-    """Dialog that lets you take a picture with the webcam.
-    """
+    """Dialog that lets you take a picture with the webcam."""
 
     taken_img = None
     dt_taken = None

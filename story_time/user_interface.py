@@ -136,7 +136,6 @@ class TextAndImgPanel(wx.Panel):
             self.text_box = wx.TextCtrl(self, **kws)
         else:
             self.text_box = wx.StaticText(self, label=text_shown, **kws)
-            # self.text_box = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 180))
         self.text_box.SetBackgroundColour(bg_col)
 
         EXP_ALL = wx.EXPAND | wx.ALL
@@ -154,11 +153,32 @@ class TextAndImgPanel(wx.Panel):
 
 class ToolbarPanel(wx.Panel):
     tool_list = [
-        ("save_icon.png", "Save", "Save entry.",),
-        ("photo_icon.png", "Photo", "Change to photo mode.", True,),
-        ("calendar_icon.png", "Change", "Choose another date and time.",),
-        ("folder_icon.png", "Dir", "Change directory.",),
-        ("webcam_icon.png", "Selfie", "Take a picture with your webcam.",),
+        (
+            "save_icon.png",
+            "Save",
+            "Save entry.",
+        ),
+        (
+            "photo_icon.png",
+            "Photo",
+            "Change to photo mode.",
+            True,
+        ),
+        (
+            "calendar_icon.png",
+            "Change",
+            "Choose another date and time.",
+        ),
+        (
+            "folder_icon.png",
+            "Dir",
+            "Change directory.",
+        ),
+        (
+            "webcam_icon.png",
+            "Selfie",
+            "Take a picture with your webcam.",
+        ),
     ]
     tools = None
     photoTool = None
@@ -311,8 +331,7 @@ class StoryTimeApp(wx.Frame):
         return False
 
     def set_img_with_date(self, curr_file: str, img_date: wx.DateTime) -> None:
-        """Sets an image and updates the time.
-        """
+        """Sets an image and updates the time."""
         self.update_date(img_date)
         self.imgLoaded = True
         self.set_img(curr_file)
@@ -320,8 +339,7 @@ class StoryTimeApp(wx.Frame):
         self.resized_layout()
 
     def OnSave(self, *args, **kwargs) -> None:
-        """Same as if the save button was clicked.
-        """
+        """Same as if the save button was clicked."""
         self.OnOKButtonClick(*args, **kwargs)
 
     def on_taken_image_clicked(self, _, _diag_fun: Callable = None):
@@ -436,8 +454,7 @@ class StoryTimeApp(wx.Frame):
         return 0
 
     def removeImg(self) -> None:
-        """Set the image in the image drop space to the default.
-        """
+        """Set the image in the image drop space to the default."""
         self.fileDrop.loadedFile = None
         self.set_img(self.default_img_drop)
         self.imgLoaded = False
@@ -493,14 +510,12 @@ class StoryTimeApp(wx.Frame):
         self.remove_written_text()
 
     def remove_written_text(self) -> None:
-        """Clear text field and update date and time to now.
-        """
+        """Clear text field and update date and time to now."""
         self.input_text_field.Clear()
         self.set_date_to_now()
 
     def OnChangeDate(self, _, _fun: Callable = None) -> None:
-        """Shows dialog that lets the user change the current date.
-        """
+        """Shows dialog that lets the user change the current date."""
         if _fun is not None:
             wx.CallAfter(_fun, self.cdDialog)
 
@@ -512,8 +527,7 @@ class StoryTimeApp(wx.Frame):
             self.update_date()
 
     def OnChangeDir(self, _) -> None:
-        """Shows dialog that lets the user change the current directory.
-        """
+        """Shows dialog that lets the user change the current directory."""
         # Show dialog and get folder
         files_path = util.ask_for_dir()
 
@@ -543,8 +557,7 @@ class StoryTimeApp(wx.Frame):
         self.Destroy()
 
     def set_date_to_now(self) -> None:
-        """Updates the date and time to now.
-        """
+        """Updates the date and time to now."""
         self.update_date(wx.DateTime.Now())
 
     def update_date(self, new_date: wx.DateTime = None) -> None:

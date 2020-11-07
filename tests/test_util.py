@@ -142,7 +142,7 @@ class TestFileSystem(TestCase):
         create_dir(story_time.util.xml_folder)
         img_path = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
         copy_img_file_to_imgs(img_path)
-        with create_app() as f:
+        with create_app():
 
             def fun(dlg):
                 dlg.OnNew(None)
