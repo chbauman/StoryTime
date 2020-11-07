@@ -7,7 +7,6 @@ Run this file to run the app.
 TODO:
     - PDF generation! (Without Latex!)
     - Fix webcam glitches (HOW??????).
-    - Fix terminating async callback warning after using Webcam.
     - Make header color changeable:
         https://stackoverflow.com/questions/51000320/wxpython-change-the-headers-color
     - Host documentation somewhere. (Write it first!

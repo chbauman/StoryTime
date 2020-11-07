@@ -795,7 +795,7 @@ class AcceptPhoto(TwoButtonDialogBase):
 
         if img is not None:
             self.set_img(img)
-        self.SetSize((400, 400))
+        self.SetSize((400, 350))
         self.SetTitle(title)
         self.accepted = False
 
@@ -811,7 +811,7 @@ class AcceptPhoto(TwoButtonDialogBase):
         self.taken_img = cv2.resize(self.taken_img, new_size)
         bmp = wx.Bitmap.FromBuffer(height, width, self.taken_img.tobytes())
         bmp = wx.StaticBitmap(self, -1, bmp, size=new_size)
-        self.v_box.Add(bmp, proportion=0, flag=wx.ALL, border=5)
+        self.v_box.Add(bmp, proportion=0, flag=wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, border=5)
 
         self.setup(pnl, "Accept", "Throw")
 
@@ -838,11 +838,11 @@ class SelfieDialog(TwoButtonDialogBase):
 
     accept_diag: AcceptPhoto
 
-    def __init__(self, parent=None, title="Let me take a fucking selfie."):
+    def __init__(self, parent=None, title="Take a selfie"):
         super().__init__(parent, title=title)
 
         self.InitUI()
-        self.SetSize((400, 400))
+        self.SetSize((400, 350))
         self.SetTitle(title)
 
         self.accept_diag = AcceptPhoto(None, img=None)
@@ -852,9 +852,9 @@ class SelfieDialog(TwoButtonDialogBase):
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         # Current Image
-        self._vid_capture = cv2.VideoCapture(0)
+        self._vid_capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         self._img_cap = ShowCapture(self, self._vid_capture)
-        self.v_box.Add(self._img_cap, proportion=0, flag=wx.ALL, border=5)
+        self.v_box.Add(self._img_cap, proportion=0, flag=wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, border=5)
         self._img_cap.Show()
 
         self.setup(pnl, "Shoot", "Cancel")
@@ -880,12 +880,6 @@ class SelfieDialog(TwoButtonDialogBase):
         cv2.destroyAllWindows()
         self.accept_diag.Destroy()
         self.Close()
-
-    def Destroy(self):
-        self._vid_capture.release()
-        cv2.destroyAllWindows()
-        self.accept_diag.Destroy()
-        super().Destroy()
 
     def OnClose(self, e):
         self.release_cap()
