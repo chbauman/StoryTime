@@ -416,6 +416,7 @@ class StoryTimeApp(wx.Frame):
                 ok_label="Fuck yeah!",
                 cancel_label="No fucking way!",
             )
+            md.SetSize((400, 300))
             if _deb_fun is not None:
                 wx.CallAfter(_deb_fun, md)
             md.ShowModal()
@@ -751,13 +752,14 @@ class StoryTimeAppUI(StoryTimeApp):
 
         # Put it all together
         box = wx.BoxSizer(wx.VERTICAL)
-        box.Add(path_text, 0, LR_EXPAND)
+        # box.Add(tool_panel, 0, wx.ALIGN_CENTER_HORIZONTAL)
         box.Add(tool_panel, 0, LR_EXPAND)
         box.Add(time_text, 0, LR_EXPAND)
         box.Add(text_edit, 1, LR_EXPAND)
         box.Add(save_close_buttons, 0, LR_EXPAND)
         box.Add(text_preview, 1, LR_EXPAND)
         box.Add(self.next_prev_buttons, 0, LR_EXPAND)
+        box.Add(path_text, 0, LR_EXPAND)
         box.Fit(self)
         self.v_box = box
         self.main_panel = box
