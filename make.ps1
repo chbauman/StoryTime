@@ -68,6 +68,11 @@ function publish_to_pypi {
     Remove-Item build -Recurse -ErrorAction Ignore
     Remove-Item *.egg-info -Recurse -ErrorAction Ignore
 
+    # Install stuff
+    pip install twine keyring
+    pip install setuptools
+    pip install wheel
+
     # Check formatting and style
     black --check .
     abort_failure
