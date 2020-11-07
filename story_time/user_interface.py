@@ -5,7 +5,7 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 
 import os
 import shutil
-from typing import Callable, List, Union, Optional, Tuple
+from typing import Callable, List, Union, Optional, Tuple, Any
 
 import cv2
 import wx
@@ -180,8 +180,8 @@ class ToolbarPanel(wx.Panel):
             "Take a picture with your webcam.",
         ),
     ]
-    tools = None
-    photoTool = None
+    tools: List[wx.ToolBarToolBase]
+    photoTool: Union[Any, wx.ToolBarToolBase]
 
     def __init__(self, parent, bg_col: wx.Colour = wx.Colour(140, 140, 255)):
         wx.Panel.__init__(self, parent)
@@ -242,9 +242,8 @@ class StoryTimeApp(wx.Frame):
     count: int
 
     # GUI elements
-    toolbar = None
-    photoTool = None
-
+    photoTool: wx.ToolBarToolBase
+    toolbar: wx.ToolBar
     main_panel: Union[wx.BoxSizer, wx.Panel]
     fileDrop: FileDrop
 
@@ -578,7 +577,7 @@ class StoryTimeApp(wx.Frame):
 
     def _get_text_to_put(
         self, last: bool = True, set_img: bool = False, use_prev_dt: bool = False
-    ) -> Tuple[Optional[str], bool]:
+    ) -> Tuple[str, bool]:
         search_dt = self.cdDialog.dt if not use_prev_dt else self.prev_dt
         ret_val = find_closest_entry(search_dt, not last)
         if ret_val is None:
@@ -588,6 +587,7 @@ class StoryTimeApp(wx.Frame):
                 self.rem_prev_img()
             return "", True
         self.newest_reached = None
+        child: Any
         date, child = ret_val
         is_text = child.get("type") == "text"
         child_text = child.text if is_text else "Photo: " + child.find("text").text
@@ -658,8 +658,8 @@ class StoryTimeApp(wx.Frame):
 
 
 class StoryTimeAppUI(StoryTimeApp):
-    photoTool = None
-    toolbar = None
+    photoTool: wx.ToolBarToolBase
+    toolbar: wx.ToolBar
     resized = True
 
     text_prev_sizer: wx.Sizer
@@ -694,7 +694,7 @@ class StoryTimeAppUI(StoryTimeApp):
     def InitUI(self) -> None:
 
         # Setup toolbar
-        met_list = [
+        met_list: List = [
             self.OnSave,
             self.OnPhoto,
             self.OnChangeDate,

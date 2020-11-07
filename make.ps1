@@ -3,6 +3,7 @@ param(
 [switch]$docs = $false,
 [switch]$run = $false,
 [switch]$act = $false,
+[switch]$type = $false,
 [switch]$no_rebuild = $false,
 [switch]$format = $false,
 [switch]$clean = $false,
@@ -96,6 +97,11 @@ function publish_to_pypi {
     }
 }
 
+# Run type checker
+function typecheck {
+    mypy story_time --ignore-missing-imports --disallow-untyped-defs
+}
+
 # Cleans up some files
 function clean {
     Remove-Item Info.txt -Recurse -ErrorAction Ignore
@@ -112,6 +118,9 @@ if ($docs) {
 }
 if ($run) {
     run
+}
+if ($type) {
+    typecheck
 }
 if ($pub) {
     publish_to_pypi

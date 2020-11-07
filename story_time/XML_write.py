@@ -7,7 +7,7 @@ in the file.
 """
 import os
 import xml.etree.cElementTree as elTree
-from typing import Tuple, Optional
+from typing import Tuple, Optional, AnyStr
 
 import wx
 
@@ -106,10 +106,13 @@ def save_entry(
     tree, xml_file = load_XML(year)
 
     doc = tree.getroot().find("doc")
+    assert doc is not None, f"No doc found in XML of year {year}."
     if entry_type == "text":
         insert_text_entry(doc, date_time, comm)
     elif entry_type == "photo":
-        insert_photo_entry(doc, date_time, os.path.basename(img_filename), comm)
+        assert img_filename is not None, "Need to specify image filename!"
+        bn: str = os.path.basename(img_filename)
+        insert_photo_entry(doc, date_time, bn, comm)
     else:
         raise ValueError(f"Entry of type: {entry_type} is not supported!")
     tree.write(xml_file)
@@ -161,6 +164,7 @@ def find_closest_entry_in_tree(
         The date of the found entry and the entry element.
     """
     doc = tree.getroot().find("doc")
+    assert doc is not None, "Invalid XML!"
     temp = wx.DateTime(1, 1, 100000 if newer else 0)
     curr_child = None
     for child in doc:
@@ -216,6 +220,7 @@ def find_closest_entry(
                 return None
             tree = res[1]
             curr_year = res[0]
+            assert tree is not None
             date_child = find_closest_entry_in_tree(tree, dt, newer)
 
     # Return
