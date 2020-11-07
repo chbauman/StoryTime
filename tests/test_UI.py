@@ -27,6 +27,13 @@ class TestMain2(TestCase):
         d.OnClose(None)
 
     @staticmethod
+    def click_on_factory(method_name: str):
+        def click_on(d):
+            getattr(d, method_name)(None)
+
+        return click_on
+
+    @staticmethod
     def resize_and_close(d):
         d.Size = wx.Size(400, 400)
         d.OnSize(None)
@@ -66,6 +73,8 @@ class TestMain2(TestCase):
 
             # Check preview
             ex.next_entry(None)
+            ex.next_entry(None)
+            ex.prev_entry(None)
             ex.prev_entry(None)
             ex.prev_entry(None)
 
@@ -82,7 +91,7 @@ class TestMain2(TestCase):
             # Set text, change date and save
             ex.OnSave(None, _no_text_fun=self.click_on_close)
             ex.input_text_field.SetValue("Sample Text")
-            ex.OnChangeDate(None, self.click_on_close)
+            ex.OnChangeDate(None, self.click_on_factory("set_now_and_close"))
             ex.OnSave(None)
 
             # Toggle preview

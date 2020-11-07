@@ -156,7 +156,7 @@ class PhotoShow(wx.Dialog):
 
     f_name: str
 
-    def __init__(self, parent, f_name):
+    def __init__(self, parent, f_name: str):
         super().__init__(parent, style=wx.DEFAULT_FRAME_STYLE | wx.RESIZE_BORDER)
         self.SetTitle("Large photo view")
         wx.Panel(self)
@@ -750,7 +750,7 @@ class ShowCapture(wx.Panel):
         ret, frame = self.capture.read()
         height, width = frame.shape[:2]
         self.h_by_w = height / width
-        self.win_size = (300, int(self.h_by_w * 300))
+        self.win_size = (300, int(round(self.h_by_w * 300)))
 
         wx.Panel.__init__(self, parent, wx.ID_ANY, (0, 0), self.win_size)
         parent.SetSize(self.win_size)
@@ -760,7 +760,7 @@ class ShowCapture(wx.Panel):
         self.bmp = wx.Bitmap.FromBuffer(self.h, self.w, frame)
 
         self.timer = wx.Timer(self)
-        self.timer.Start(1000.0 / fps)
+        self.timer.Start(int(round(1000.0 / fps)))
 
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_TIMER, self.NextFrame)

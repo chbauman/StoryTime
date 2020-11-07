@@ -21,6 +21,7 @@ TODO:
     - Add blogpost to personal website
     - Add screenshots to readme.md
     - Fix Message dialogs (Including base class) What is the wx.Panel needed for?????.
+    - Run type checking!
 """
 from typing import Callable
 
