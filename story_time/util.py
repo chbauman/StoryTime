@@ -54,6 +54,11 @@ button_f_info = wx.FontInfo(12).Family(wx.FONTFAMILY_SWISS).Bold()
 dialog_f_info = wx.FontInfo(17).Family(wx.FONTFAMILY_SWISS).Bold()
 
 
+def get_font(kind: str) -> wx.Font:
+    if kind == "dialog":
+        return wx.Font(17, wx.SWISS, wx.NORMAL, wx.BOLD)
+
+
 def update_folder(new_data_path: str) -> None:
     """Update global path variables if data folder is changed.
     """
@@ -265,9 +270,11 @@ class CustomMessageDialog(TwoButtonDialogBase):
 
         if message is not None:
             stMsg = wx.StaticText(self, -1, message)
-            stMsg.SetFont(wx.Font(dialog_f_info))
+            # stMsg.SetFont(get_font("dialog"))
+            # stMsg.SetFont(wx.Font(dialog_f_info))
+            stMsg.SetFont(wx.Font(wx.FontInfo(17).Family(wx.FONTFAMILY_SWISS).Bold()))
             # stMsg.SetBackgroundColour(green)
-            self.v_box.Add(stMsg, 1, wx.ALIGN_CENTER | wx.ALL | wx.EXPAND, 5)
+            self.v_box.Add(stMsg, 1, wx.ALL | wx.EXPAND, 5)
 
         self.SetSizer(self.v_box)
 
@@ -308,16 +315,18 @@ class ChangeDateDialog(TwoButtonDialogBase):
         pnl = wx.Panel(self)
 
         # Calendar and Time Picker
-        sb = wx.StaticBox(pnl, label="Select Date and Time")
-        sbs = wx.StaticBoxSizer(sb, orient=wx.HORIZONTAL)
-        self.cal = wx.adv.CalendarCtrl(pnl)
+        # sb = wx.StaticBox(pnl, label="Select Date and Time")
+        # sbs = wx.StaticBoxSizer(sb, orient=wx.HORIZONTAL)
+        sbs = wx.BoxSizer(wx.HORIZONTAL)
+        self.cal = wx.adv.CalendarCtrl(self)
         sbs.Add(self.cal, flag=wx.ALL, border=5)
-        self.timePicker = wx.adv.TimePickerCtrl(pnl)
+        self.timePicker = wx.adv.TimePickerCtrl(self, dt=self.dt)
         sbs.Add(self.timePicker, flag=wx.ALL, border=5)
-        pnl.SetSizer(sbs)
+        # pnl.SetSizer(sbs)
 
         # Add buttons
         self.v_box = wx.BoxSizer(wx.VERTICAL)
+        self.v_box.Add(sbs)
         self.setup(pnl, "Ok", "Cancel", self.OnOK, self.OnClose)
 
     def get_time(self):
@@ -704,7 +713,7 @@ def getImageToShow(
     fac = height / img_h if too_high else width / img_w
 
     # Rescale image
-    image.Rescale(fac * img_w, fac * img_h, wx.IMAGE_QUALITY_HIGH)
+    image.Rescale(int(round(fac * img_w)), int(round(fac * img_h)), wx.IMAGE_QUALITY_HIGH)
     new_img_w, new_img_h = image.GetSize()
 
     # Pad image

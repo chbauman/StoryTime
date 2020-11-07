@@ -54,7 +54,9 @@ def create_test_dirs():
 @contextmanager
 def create_app():
     a = wx.App()
-    yield
+    f = wx.Frame()
+    f.Create(None)
+    yield f
     a.Destroy()
 
 
@@ -140,27 +142,26 @@ class TestFileSystem(TestCase):
         create_dir(story_time.util.xml_folder)
         img_path = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
         copy_img_file_to_imgs(img_path)
-        a = wx.App()
+        with create_app() as f:
 
-        def fun(dlg):
-            dlg.OnNew(None)
+            def fun(dlg):
+                dlg.OnNew(None)
 
-        copy_img_file_to_imgs(img_path, None, fun)
+            copy_img_file_to_imgs(img_path, None, fun)
 
-        def fun2(dlg):
-            dlg.OnNext(None)
-            dlg.OnClose(None)
+            def fun2(dlg):
+                dlg.OnNext(None)
+                dlg.OnClose(None)
 
-        copy_img_file_to_imgs(img_path, None, fun2)
+            copy_img_file_to_imgs(img_path, None, fun2)
 
-        def fun3(dlg):
-            dlg.OnSelect(None)
+            def fun3(dlg):
+                dlg.OnSelect(None)
 
-        copy_img_file_to_imgs(img_path, None, fun3)
+            copy_img_file_to_imgs(img_path, None, fun3)
 
-        shutil.rmtree(story_time.util.img_folder)
-        os.removedirs(story_time.util.xml_folder)
-        a.Destroy()
+            shutil.rmtree(story_time.util.img_folder)
+            os.removedirs(story_time.util.xml_folder)
 
     pass
 
@@ -246,9 +247,8 @@ class TestGUIElements(TestCase):
         def ok(d):
             d.OnOK(None)
 
-        with create_app():
-            app, frame = init_app()
-            md = CustomMessageDialog("Message", "title", frame)
+        with create_app() as f:
+            md = CustomMessageDialog("Message", "title", f)
             wx.CallAfter(abort, md)
             assert md.ShowModal() == wx.ID_CANCEL
 
@@ -256,11 +256,11 @@ class TestGUIElements(TestCase):
             print(f"Ok: {wx.ID_OK}")
             print(f"Cancel: {wx.ID_YES}")
 
-            md = CustomMessageDialog("Message", "title", frame)
+            md = CustomMessageDialog("Message", "title", f)
             wx.CallAfter(ok, md)
             assert md.ShowModal() == wx.ID_CANCEL
 
-            md = CustomMessageDialog("Message", "title", frame, cancel_only=True)
+            md = CustomMessageDialog("Message", "title", f, cancel_only=True)
             wx.CallAfter(ok, md)
             ans = md.ShowModal()
             assert ans == wx.ID_CANCEL
@@ -283,70 +283,70 @@ class TestGUIElements(TestCase):
             d.OnClose(None)
 
     def test_change_date_dialog(self):
-        app, frame = init_app()
-        dlg = ChangeDateDialog(frame)
+        with create_app() as f:
+            dlg = ChangeDateDialog(f)
 
-        def clickOK():
-            dlg.OnOK(None)
+            def clickOK():
+                dlg.OnOK(None)
 
-        run_diag(dlg, clickOK)
+            run_diag(dlg, clickOK)
 
-        def cancel():
-            dlg.OnClose(None)
+            def cancel():
+                dlg.OnClose(None)
 
-        run_diag(dlg, cancel)
+            run_diag(dlg, cancel)
 
     def test_photo_exists_dialog(self):
-        app, frame = init_app()
-        img_list = [
-            os.path.join(SAMPLE_IMG_DIR, f)
-            for f in ["Entwurf.jpg", "calendar_icon.png"]
-        ]
-        photo_dlg = PhotoWithSameDateExistsDialog(img_list, frame)
+        with create_app():
+            img_list = [
+                os.path.join(SAMPLE_IMG_DIR, f)
+                for f in ["Entwurf.jpg", "calendar_icon.png"]
+            ]
+            photo_dlg = PhotoWithSameDateExistsDialog(img_list)
 
-        def test_1():
-            photo_dlg.OnNext(None)
-            photo_dlg.OnPrev(None)
-            photo_dlg.OnSelect(None)
+            def test_1():
+                photo_dlg.OnNext(None)
+                photo_dlg.OnPrev(None)
+                photo_dlg.OnSelect(None)
 
-        run_diag(photo_dlg, test_1)
-        assert photo_dlg.chosenImgInd == 0
+            run_diag(photo_dlg, test_1)
+            assert photo_dlg.chosenImgInd == 0
 
-        def test_2():
-            photo_dlg.OnClose(None)
+            def test_2():
+                photo_dlg.OnClose(None)
 
-        run_diag(photo_dlg, test_2)
+            run_diag(photo_dlg, test_2)
 
-        def test_3():
-            photo_dlg.OnNew(None)
+            def test_3():
+                photo_dlg.OnNew(None)
 
-        run_diag(photo_dlg, test_3)
-        assert photo_dlg.chosenImgInd == -1
+            run_diag(photo_dlg, test_3)
+            assert photo_dlg.chosenImgInd == -1
 
     def test_selfie_dialog(self):
-        app, frame = init_app()
-        photo_dlg = SelfieDialog(frame)
+        with create_app():
+            photo_dlg = SelfieDialog()
 
-        def test_1():
-            def inner():
-                photo_dlg.accept_diag.OnTakePic(None)
+            def test_1():
+                def inner():
+                    photo_dlg.accept_diag.OnTakePic(None)
 
-            photo_dlg.OnTakePic(None, inner)
+                photo_dlg.OnTakePic(None, inner)
 
-        run_diag(photo_dlg, test_1)
-        assert photo_dlg.taken_img is not None
+            run_diag(photo_dlg, test_1)
+            assert photo_dlg.taken_img is not None
 
-        photo_dlg = SelfieDialog(frame)
+            photo_dlg = SelfieDialog()
 
-        def test_2():
-            def inner():
-                photo_dlg.accept_diag.OnClose(None)
+            def test_2():
+                def inner():
+                    photo_dlg.accept_diag.OnClose(None)
 
-            photo_dlg.OnTakePic(None, inner)
-            photo_dlg.OnClose(None)
+                photo_dlg.OnTakePic(None, inner)
+                photo_dlg.OnClose(None)
 
-        run_diag(photo_dlg, test_2)
-        assert photo_dlg.taken_img is None
+            run_diag(photo_dlg, test_2)
+            assert photo_dlg.taken_img is None
 
     def test_accept_photo(self):
         with create_app():
