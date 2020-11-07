@@ -7,6 +7,7 @@ Run this file to run the app.
 TODO:
     - PDF generation! (Without Latex!)
     - Fix webcam glitches (HOW??????).
+    - Fix terminating async callback warning after using Webcam.
     - Make header color changeable:
         https://stackoverflow.com/questions/51000320/wxpython-change-the-headers-color
     - Host documentation somewhere. (Write it first!
@@ -20,8 +21,6 @@ TODO:
     - Add blogpost to personal website
     - Add screenshots to readme.md
     - Fix Message dialogs (Including base class) What is the wx.Panel needed for?????.
-    - Calendar: Add 'now' option that sets the time to now
-        (or set default selected time to now)
 """
 from typing import Callable
 

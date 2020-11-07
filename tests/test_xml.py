@@ -5,6 +5,7 @@ from unittest import TestCase
 import wx
 
 import story_time
+import story_time.util
 from story_time.XML_write import (
     init_XML,
     insert_text_entry,

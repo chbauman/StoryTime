@@ -262,9 +262,7 @@ class CustomMessageDialog(TwoButtonDialogBase):
 
         if message is not None:
             stMsg = wx.StaticText(self, -1, message)
-            # stMsg.SetFont(get_font("dialog"))
-            # stMsg.SetFont(wx.Font(dialog_f_info))
-            stMsg.SetFont(wx.Font(wx.FontInfo(17).Family(wx.FONTFAMILY_SWISS).Bold()))
+            stMsg.SetFont(wx.Font(dialog_f_info))
             # stMsg.SetBackgroundColour(green)
             self.v_box.Add(stMsg, 1, wx.ALL | wx.EXPAND, 5)
 
@@ -298,28 +296,48 @@ class ChangeDateDialog(TwoButtonDialogBase):
     def __init__(self, *args, **kw):
         super(ChangeDateDialog, self).__init__(*args, **kw)
 
-        self.dt = wx.DateTime.Now()
+        self.set_time_now()
         self.InitUI()
-        self.SetSize((400, 300))
+
+        self.SetSize((400, 400))
         self.SetTitle("Change Date of entry")
 
     def InitUI(self) -> None:
         pnl = wx.Panel(self)
 
-        # Calendar and Time Picker
-        # sb = wx.StaticBox(pnl, label="Select Date and Time")
-        # sbs = wx.StaticBoxSizer(sb, orient=wx.HORIZONTAL)
-        sbs = wx.BoxSizer(wx.HORIZONTAL)
+        # Define UI elements
+        top_text = wx.StaticText(self, label="Select Date and Time")
+        top_text.SetFont(wx.Font(dialog_f_info))
         self.cal = wx.adv.CalendarCtrl(self)
-        sbs.Add(self.cal, flag=wx.ALL, border=5)
+        time_txt = wx.StaticText(self, label="Time: ")
         self.timePicker = wx.adv.TimePickerCtrl(self, dt=self.dt)
-        sbs.Add(self.timePicker, flag=wx.ALL, border=5)
-        # pnl.SetSizer(sbs)
 
-        # Add buttons
+        # Define extra button
+        now_button = wx.Button(self, label="Choose now")
+        now_button.Bind(wx.EVT_BUTTON, self.set_now_and_close)
+        now_button.SetFont(wx.Font(button_f_info))
+
+        # Define sizer for time
+        sbs = wx.BoxSizer(wx.HORIZONTAL)
+        sbs.Add(time_txt, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
+        sbs.Add(self.timePicker, flag=wx.ALL, border=5)
+
+        # Define top-level sizer
         self.v_box = wx.BoxSizer(wx.VERTICAL)
-        self.v_box.Add(sbs)
+        self.v_box.Add(top_text, flag=wx.ALIGN_CENTER | wx.ALL, border=5)
+        self.v_box.Add(sbs, flag=wx.ALIGN_CENTER | wx.ALL, border=5)
+        self.v_box.Add(self.cal, flag=wx.ALIGN_CENTER | wx.ALL, border=5)
+        self.v_box.Add(now_button, flag=wx.ALIGN_CENTER | wx.ALL, border=5)
+
         self.setup(pnl, "Ok", "Cancel", self.OnOK, self.OnClose)
+
+    def set_time_now(self):
+        """Sets the time to now."""
+        self.dt = wx.DateTime.Now()
+
+    def set_now_and_close(self, _):
+        self.set_time_now()
+        self.OnClose(None)
 
     def get_time(self):
         timeTuple = self.timePicker.GetTime()
