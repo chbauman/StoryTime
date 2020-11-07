@@ -106,7 +106,7 @@ def ask_for_dir(_fun: Callable = None, show: bool = True) -> str:
     return cdDiag.GetPath()
 
 
-def get_info_from_file(ask: bool = True, _fun: Callable = None) -> Optional[str]:
+def get_info_from_file(ask: bool = True, _fun: Callable = None) -> str:
     """Read the info file and get necessary information
 
     Also creates sub-folders if they do not exist.
@@ -127,11 +127,11 @@ def get_info_from_file(ask: bool = True, _fun: Callable = None) -> Optional[str]
             fol_path = data[0]
             create_xml_and_img_folder(fol_path)
             return fol_path
-        elif ask:
+        else:
+            assert ask
             files_path = story_time.util.ask_for_dir(_fun)
             create_xml_and_img_folder(files_path)
             return files_path
-    return None
 
 
 def write_folder_to_file() -> None:

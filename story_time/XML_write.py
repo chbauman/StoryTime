@@ -7,7 +7,7 @@ in the file.
 """
 import os
 import xml.etree.cElementTree as elTree
-from typing import Tuple, Optional, AnyStr
+from typing import Tuple, Optional
 
 import wx
 

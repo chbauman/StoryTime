@@ -50,7 +50,7 @@ class TextLinePanel(wx.Panel):
 
     def __init__(
         self,
-        parent,
+        parent: wx.Frame,
         text: str = "Test Text",
         center_text: bool = False,
         bg_col: wx.Colour = "Red",
@@ -70,7 +70,7 @@ class TextLinePanel(wx.Panel):
 class TwoButtonPanel(wx.Panel):
     def __init__(
         self,
-        parent,
+        parent: wx.Frame,
         labels: List[str],
         center: bool = True,
         bg_col: wx.Colour = "Green",
@@ -98,7 +98,7 @@ class TwoButtonPanel(wx.Panel):
         self.SetSizer(box)
         self.SetBackgroundColour(bg_col)
 
-    def set_but_methods(self, met_1, met_2):
+    def set_but_methods(self, met_1: Callable, met_2: Callable) -> None:
         self.Bind(wx.EVT_BUTTON, met_1, id=self.but_1.Id)
         self.Bind(wx.EVT_BUTTON, met_2, id=self.but_2.Id)
 
@@ -108,7 +108,7 @@ class TextAndImgPanel(wx.Panel):
 
     def __init__(
         self,
-        parent,
+        parent: wx.Frame,
         editable: bool = False,
         drop_tgt: bool = False,
         bg_col: wx.Colour = wx.Colour(200, 255, 200),
@@ -183,7 +183,7 @@ class ToolbarPanel(wx.Panel):
     tools: List[wx.ToolBarToolBase]
     photoTool: Union[Any, wx.ToolBarToolBase]
 
-    def __init__(self, parent, bg_col: wx.Colour = wx.Colour(140, 140, 255)):
+    def __init__(self, parent: wx.Frame, bg_col: wx.Colour = wx.Colour(140, 140, 255)):
         wx.Panel.__init__(self, parent)
         self.tools = []
         self.toolbar = wx.ToolBar(self, -1)
@@ -223,7 +223,7 @@ class ToolbarPanel(wx.Panel):
         self.toolbar.AddSeparator()
         self.toolbar.Realize()
 
-    def bind_tools(self, met_list: List[Callable]):
+    def bind_tools(self, met_list: List[Callable]) -> None:
         assert len(met_list) == 5 == len(self.tools), f"Tools: {self.tools}"
         for met, tool in zip(met_list, self.tools):
             self.Bind(wx.EVT_TOOL, met, tool)
@@ -287,16 +287,16 @@ class StoryTimeApp(wx.Frame):
     imgLoaded: bool
 
     @staticmethod
-    def date_txt(dt: wx.DateTime):
+    def date_txt(dt: wx.DateTime) -> str:
         return f"Date: {format_date_time(dt)}"
 
-    def set_date_txt(self, dt: wx.DateTime = None):
+    def set_date_txt(self, dt: wx.DateTime = None) -> None:
         """Sets the text in the date textbox."""
         if dt is None:
             dt = self.cdDialog.dt
         self.dateLabel.SetLabelText(self.date_txt(dt))
 
-    def set_folder_txt(self):
+    def set_folder_txt(self) -> None:
         """Sets the text in the directory textbox."""
         self.cwd.SetLabelText("Working directory: " + story_time.util.data_path)
 
@@ -308,7 +308,7 @@ class StoryTimeApp(wx.Frame):
         self.bmp_shown = getImageToShow(name)
         self.image_drop_space.SetBitmap(self.bmp_shown)
 
-    def set_prev_img(self, name: str):
+    def set_prev_img(self, name: str) -> None:
         """Sets an image in the entry preview panel.
 
         Given the path of the image.
@@ -337,11 +337,11 @@ class StoryTimeApp(wx.Frame):
 
         self.resized_layout()
 
-    def OnSave(self, *args, **kwargs) -> None:
+    def OnSave(self, *args: Any, **kwargs: Any) -> None:
         """Same as if the save button was clicked."""
         self.OnOKButtonClick(*args, **kwargs)
 
-    def on_taken_image_clicked(self, _, _diag_fun: Callable = None):
+    def on_taken_image_clicked(self, _: Any, _diag_fun: Callable = None) -> None:
         """Enlarges the shown image."""
         lf = self.fileDrop.loadedFile
         if lf is not None:
@@ -350,7 +350,7 @@ class StoryTimeApp(wx.Frame):
                 wx.CallAfter(_diag_fun, ps)
             ps.ShowModal()
 
-    def on_prev_image_clicked(self, _, _diag_fun: Callable = None):
+    def on_prev_image_clicked(self, _: Any, _diag_fun: Callable = None) -> None:
         """Enlarges the preview image."""
         prev_i = self.prev_img_name
         if prev_i is not None:
@@ -360,7 +360,7 @@ class StoryTimeApp(wx.Frame):
             ps.ShowModal()
 
     def OnSelfie(
-        self, e, _diag_fun: Callable = None, _photo_fun: Callable = None
+        self, e: Any, _diag_fun: Callable = None, _photo_fun: Callable = None
     ) -> None:
         """Opens dialog that shows the webcam and lets you take a picture
         with it which is added to the preview window then.
@@ -392,7 +392,7 @@ class StoryTimeApp(wx.Frame):
             self.set_img_with_date(f_path, curr_dt)
 
     @staticmethod
-    def toggle_prev_img(_):
+    def toggle_prev_img(_: Any) -> None:
         """Toggles the preview image."""
         print("Toggling")
         pass
@@ -425,7 +425,7 @@ class StoryTimeApp(wx.Frame):
                 return 1
         return 0
 
-    def OnPhoto(self, _, _deb_fun: Callable = None) -> int:
+    def OnPhoto(self, _: Any, _deb_fun: Callable = None) -> int:
         """Change to photo mode or back.
 
         If there is text in the textfield or an image loaded warn
@@ -458,7 +458,7 @@ class StoryTimeApp(wx.Frame):
         self.set_img(self.default_img_drop)
         self.imgLoaded = False
 
-    def OnOKButtonClick(self, _, _no_text_fun: Callable = None) -> None:
+    def OnOKButtonClick(self, _: Any, _no_text_fun: Callable = None) -> None:
         """Saves the text (and the photo in photo mode) in an XML entry.
 
         Does nothing if text (or image in photo mode) is missing.
@@ -513,7 +513,7 @@ class StoryTimeApp(wx.Frame):
         self.input_text_field.Clear()
         self.set_date_to_now()
 
-    def OnChangeDate(self, _, _fun: Callable = None) -> None:
+    def OnChangeDate(self, _: Any, _fun: Callable = None) -> None:
         """Shows dialog that lets the user change the current date."""
         if _fun is not None:
             wx.CallAfter(_fun, self.cdDialog)
@@ -525,7 +525,7 @@ class StoryTimeApp(wx.Frame):
         if self.cdDialog.dt != now and self.cdDialog.dt != cal_time:
             self.update_date()
 
-    def OnChangeDir(self, _) -> None:
+    def OnChangeDir(self, _: Any) -> None:
         """Shows dialog that lets the user change the current directory."""
         # Show dialog and get folder
         files_path = util.ask_for_dir()
@@ -540,14 +540,14 @@ class StoryTimeApp(wx.Frame):
         create_xml_and_img_folder(files_path)
         self.set_date_to_now()
 
-    def OnX(self, _, _deb_fun: Callable = None):
+    def OnX(self, _: Any, _deb_fun: Callable = None) -> None:
         """Called when the X is clicked to close.
 
         Also if self.Close() is called."""
         if self.check_if_discard_changes(_deb_fun) != -1:
             self.Cleanup(None)
 
-    def Cleanup(self, _) -> None:
+    def Cleanup(self, _: Any) -> None:
         """Cleanup, should always be called when app is closed."""
         self.cdDialog.Destroy()
         write_folder_to_file()
@@ -653,7 +653,7 @@ class StoryTimeApp(wx.Frame):
             self.fix_text_box.SetLabel(text_to_put)
             self.v_box.Layout()
 
-    def resized_layout(self):
+    def resized_layout(self) -> None:
         self.Layout()
 
 
@@ -665,7 +665,7 @@ class StoryTimeAppUI(StoryTimeApp):
     text_prev_sizer: wx.Sizer
     input_text_sizer: wx.Sizer
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super(StoryTimeApp, self).__init__(*args, **kwargs)
         self.default_img_drop = os.path.join(icon_path, "default_img_txt.png")
         self.default_img = os.path.join(icon_path, "default_img.png")
@@ -685,10 +685,10 @@ class StoryTimeAppUI(StoryTimeApp):
 
         self.imgLoaded = False
 
-    def next_entry(self, _):
+    def next_entry(self, _: Any) -> None:
         self.update_preview_text(True)
 
-    def prev_entry(self, _):
+    def prev_entry(self, _: Any) -> None:
         self.update_preview_text(False)
 
     def InitUI(self) -> None:
@@ -774,11 +774,11 @@ class StoryTimeAppUI(StoryTimeApp):
 
         self.SetMinSize((400, 600))
 
-    def on_resize(self, _):
+    def on_resize(self, _: Any) -> None:
         self.resized = True  # set dirty
         self.Layout()
 
-    def OnIdle(self, _):
+    def OnIdle(self, _: Any) -> None:
         if self.resized:
             lf = self.fileDrop.loadedFile
             s_min = min(self.input_text_sizer.Size)
@@ -796,11 +796,11 @@ class StoryTimeAppUI(StoryTimeApp):
             self.Layout()
             self.resized = False  # reset the flag
 
-    def resized_layout(self):
+    def resized_layout(self) -> None:
         self.on_resize(None)
         self.OnIdle(None)
 
-    def set_prev_img(self, name: str):
+    def set_prev_img(self, name: str) -> None:
         """Sets an image in the entry preview panel.
 
         Given the path of the image.
