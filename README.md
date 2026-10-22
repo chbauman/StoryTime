@@ -38,7 +38,11 @@ The tests open GUI windows, so on a headless machine run them
 under a virtual display, e.g. with `xvfb-run`.
 Tests that need a webcam are skipped if none is available.
 
+The toolbar icons are drawn as SVG files in `story_time/Icons/src`.
+After changing one, re-render the PNGs the app loads with
+`python tools/render_icons.py` (needs `playwright`).
+
 ## Screenshots
 
-TODO
+![StoryTime](docs/screenshot.png)
 

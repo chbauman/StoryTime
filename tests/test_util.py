@@ -83,13 +83,19 @@ def create_app():
 
 @contextmanager
 def change_info_txt(dir_to_set):
-    with open(info_file) as f:
-        curr_info_txt = f.read()
+    existed = os.path.exists(info_file)
+    curr_info_txt = None
+    if existed:
+        with open(info_file) as f:
+            curr_info_txt = f.read()
     story_time.util.data_path = dir_to_set
     write_folder_to_file()
     yield
-    with open(info_file, "w") as f:
-        f.write(curr_info_txt)
+    if existed:
+        with open(info_file, "w") as f:
+            f.write(curr_info_txt)
+    else:
+        os.remove(info_file)
 
 
 @contextmanager
