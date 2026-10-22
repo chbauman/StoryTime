@@ -19,6 +19,7 @@ from story_time.util import (
     NoWebcamError,
     PhotoShow,
     SelfieDialog,
+    bar_text_col,
     but_bg_col,
     button_f_info,
     copy_img_file_to_imgs,
@@ -30,6 +31,7 @@ from story_time.util import (
     getImageToShow,
     header_col,
     header_f_info,
+    header_text_col,
     icon_path,
     rep_newlines_with_space,
     resource_filename,
@@ -53,13 +55,15 @@ class TextLinePanel(wx.Panel):
         parent: wx.Frame,
         text: str = "Test Text",
         center_text: bool = False,
-        bg_col: wx.Colour = "Red",
+        bg_col: wx.Colour = header_col,
+        text_col: wx.Colour = header_text_col,
     ):
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
         s = wx.ALIGN_CENTRE_HORIZONTAL if center_text else wx.ALIGN_LEFT
         self.stat_text = wx.StaticText(self, label=text, style=s)
         self.stat_text.SetFont(wx.Font(header_f_info))
+        self.stat_text.SetForegroundColour(text_col)
         box.Add(self.stat_text, 1, EXPAND_ALL, 5)
         box.Fit(self)
         self.SetAutoLayout(True)
@@ -73,7 +77,7 @@ class TwoButtonPanel(wx.Panel):
         parent: wx.Frame,
         labels: list[str],
         center: bool = True,
-        bg_col: wx.Colour = "Green",
+        bg_col: wx.Colour = but_bg_col,
     ):
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
@@ -111,7 +115,7 @@ class TextAndImgPanel(wx.Panel):
         parent: wx.Frame,
         editable: bool = False,
         drop_tgt: bool = False,
-        bg_col: wx.Colour = wx.Colour(200, 255, 200),
+        bg_col: wx.Colour = text_bg_col,
     ):
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
@@ -183,12 +187,12 @@ class ToolbarPanel(wx.Panel):
     tools: list[wx.ToolBarToolBase]
     photoTool: Union[Any, wx.ToolBarToolBase]
 
-    def __init__(self, parent: wx.Frame, bg_col: wx.Colour = wx.Colour(140, 140, 255)):
+    def __init__(self, parent: wx.Frame, bg_col: wx.Colour = header_col):
         wx.Panel.__init__(self, parent)
         self.tools = []
         self.toolbar = wx.ToolBar(self, -1)
         self.setup_toolbar()
-        self.SetBackgroundColour("Yellow")
+        self.SetBackgroundColour(header_col)
 
         box = wx.BoxSizer(wx.VERTICAL)
         tb = self.toolbar
@@ -734,6 +738,7 @@ class StoryTimeAppUI(StoryTimeApp):
             text="Current date and time: 12.12.1212, 23:12:55",
             center_text=True,
             bg_col=but_bg_col,
+            text_col=bar_text_col,
         )
         self.dateLabel = time_text.stat_text
 

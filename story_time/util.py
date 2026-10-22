@@ -46,14 +46,17 @@ xml_folder = (
 )
 
 # Set colors
-# dark_green = wx.Colour(1, 92, 68)
-green = wx.Colour(0, 143, 105)
-light_green = wx.Colour(169, 245, 213)
-very_light_green = wx.Colour(212, 252, 235)
+teal = wx.Colour(15, 118, 110)  #: Accent color.
+light_teal = wx.Colour(209, 242, 236)
+very_light_teal = wx.Colour(247, 252, 251)
+dark_text = wx.Colour(19, 78, 74)
+white = wx.Colour(255, 255, 255)
 
-header_col = light_green
-but_bg_col = green
-text_bg_col = very_light_green
+header_col = light_teal  #: Background of the toolbar and the info lines.
+but_bg_col = teal  #: Background of the bars with buttons and the date line.
+text_bg_col = very_light_teal  #: Background of the text fields.
+header_text_col = dark_text  #: Text color on `header_col`.
+bar_text_col = white  #: Text color on `but_bg_col`.
 
 # Fonts
 header_f_info = wx.FontInfo(12).Family(wx.FONTFAMILY_SWISS).Bold()
@@ -710,7 +713,7 @@ def getImageToShow(
         The bitmap with the specified size
     """
     bor_2 = 2 * border
-    border_col = green
+    border_col = teal
 
     # Load from file and convert to image
     wxBmp = wx.Bitmap(filename)
