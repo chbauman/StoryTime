@@ -7,8 +7,8 @@ from story_time import util
 from story_time.main import main
 from story_time.user_interface import StoryTimeAppUI
 from tests.test_util import (
-    SAMPLE_IMG_DIR,
     DATA_DIR,
+    SAMPLE_IMG_DIR,
     change_info_txt,
     create_test_dirs,
     replace_dir_ask,
@@ -67,9 +67,9 @@ class TestMain2(TestCase):
             ex.OnSave(None)
 
             # Take a selfie
-            ex.OnSelfie(None, self.take_selfie)
+            ex.OnSelfie(None, self.take_selfie, _no_cam_fun=self.discard_text)
             ex.input_text_field.SetValue("Selfie Test Text")
-            ex.OnSave(None)
+            ex.OnSave(None, _no_text_fun=self.discard_text)
 
             # Check preview
             ex.next_entry(None)
@@ -108,24 +108,31 @@ class TestMain2(TestCase):
 
             # Take a selfie
             ex.on_taken_image_clicked(None)
-            ex.OnSelfie(None, self.take_selfie)
+            ex.OnSelfie(None, self.take_selfie, _no_cam_fun=self.discard_text)
             ex.input_text_field.SetValue("Selfie Test Text")
             ex.on_taken_image_clicked(None, self.resize_and_close)
-            ex.OnSave(None)
+            ex.OnSave(None, _no_text_fun=self.discard_text)
 
             ex.prev_img_name = TEST_IMG
             ex.on_prev_image_clicked(None, self.resize_and_close)
             ex.prev_img_name = None
 
             # Change back to text input and close
-            ex.OnPhoto(None)
+            ex.OnPhoto(None, self.discard_text)
             ex.toolbar.ToggleTool(ex.photoTool.Id, False)
 
             # Set text and try changing to photo mode
             ex.input_text_field.SetValue("Image Sample Text")
-            ex.OnSelfie(None, _photo_fun=self.click_on_close)
+            ex.OnSelfie(
+                None, _photo_fun=self.click_on_close, _no_cam_fun=self.discard_text
+            )
             ex.input_text_field.SetValue("Image Sample Text")
-            ex.OnSelfie(None, self.take_selfie, _photo_fun=self.discard_text)
+            ex.OnSelfie(
+                None,
+                self.take_selfie,
+                _photo_fun=self.discard_text,
+                _no_cam_fun=self.discard_text,
+            )
             ex.toolbar.ToggleTool(ex.photoTool.Id, True)
 
             def new_ask_fun():

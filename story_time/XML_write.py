@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """This module contains the XML reading and writing utilities.
 
 All the text is stored in an XML file and the images are referenced
 in the file.
 """
+
 import os
-import xml.etree.cElementTree as elTree
-from typing import Tuple, Optional
+import xml.etree.ElementTree as elTree
+from typing import Optional
 
 import wx
 
@@ -63,7 +63,7 @@ def insert_photo_entry(
     elTree.SubElement(ent, "photo").text = img_filename
 
 
-def load_XML(year: int, create: bool = True) -> Tuple[elTree.ElementTree, str]:
+def load_XML(year: int, create: bool = True) -> tuple[elTree.ElementTree, str]:
     """Loads an existing XML file and returns the Element tree.
 
     If it does not exist, a new element tree is initializes.
@@ -120,7 +120,7 @@ def save_entry(
 
 def find_next_xml_file(
     year: int, newer: bool = False
-) -> Optional[Tuple[int, elTree.ElementTree]]:
+) -> Optional[tuple[int, elTree.ElementTree]]:
     """Finds the most recent XML file before year 'year'.
 
     If there is none, returns None, otherwise, the found year and the tree of the XML
@@ -149,7 +149,7 @@ def find_next_xml_file(
 
 def find_closest_entry_in_tree(
     tree: elTree.ElementTree, date_time: wx.DateTime, newer: bool = False
-) -> Optional[Tuple[wx.DateTime, elTree.Element]]:
+) -> Optional[tuple[wx.DateTime, elTree.Element]]:
     """Finds entry closest to `date_time` in doc.
 
     If there is no earlier entry than 'date_time' returns None.
@@ -182,7 +182,7 @@ def find_closest_entry_in_tree(
 
 def find_closest_entry(
     dt: wx.DateTime, newer: bool = False
-) -> Optional[Tuple[wx.DateTime, elTree.Element]]:
+) -> Optional[tuple[wx.DateTime, elTree.Element]]:
     """Finds the latest entry before 'dt', if any.
 
     Searches all available XML files.

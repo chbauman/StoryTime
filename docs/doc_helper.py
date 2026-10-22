@@ -3,7 +3,6 @@
 import os
 from shutil import copyfile
 
-
 DOC_DIR = "pages"
 BUILD_DIR = "sphinx"
 INDEX_FILE = os.path.join(BUILD_DIR, "index.rst")
@@ -24,7 +23,7 @@ def main():
         copyfile(full_path, dest_path)
 
     s_ind = ":caption: Contents:"
-    with open(INDEX_FILE, "r") as f:
+    with open(INDEX_FILE) as f:
         data = f.read()
         d1, d2 = data.split(s_ind)
 
