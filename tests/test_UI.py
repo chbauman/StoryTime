@@ -258,7 +258,7 @@ class TestMain2(TestCase):
             return ex.GetEventHandler().ProcessEvent(evt)
 
         def preview(ex):
-            return ex.fix_text_box.LabelText
+            return ex.fix_text_box.GetValue()
 
         def play(ex, app):
             def fun():
@@ -302,6 +302,36 @@ class TestMain2(TestCase):
         assert res["photo_on"] and res["photo_off"]
         assert not res["other"] and not res["other_ctrl"]
         assert res["quit"]
+
+    def test_long_entry_preview(self):
+        """The preview shows long entries completely, with their line breaks."""
+        paragraphs = [f"Paragraph {i}: " + "word " * 80 for i in range(1, 11)]
+        entry = "\n\n".join(paragraphs)
+        res = {}
+
+        def play(ex, app):
+            def fun():
+                try:
+                    ex.update_date(wx.DateTime(1, 2, 2020, 10))
+                    ex.input_text_field.SetValue(entry)
+                    ex.OnSave(None)
+                    res["preview"] = ex.fix_text_box.GetValue()
+                    res["editable"] = ex.fix_text_box.IsEditable()
+                    res["lines"] = ex.fix_text_box.GetNumberOfLines()
+                    res["start"] = ex.fix_text_box.GetInsertionPoint()
+                finally:
+                    ex.OnX(None)
+
+            wx.CallAfter(fun)
+            app.MainLoop()
+            app.Destroy()
+
+        self.run_in_test_dir(play)
+
+        assert entry in res["preview"]
+        assert not res["editable"]
+        assert res["lines"] > 20
+        assert res["start"] == 0
 
 
 class TestShortcutFor(TestCase):

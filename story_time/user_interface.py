@@ -34,7 +34,6 @@ from story_time.util import (
     header_f_info,
     header_text_col,
     icon_path,
-    rep_newlines_with_space,
     resource_filename,
     scale_bitmap,
     temp_folder,
@@ -144,7 +143,7 @@ class TwoButtonPanel(wx.Panel):
 
 
 class TextAndImgPanel(wx.Panel):
-    text_box: Union[wx.TextCtrl, wx.StaticText]
+    text_box: wx.TextCtrl
 
     def __init__(
         self,
@@ -175,7 +174,9 @@ class TextAndImgPanel(wx.Panel):
         if editable:
             self.text_box = wx.TextCtrl(self, **kws)
         else:
-            self.text_box = wx.StaticText(self, label=text_shown, **kws)
+            # Read-only, but scrollable to be able to read long entries
+            kws["style"] |= wx.TE_READONLY | wx.BORDER_NONE
+            self.text_box = wx.TextCtrl(self, value=text_shown, **kws)
         self.text_box.SetBackgroundColour(bg_col)
 
         EXP_ALL = wx.EXPAND | wx.ALL
@@ -273,7 +274,7 @@ class StoryTimeApp(wx.Frame):
     input_text_field: wx.TextCtrl
     dateLabel: wx.StaticText
     cwd: wx.StaticText
-    fix_text_box: wx.StaticText
+    fix_text_box: wx.TextCtrl
 
     # Images
     img: wx.StaticBitmap
@@ -668,7 +669,7 @@ class StoryTimeApp(wx.Frame):
             date=format_date_time(date),
         )
         ret_str += "\n\n"
-        ret_str += rep_newlines_with_space(child_text) + "\n\n"
+        ret_str += child_text + "\n\n"
         return ret_str, changed_img
 
     def update_preview_text(self, set_next: bool = None) -> None:
@@ -708,9 +709,9 @@ class StoryTimeApp(wx.Frame):
             if not self.next_prev_buttons.but_1.IsEnabled():
                 self.next_prev_buttons.but_1.Enable()
 
-        if self.fix_text_box.LabelText != text_to_put or ch_img:
+        if self.fix_text_box.GetValue() != text_to_put or ch_img:
             # Set text and update layout
-            self.fix_text_box.SetLabel(text_to_put)
+            self.fix_text_box.SetValue(text_to_put)
             self.v_box.Layout()
 
     def resized_layout(self) -> None:

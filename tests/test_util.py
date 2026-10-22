@@ -32,7 +32,6 @@ from story_time.util import (
     get_time_from_file,
     info_file,
     pad_int_str,
-    rep_newlines_with_space,
     update_folder,
     write_folder_to_file,
 )
@@ -194,12 +193,6 @@ class TestFileSystem(TestCase):
 
 
 class TestUtil(TestCase):
-    def test_newline_replace(self):
-        inp = "sdl sdk \n e sie \n"
-        exp_out = "sdl sdk  e sie "
-        out = rep_newlines_with_space(inp)
-        self.assertEqual(exp_out, out)
-
     def test_string_pad(self):
         inp = 4
         exp_out = "0004"
