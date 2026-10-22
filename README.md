@@ -35,14 +35,15 @@ automatically. Taken photos are kept in a temporary folder until they are saved.
 
 | Keys | Action |
 | --- | --- |
+| Ctrl+N | Write a new entry, or go back to reading |
 | Ctrl+S | Save the entry |
 | Ctrl+P | Switch between text-only and photo mode |
 | Ctrl+D | Choose another date and time |
 | Ctrl+O | Choose another data folder |
 | Ctrl+T | Take a selfie with the webcam |
 | Ctrl+Q | Quit |
-| Alt+Left / Alt+Right | Previous / next entry in the preview |
-| Left / Right | Previous / next entry, if the cursor is not in the text input |
+| Alt+Left / Alt+Right | Previous (older) / next (newer) entry |
+| Left / Right | Previous / next entry, if the cursor is not in the text input or the list |
 
 The shortcuts are also shown in the tooltips of the toolbar.
 
@@ -77,7 +78,20 @@ The toolbar icons are drawn as SVG files in `story_time/Icons/src`.
 After changing one, re-render the PNGs the app loads with
 `python tools/render_icons.py` (needs `playwright`).
 
+## Usage
+
+The entries are listed on the left, grouped by month, with a search field on
+top. Click an entry to read it. The first tool of the toolbar (or Ctrl+N)
+switches to writing a new entry, and back. The other tools (save, photo mode,
+date, selfie) are only active while writing.
+
 ## Screenshots
 
-![StoryTime](docs/screenshot.png)
+Reading an entry:
+
+![Reading an entry](docs/screenshot.png)
+
+Writing a new entry:
+
+![Writing an entry](docs/screenshot_write.png)
 
