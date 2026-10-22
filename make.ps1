@@ -69,16 +69,12 @@ function publish_to_pypi {
     Remove-Item *.egg-info -Recurse -ErrorAction Ignore
 
     # Install stuff
-    pip install twine keyring
-    pip install setuptools
-    pip install wheel
+    pip install build twine keyring
 
     # Check formatting and style
     black --check .
     abort_failure
-    flake8 tests --max-line-length=90
-    abort_failure
-    flake8 story_time --max-line-length=90
+    ruff check .
     abort_failure
 
     # Run tests
@@ -92,7 +88,7 @@ function publish_to_pypi {
     $new_vers | Set-Content 'version.txt'
 
     # Upload to PyPI
-    python setup.py sdist bdist_wheel
+    python -m build
     $username = "chbauman"
     $pw = (keyring get https://upload.pypi.org/legacy/ $username) | Out-String
     if($to_pypi){
@@ -132,8 +128,7 @@ if ($pub) {
 }
 if ($format) {
     black .
-    flake8 tests --max-line-length=90
-    flake8 story_time --max-line-length=90
+    ruff check . --fix
 }
 if ($clean) {
     clean

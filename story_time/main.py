@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """The main script with the StoryTimeApp.
 
 Run this file to run the app.
@@ -22,6 +21,7 @@ TODO:
     - Fix Message dialogs (Including base class) What is the wx.Panel needed for?????.
     - Run type checking!
 """
+
 from typing import Callable
 
 import wx

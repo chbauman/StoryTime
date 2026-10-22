@@ -2,43 +2,64 @@ import os
 import shutil
 from contextlib import contextmanager
 from pathlib import Path
-from unittest import TestCase
+from unittest import TestCase, skipUnless
 
 import cv2
 import wx
 
 import story_time
 from story_time.util import (
-    create_xml_and_img_folder,
-    rep_newlines_with_space,
-    pad_int_str,
-    get_img_name_from_time,
-    extract_date_from_image_name,
-    get_time_from_file,
-    get_file_modified_wx_dt,
-    FileDrop,
-    update_folder,
-    write_folder_to_file,
-    get_info_from_file,
-    format_date_time,
+    AcceptPhoto,
     ChangeDateDialog,
+    CustomMessageDialog,
+    FileDrop,
+    NoWebcamError,
     PhotoWithSameDateExistsDialog,
     SelfieDialog,
-    find_new_name,
-    find_all_imgs_with_same_date,
+    ShowCapture,
+    TwoButtonDialogBase,
+    ask_for_dir,
     copy_img_file_to_imgs,
     create_dir,
-    TwoButtonDialogBase,
-    AcceptPhoto,
-    CustomMessageDialog,
-    ask_for_dir,
+    create_xml_and_img_folder,
+    extract_date_from_image_name,
+    find_all_imgs_with_same_date,
+    find_new_name,
+    format_date_time,
+    get_file_modified_wx_dt,
+    get_img_name_from_time,
+    get_info_from_file,
+    get_time_from_file,
     info_file,
+    pad_int_str,
+    rep_newlines_with_space,
+    update_folder,
+    write_folder_to_file,
 )
 
 DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
 SAMPLE_IMG_DIR = os.path.join(DATA_DIR, "sample_imgs")
 img_dir = os.path.join(DATA_DIR, "Img")
 xml_dir = os.path.join(DATA_DIR, "XML")
+
+
+def _webcam_available() -> bool:
+    cap = cv2.VideoCapture(0)
+    try:
+        return cap.isOpened() and cap.read()[0]
+    finally:
+        cap.release()
+
+
+HAS_WEBCAM = _webcam_available()
+
+
+class _NoFrameCapture:
+    """Mimics a webcam that does not deliver any frames."""
+
+    @staticmethod
+    def read():
+        return False, None
 
 
 @contextmanager
@@ -62,7 +83,7 @@ def create_app():
 
 @contextmanager
 def change_info_txt(dir_to_set):
-    with open(info_file, "r") as f:
+    with open(info_file) as f:
         curr_info_txt = f.read()
     story_time.util.data_path = dir_to_set
     write_folder_to_file()
@@ -112,7 +133,7 @@ class TestFileSystem(TestCase):
 
     def test_info_file(self):
         with change_info_txt(DATA_DIR):
-            with open(info_file, "r") as f:
+            with open(info_file) as f:
                 assert f.read().strip() == DATA_DIR
 
             f_path = get_info_from_file(False)
@@ -227,7 +248,7 @@ def init_app():
 def run_diag(dlg, fun, destroy: bool = True):
     wx.CallAfter(fun)
     dlg.ShowModal()
-    if destroy:
+    if destroy and dlg:  # The dialog may have destroyed itself when closing.
         dlg.Destroy()
 
 
@@ -302,6 +323,8 @@ class TestGUIElements(TestCase):
                 os.path.join(SAMPLE_IMG_DIR, f)
                 for f in ["Entwurf.jpg", "calendar_icon.png"]
             ]
+
+            # A destroyed dialog cannot be shown again, so create a new one each time.
             photo_dlg = PhotoWithSameDateExistsDialog(img_list)
 
             def test_1():
@@ -312,10 +335,14 @@ class TestGUIElements(TestCase):
             run_diag(photo_dlg, test_1)
             assert photo_dlg.chosenImgInd == 0
 
+            photo_dlg = PhotoWithSameDateExistsDialog(img_list)
+
             def test_2():
                 photo_dlg.OnClose(None)
 
             run_diag(photo_dlg, test_2)
+
+            photo_dlg = PhotoWithSameDateExistsDialog(img_list)
 
             def test_3():
                 photo_dlg.OnNew(None)
@@ -323,6 +350,12 @@ class TestGUIElements(TestCase):
             run_diag(photo_dlg, test_3)
             assert photo_dlg.chosenImgInd == -1
 
+    def test_no_webcam_error(self):
+        with create_app():
+            with self.assertRaises(NoWebcamError):
+                ShowCapture(None, _NoFrameCapture())
+
+    @skipUnless(HAS_WEBCAM, "No webcam available.")
     def test_selfie_dialog(self):
         with create_app():
             photo_dlg = SelfieDialog()

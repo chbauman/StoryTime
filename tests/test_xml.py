@@ -1,5 +1,5 @@
 import os
-import xml.etree.cElementTree as elTree
+import xml.etree.ElementTree as elTree
 from unittest import TestCase
 
 import wx
@@ -7,13 +7,13 @@ import wx
 import story_time
 import story_time.util
 from story_time.XML_write import (
+    find_closest_entry,
+    find_closest_entry_in_tree,
     init_XML,
-    insert_text_entry,
     insert_photo_entry,
+    insert_text_entry,
     load_XML,
     save_entry,
-    find_closest_entry_in_tree,
-    find_closest_entry,
 )
 from tests.test_util import DATA_DIR, create_test_dirs
 

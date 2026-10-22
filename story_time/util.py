@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """Some general utility functions.
 
 Includes os stuff, dialogs for the main frame,
@@ -8,15 +7,16 @@ datetime conversions...
 
 import os
 import re
+import sys
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from shutil import copy2
-from typing import List, Callable, Sequence, Optional, Any
+from typing import Any, Callable, Optional
 
 import cv2
 import wx
 import wx.adv
-from pkg_resources import resource_filename
 
 import story_time
 
@@ -26,7 +26,14 @@ icon_path = os.path.join(project_path, "story_time/Icons")
 temp_folder = os.path.join(
     project_path, "tmp"
 )  #: Temporary folder to store images temporarily.
-info_file = resource_filename(__name__, "Info.txt")
+
+
+def resource_filename(rel_path: str) -> str:
+    """Returns the absolute path of a file shipped inside the package."""
+    return os.path.join(os.path.dirname(os.path.realpath(__file__)), rel_path)
+
+
+info_file = resource_filename("Info.txt")
 
 # Path to data (global variables)
 # Initialized values should never be used
@@ -297,7 +304,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
     timePicker: wx.adv.TimePickerCtrl
 
     def __init__(self, *args: Any, **kw: Any) -> None:
-        super(ChangeDateDialog, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
 
         self.set_time_now()
         self.InitUI()
@@ -375,7 +382,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         parent: wx.Frame = None,
         title: str = "Image with same date already exists",
     ) -> None:
-        super(PhotoWithSameDateExistsDialog, self).__init__(parent, title=title)
+        super().__init__(parent, title=title)
 
         self.file_list = file_list
         self.chosenImgInd: Optional[int] = None
@@ -553,7 +560,7 @@ def get_time_from_file(img_file: str) -> wx.DateTime:
     return name_date
 
 
-def find_all_imgs_with_same_date(imgs_folder: str, img_name: str) -> List[str]:
+def find_all_imgs_with_same_date(imgs_folder: str, img_name: str) -> list[str]:
     """Finds all files starting with string "img_name"
     in folder "img_folder".
     """
@@ -565,7 +572,7 @@ def find_all_imgs_with_same_date(imgs_folder: str, img_name: str) -> List[str]:
 
 
 def find_new_name(
-    img_name: str, same_date_file_list: List[str], ext: str, max_n_imgs: int = 10000
+    img_name: str, same_date_file_list: list[str], ext: str, max_n_imgs: int = 10000
 ) -> str:
     """Chooses a new filename that is not in the list and
     contains the img_name in the beginning by appending an
@@ -650,7 +657,7 @@ class FileDrop(wx.FileDropTarget):
         self.loadedFile = None
         self.newFileName = None
 
-    def OnDropFiles(self, x: Any, y: Any, filenames: List) -> bool:
+    def OnDropFiles(self, x: Any, y: Any, filenames: list) -> bool:
         """Handle the dropped files.
 
         Checks if the extension is supported and stores
@@ -745,6 +752,10 @@ def getImageToShow(
     return result
 
 
+class NoWebcamError(RuntimeError):
+    """Raised if no frame can be read from the webcam."""
+
+
 class ShowCapture(wx.Panel):
     """Panel that shows the content recorded by the webcam."""
 
@@ -753,6 +764,8 @@ class ShowCapture(wx.Panel):
         # Capture first frame to get size
         self.capture = capture
         ret, frame = self.capture.read()
+        if not ret or frame is None:
+            raise NoWebcamError("Could not read from the webcam.")
         height, width = frame.shape[:2]
         self.h_by_w = height / width
         self.win_size = (300, int(round(self.h_by_w * 300)))
@@ -851,7 +864,11 @@ class SelfieDialog(TwoButtonDialogBase):
     def __init__(self, parent: Any = None, title: str = "Take a selfie") -> None:
         super().__init__(parent, title=title)
 
-        self.InitUI()
+        try:
+            self.InitUI()
+        except NoWebcamError:
+            self.Destroy()
+            raise
         self.SetSize((400, 350))
         self.SetTitle(title)
 
@@ -862,8 +879,14 @@ class SelfieDialog(TwoButtonDialogBase):
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         # Current Image
-        self._vid_capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-        self._img_cap = ShowCapture(self, self._vid_capture)
+        # DirectShow is only available on Windows, let OpenCV choose otherwise.
+        backend = cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_ANY
+        self._vid_capture = cv2.VideoCapture(0, backend)
+        try:
+            self._img_cap = ShowCapture(self, self._vid_capture)
+        except NoWebcamError:
+            self._vid_capture.release()
+            raise
         self.v_box.Add(
             self._img_cap,
             proportion=0,
