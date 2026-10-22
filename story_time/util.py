@@ -76,14 +76,6 @@ def update_folder(new_data_path: str) -> None:
     xml_folder = os.path.join(new_data_path, "XML")
 
 
-def rep_newlines_with_space(string: str) -> str:
-    """Removes newlines and replaces them with spaces.
-
-    Also reduces double spaces to single spaces.
-    """
-    return string.replace("\n", " ").replace("  ", " ")
-
-
 def create_xml_and_img_folder(base_folder: str) -> None:
     """Create a folder for the XML and the image files in `base_folder`."""
     xml_pth = os.path.join(base_folder, "XML")
