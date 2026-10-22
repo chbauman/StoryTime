@@ -8,6 +8,7 @@ import cv2
 import wx
 
 import story_time
+from story_time import settings
 from story_time.util import (
     AcceptPhoto,
     ChangeDateDialog,
@@ -26,14 +27,12 @@ from story_time.util import (
     find_all_imgs_with_same_date,
     find_new_name,
     format_date_time,
+    get_data_folder,
     get_file_modified_wx_dt,
     get_img_name_from_time,
-    get_info_from_file,
     get_time_from_file,
-    info_file,
     pad_int_str,
     update_folder,
-    write_folder_to_file,
 )
 
 DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
@@ -81,20 +80,13 @@ def create_app():
 
 
 @contextmanager
-def change_info_txt(dir_to_set):
-    existed = os.path.exists(info_file)
-    curr_info_txt = None
-    if existed:
-        with open(info_file) as f:
-            curr_info_txt = f.read()
+def use_data_dir(dir_to_set):
+    """Sets the data folder in the settings and restores them afterwards."""
+    old_settings = settings.load_settings()
     story_time.util.data_path = dir_to_set
-    write_folder_to_file()
+    story_time.util.save_data_folder()
     yield
-    if existed:
-        with open(info_file, "w") as f:
-            f.write(curr_info_txt)
-    else:
-        os.remove(info_file)
+    settings.save_settings(old_settings)
 
 
 @contextmanager
@@ -136,21 +128,19 @@ class TestFileSystem(TestCase):
         finally:
             os.remove(test_file)
 
-    def test_info_file(self):
-        with change_info_txt(DATA_DIR):
-            with open(info_file) as f:
-                assert f.read().strip() == DATA_DIR
+    def test_data_folder(self):
+        with use_data_dir(DATA_DIR):
+            assert settings.get_data_dir() == DATA_DIR
+            assert get_data_folder(False) == DATA_DIR
 
-            f_path = get_info_from_file(False)
-            assert f_path == DATA_DIR
-
-            os.remove(info_file)
+            # Without a folder in the settings the user is asked
+            settings.save_settings({})
 
             def new_ask(_=None):
                 return DATA_DIR
 
             with replace_dir_ask(new_ask):
-                get_info_from_file(True)
+                assert get_data_folder(True) == DATA_DIR
 
         if os.path.isdir(img_dir):
             os.removedirs(img_dir)

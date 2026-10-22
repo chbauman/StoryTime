@@ -7,10 +7,11 @@ datetime conversions...
 
 import os
 import re
+import shutil
 import sys
+import tempfile
 from collections.abc import Sequence
 from datetime import datetime
-from pathlib import Path
 from shutil import copy2
 from typing import Any, Callable, Optional
 
@@ -19,14 +20,8 @@ import wx
 import wx.adv
 
 import story_time
+from story_time import settings
 from story_time.texts import tr
-
-# Paths to app code and temp folder
-project_path = Path(os.path.dirname(os.path.realpath(__file__))).parent
-icon_path = os.path.join(project_path, "story_time/Icons")
-temp_folder = os.path.join(
-    project_path, "tmp"
-)  #: Temporary folder to store images temporarily.
 
 
 def resource_filename(rel_path: str) -> str:
@@ -34,7 +29,9 @@ def resource_filename(rel_path: str) -> str:
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), rel_path)
 
 
-info_file = resource_filename("Info.txt")
+icon_path = resource_filename("Icons")
+
+_temp_folder: Optional[str] = None
 
 # Path to data (global variables)
 # Initialized values should never be used
@@ -109,38 +106,49 @@ def ask_for_dir(_fun: Callable = None, show: bool = True) -> str:
     return cdDiag.GetPath()
 
 
-def get_info_from_file(ask: bool = True, _fun: Callable = None) -> str:
-    """Read the info file and get necessary information
+def get_data_folder(ask: bool = True, _fun: Callable = None) -> str:
+    """Gets the folder with the diary data from the settings.
 
-    Also creates sub-folders if they do not exist.
+    Asks the user for a folder if there is none yet.
+    Also creates the sub-folders if they do not exist.
 
     Args:
-        ask: Whether to ask for a directory.
+        ask: Whether to ask for a folder if there is none.
         _fun: Function to call when dialog pops up. For testing.
 
     Returns:
-        Contents of the file.
+        The path of the data folder.
     """
-    if not os.path.exists(info_file):
-        with open(info_file, "w") as f:
-            f.write("NoDirectorySpecified")
-    with open(info_file) as file:
-        data = file.readlines()
-        if data != [] and os.path.isdir(data[0]):
-            fol_path = data[0]
-            create_xml_and_img_folder(fol_path)
-            return fol_path
-        else:
-            assert ask
-            files_path = story_time.util.ask_for_dir(_fun)
-            create_xml_and_img_folder(files_path)
-            return files_path
+    fol_path = settings.get_data_dir()
+    if fol_path is None:
+        assert ask
+        fol_path = story_time.util.ask_for_dir(_fun)
+    create_xml_and_img_folder(fol_path)
+    return fol_path
 
 
-def write_folder_to_file() -> None:
-    """Write the current working directory to file `info_file`."""
-    with open(info_file, "w") as f:
-        f.write(data_path)
+def save_data_folder() -> None:
+    """Stores the current data folder in the settings."""
+    settings.set_data_dir(data_path)
+
+
+def get_temp_folder() -> str:
+    """Returns the folder for temporary files, e.g. taken photos.
+
+    It is created on first use and is removed by `remove_temp_folder`.
+    """
+    global _temp_folder
+    if _temp_folder is None or not os.path.isdir(_temp_folder):
+        _temp_folder = tempfile.mkdtemp(prefix="story_time_")
+    return _temp_folder
+
+
+def remove_temp_folder() -> None:
+    """Removes the folder returned by `get_temp_folder`, but nothing else."""
+    global _temp_folder
+    if _temp_folder is not None and os.path.isdir(_temp_folder):
+        shutil.rmtree(_temp_folder)
+    _temp_folder = None
 
 
 def scale_bitmap(bitmap: wx.Bitmap, width: int, height: int) -> wx.Bitmap:

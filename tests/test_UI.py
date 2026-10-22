@@ -9,9 +9,9 @@ from story_time.user_interface import StoryTimeAppUI, shortcut_for
 from tests.test_util import (
     DATA_DIR,
     SAMPLE_IMG_DIR,
-    change_info_txt,
     create_test_dirs,
     replace_dir_ask,
+    use_data_dir,
 )
 
 TEST_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
@@ -154,7 +154,7 @@ class TestMain2(TestCase):
     @staticmethod
     def run_in_test_dir(play):
         """Creates the app using the test data folder and plays with it."""
-        with change_info_txt(DATA_DIR):
+        with use_data_dir(DATA_DIR):
             with create_test_dirs():
                 app = wx.App()
                 ex = StoryTimeAppUI(None)
@@ -164,7 +164,7 @@ class TestMain2(TestCase):
         def close(d):
             d.OnX(None)
 
-        with change_info_txt(DATA_DIR):
+        with use_data_dir(DATA_DIR):
             with create_test_dirs():
                 main(close)
 
