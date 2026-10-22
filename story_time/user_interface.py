@@ -5,41 +5,41 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 
 import os
 import shutil
-from typing import Callable, List, Union, Optional, Tuple, Any
+from typing import Any, Callable, Optional, Union
 
 import cv2
 import wx
-from pkg_resources import resource_filename
 
 import story_time
 from story_time import util
-from story_time.XML_write import save_entry, find_closest_entry
 from story_time.util import (
-    FileDrop,
-    icon_path,
     ChangeDateDialog,
-    get_info_from_file,
-    update_folder,
-    scale_bitmap,
-    format_date_time,
-    getImageToShow,
+    CustomMessageDialog,
+    FileDrop,
+    NoWebcamError,
+    PhotoShow,
     SelfieDialog,
-    get_img_name_from_time,
-    temp_folder,
+    but_bg_col,
+    button_f_info,
+    copy_img_file_to_imgs,
     create_dir,
     create_xml_and_img_folder,
-    write_folder_to_file,
-    rep_newlines_with_space,
-    copy_img_file_to_imgs,
-    CustomMessageDialog,
+    format_date_time,
+    get_img_name_from_time,
+    get_info_from_file,
+    getImageToShow,
     header_col,
-    but_bg_col,
-    text_bg_col,
     header_f_info,
-    button_f_info,
-    PhotoShow,
+    icon_path,
+    rep_newlines_with_space,
+    resource_filename,
+    scale_bitmap,
+    temp_folder,
+    text_bg_col,
+    update_folder,
+    write_folder_to_file,
 )
-
+from story_time.XML_write import find_closest_entry, save_entry
 
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 EXPAND_ALL = wx.ALL | wx.EXPAND
@@ -71,7 +71,7 @@ class TwoButtonPanel(wx.Panel):
     def __init__(
         self,
         parent: wx.Frame,
-        labels: List[str],
+        labels: list[str],
         center: bool = True,
         bg_col: wx.Colour = "Green",
     ):
@@ -119,7 +119,7 @@ class TextAndImgPanel(wx.Panel):
         # The image
         img_name = f"default_img{'_txt' if drop_tgt else ''}.png"
         # self.default_img = os.path.join(icon_path, img_name)
-        self.default_img = resource_filename(__name__, f"Icons/{img_name}")
+        self.default_img = resource_filename(f"Icons/{img_name}")
 
         self.bmp_shown = getImageToShow(self.default_img)
         self.img = wx.StaticBitmap(self, -1, self.bmp_shown)
@@ -180,7 +180,7 @@ class ToolbarPanel(wx.Panel):
             "Take a picture with your webcam.",
         ),
     ]
-    tools: List[wx.ToolBarToolBase]
+    tools: list[wx.ToolBarToolBase]
     photoTool: Union[Any, wx.ToolBarToolBase]
 
     def __init__(self, parent: wx.Frame, bg_col: wx.Colour = wx.Colour(140, 140, 255)):
@@ -204,10 +204,10 @@ class ToolbarPanel(wx.Panel):
 
         self.toolbar.SetToolBitmapSize(iconSize)
 
-        for ct, t in enumerate(self.tool_list):
+        for t in self.tool_list:
             icon_name, name, help_txt, *rest = t
             tool_id = wx.Window.NewControlId()
-            img_path = resource_filename(__name__, f"Icons/{icon_name}")
+            img_path = resource_filename(f"Icons/{icon_name}")
             icon = scale_bitmap(wx.Bitmap(img_path), *iconSize)
             args = (tool_id, name, icon)
             fun = (
@@ -223,7 +223,7 @@ class ToolbarPanel(wx.Panel):
         self.toolbar.AddSeparator()
         self.toolbar.Realize()
 
-    def bind_tools(self, met_list: List[Callable]) -> None:
+    def bind_tools(self, met_list: list[Callable]) -> None:
         assert len(met_list) == 5 == len(self.tools), f"Tools: {self.tools}"
         for met, tool in zip(met_list, self.tools):
             self.Bind(wx.EVT_TOOL, met, tool)
@@ -360,7 +360,11 @@ class StoryTimeApp(wx.Frame):
             ps.ShowModal()
 
     def OnSelfie(
-        self, e: Any, _diag_fun: Callable = None, _photo_fun: Callable = None
+        self,
+        e: Any,
+        _diag_fun: Callable = None,
+        _photo_fun: Callable = None,
+        _no_cam_fun: Callable = None,
     ) -> None:
         """Opens dialog that shows the webcam and lets you take a picture
         with it which is added to the preview window then.
@@ -374,7 +378,19 @@ class StoryTimeApp(wx.Frame):
             self.toolbar.ToggleTool(self.photoTool.Id, True)
 
         # Show the dialog
-        sDiag = SelfieDialog()
+        try:
+            sDiag = SelfieDialog()
+        except NoWebcamError:
+            md = CustomMessageDialog(
+                "No webcam found, cannot take a selfie.",
+                "No webcam",
+                self,
+                cancel_only=True,
+            )
+            if _no_cam_fun is not None:
+                wx.CallAfter(_no_cam_fun, md)
+            md.ShowModal()
+            return
         if _diag_fun is not None:
             wx.CallAfter(_diag_fun, sDiag)
         sDiag.ShowModal()
@@ -578,7 +594,7 @@ class StoryTimeApp(wx.Frame):
 
     def _get_text_to_put(
         self, last: bool = True, set_img: bool = False, use_prev_dt: bool = False
-    ) -> Tuple[str, bool]:
+    ) -> tuple[str, bool]:
         search_dt = self.cdDialog.dt if not use_prev_dt else self.prev_dt
         ret_val = find_closest_entry(search_dt, not last)
         if ret_val is None:
@@ -695,7 +711,7 @@ class StoryTimeAppUI(StoryTimeApp):
     def InitUI(self) -> None:
 
         # Setup toolbar
-        met_list: List = [
+        met_list: list = [
             self.OnSave,
             self.OnPhoto,
             self.OnChangeDate,
