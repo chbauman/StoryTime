@@ -12,6 +12,7 @@ import wx
 
 import story_time
 from story_time import util
+from story_time.texts import tr
 from story_time.util import (
     ChangeDateDialog,
     CustomMessageDialog,
@@ -156,33 +157,13 @@ class TextAndImgPanel(wx.Panel):
 
 
 class ToolbarPanel(wx.Panel):
+    #: Icon file, key of the texts and whether it is a toggle tool.
     tool_list = [
-        (
-            "save_icon.png",
-            "Save",
-            "Save entry.",
-        ),
-        (
-            "photo_icon.png",
-            "Photo",
-            "Change to photo mode.",
-            True,
-        ),
-        (
-            "calendar_icon.png",
-            "Change",
-            "Choose another date and time.",
-        ),
-        (
-            "folder_icon.png",
-            "Dir",
-            "Change directory.",
-        ),
-        (
-            "webcam_icon.png",
-            "Selfie",
-            "Take a picture with your webcam.",
-        ),
+        ("save_icon.png", "toolbar.save"),
+        ("photo_icon.png", "toolbar.photo", True),
+        ("calendar_icon.png", "toolbar.date"),
+        ("folder_icon.png", "toolbar.folder"),
+        ("webcam_icon.png", "toolbar.selfie"),
     ]
     tools: list[wx.ToolBarToolBase]
     photoTool: Union[Any, wx.ToolBarToolBase]
@@ -209,7 +190,8 @@ class ToolbarPanel(wx.Panel):
         self.toolbar.SetToolBitmapSize(iconSize)
 
         for t in self.tool_list:
-            icon_name, name, help_txt, *rest = t
+            icon_name, text_key, *rest = t
+            name, help_txt = tr(f"{text_key}.name"), tr(f"{text_key}.help")
             tool_id = wx.Window.NewControlId()
             img_path = resource_filename(f"Icons/{icon_name}")
             icon = scale_bitmap(wx.Bitmap(img_path), *iconSize)
@@ -292,7 +274,11 @@ class StoryTimeApp(wx.Frame):
 
     @staticmethod
     def date_txt(dt: wx.DateTime) -> str:
-        return f"Date: {format_date_time(dt)}"
+        return tr("main.date_line", date=format_date_time(dt))
+
+    @staticmethod
+    def working_dir_txt() -> str:
+        return tr("main.working_dir", path=story_time.util.data_path)
 
     def set_date_txt(self, dt: wx.DateTime = None) -> None:
         """Sets the text in the date textbox."""
@@ -302,7 +288,7 @@ class StoryTimeApp(wx.Frame):
 
     def set_folder_txt(self) -> None:
         """Sets the text in the directory textbox."""
-        self.cwd.SetLabelText("Working directory: " + story_time.util.data_path)
+        self.cwd.SetLabelText(self.working_dir_txt())
 
     def set_img(self, name: str) -> None:
         """Sets an image in the preview panel in photo mode.
@@ -386,10 +372,11 @@ class StoryTimeApp(wx.Frame):
             sDiag = SelfieDialog()
         except NoWebcamError:
             md = CustomMessageDialog(
-                "No webcam found, cannot take a selfie.",
-                "No webcam",
+                tr("message.no_webcam.text"),
+                tr("message.no_webcam.title"),
                 self,
                 cancel_only=True,
+                cancel_label=tr("common.ok"),
             )
             if _no_cam_fun is not None:
                 wx.CallAfter(_no_cam_fun, md)
@@ -431,22 +418,17 @@ class StoryTimeApp(wx.Frame):
         textStr = self.input_text_field.GetValue()
         if self.imgLoaded or (textStr != "" and not only_image):
             if only_image:
-                msg = (
-                    "If you proceed, the loaded image will be lost. "
-                    "Do you want to proceed?"
-                )
+                msg = tr("message.discard_image.text")
+            elif self.imgLoaded:
+                msg = tr("message.discard_text_image.text")
             else:
-                add_string = ", the loaded image" if self.imgLoaded else ""
-                msg = (
-                    f"If you proceed, the text{add_string} and the chosen "
-                    f"time will be lost. Do you want to proceed?"
-                )
+                msg = tr("message.discard_text.text")
             md = CustomMessageDialog(
                 msg,
-                "Warning",
+                tr("common.warning"),
                 self,
-                ok_label="Fuck yeah!",
-                cancel_label="No fucking way!",
+                ok_label=tr("common.discard"),
+                cancel_label=tr("common.keep"),
             )
             md.SetSize((400, 300))
             if _deb_fun is not None:
@@ -501,11 +483,11 @@ class StoryTimeApp(wx.Frame):
         textStr = self.input_text_field.GetValue()
         if textStr == "":
             md = CustomMessageDialog(
-                "No fucking text specified!!",
-                "Info",
+                tr("message.no_text.text"),
+                tr("message.no_text.title"),
                 self,
                 cancel_only=True,
-                cancel_label="Got it",
+                cancel_label=tr("common.ok"),
             )
             if _no_text_fun is not None:
                 wx.CallAfter(_no_text_fun, md)
@@ -519,11 +501,11 @@ class StoryTimeApp(wx.Frame):
             lf = self.fileDrop.loadedFile
             if lf is None:
                 md = CustomMessageDialog(
-                    "No fucking image specified!!",
-                    "Info",
+                    tr("message.no_image.text"),
+                    tr("message.no_image.title"),
                     self,
                     cancel_only=True,
-                    cancel_label="Got it",
+                    cancel_label=tr("common.ok"),
                 )
                 if _no_text_fun is not None:
                     wx.CallAfter(_no_text_fun, md)
@@ -569,7 +551,7 @@ class StoryTimeApp(wx.Frame):
 
         # Update and create data directories if not existing
         update_folder(files_path)
-        self.cwd.SetLabelText(story_time.util.data_path)
+        self.cwd.SetLabelText(self.working_dir_txt())
         create_xml_and_img_folder(files_path)
         self.set_date_to_now()
 
@@ -623,7 +605,11 @@ class StoryTimeApp(wx.Frame):
         child: Any
         date, child = ret_val
         is_text = child.get("type") == "text"
-        child_text = child.text if is_text else "Photo: " + child.find("text").text
+        child_text = (
+            child.text
+            if is_text
+            else tr("main.preview.photo", text=child.find("text").text)
+        )
         changed_img = False
         if set_img:
             if not is_text:
@@ -641,8 +627,11 @@ class StoryTimeApp(wx.Frame):
                     changed_img = not r
 
         self.prev_dt = date
-        ret_str = "Last" if last else "Next"
-        ret_str += " entry: " + format_date_time(date) + "\n\n"
+        ret_str = tr(
+            "main.preview.last" if last else "main.preview.next",
+            date=format_date_time(date),
+        )
+        ret_str += "\n\n"
         ret_str += rep_newlines_with_space(child_text) + "\n\n"
         return ret_str, changed_img
 
@@ -662,8 +651,10 @@ class StoryTimeApp(wx.Frame):
             text_to_put += prv
             ch_img = ch_img or ch_img_prv
         if text_to_put == "":
-            text_to_put = (
-                f"No {'newer' if self.newest_reached else 'older'} entry present."
+            text_to_put = tr(
+                "main.preview.no_newer"
+                if self.newest_reached
+                else "main.preview.no_older"
             )
             if self.newest_reached:
                 self.next_prev_buttons.but_2.Disable()
@@ -702,7 +693,7 @@ class StoryTimeAppUI(StoryTimeApp):
         super(StoryTimeApp, self).__init__(*args, **kwargs)
         self.default_img_drop = os.path.join(icon_path, "default_img_txt.png")
         self.default_img = os.path.join(icon_path, "default_img.png")
-        self.cdDialog = ChangeDateDialog(None, title="Change Date of entry")
+        self.cdDialog = ChangeDateDialog(None)
         icon = wx.Icon()
         icon.CopyFromBitmap(
             wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY)
@@ -713,7 +704,7 @@ class StoryTimeAppUI(StoryTimeApp):
         print("util.img_folder", util.img_folder)
         self.InitUI()
         self.SetSize((700, 800))
-        self.SetTitle("Story Time")
+        self.SetTitle(tr("app.title"))
         self.Center()
 
         self.imgLoaded = False
@@ -741,13 +732,13 @@ class StoryTimeAppUI(StoryTimeApp):
 
         path_text = TextLinePanel(
             self,
-            text="Working directory: Path/to/the/working/directory",
+            text=tr("main.working_dir", path="Path/to/the/working/directory"),
             bg_col=header_col,
         )
         self.cwd = path_text.stat_text
         time_text = TextLinePanel(
             self,
-            text="Current date and time: 12.12.1212, 23:12:55",
+            text=tr("main.date_line", date="12.12.1212, 23:12:55"),
             center_text=True,
             bg_col=but_bg_col,
             text_col=bar_text_col,
@@ -756,7 +747,7 @@ class StoryTimeAppUI(StoryTimeApp):
 
         # Buttons
         self.next_prev_buttons = TwoButtonPanel(
-            self, labels=["Previous", "Next"], bg_col=but_bg_col
+            self, labels=[tr("common.previous"), tr("common.next")], bg_col=but_bg_col
         )
 
         self.next_prev_buttons.set_but_methods(self.prev_entry, self.next_entry)

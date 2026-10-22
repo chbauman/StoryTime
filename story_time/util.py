@@ -19,6 +19,7 @@ import wx
 import wx.adv
 
 import story_time
+from story_time.texts import tr
 
 # Paths to app code and temp folder
 project_path = Path(os.path.dirname(os.path.realpath(__file__))).parent
@@ -107,7 +108,7 @@ def check_date_time(
 
 def ask_for_dir(_fun: Callable = None, show: bool = True) -> str:
     """Ask the user to select a directory."""
-    dial_text = "Choose directory to store Imgs and Text data."
+    dial_text = tr("dialog.choose_dir")
     flags = wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST
     cdDiag = wx.DirDialog(None, dial_text, "", flags)
     if _fun is not None:
@@ -169,7 +170,7 @@ class PhotoShow(wx.Dialog):
 
     def __init__(self, parent: wx.Frame, f_name: str) -> None:
         super().__init__(parent, style=wx.DEFAULT_FRAME_STYLE | wx.RESIZE_BORDER)
-        self.SetTitle("Large photo view")
+        self.SetTitle(tr("dialog.photo_show.title"))
         wx.Panel(self)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
@@ -261,14 +262,17 @@ class CustomMessageDialog(TwoButtonDialogBase):
     def __init__(
         self,
         message: str = None,
-        title: str = "Message",
+        title: str = None,
         *args: Any,
         cancel_only: bool = False,
-        ok_label: str = "Ok",
-        cancel_label: str = "Cancel",
+        ok_label: str = None,
+        cancel_label: str = None,
         **kw: Any,
     ) -> None:
         super().__init__(*args, **kw)
+        title = tr("dialog.message.title") if title is None else title
+        ok_label = tr("common.ok") if ok_label is None else ok_label
+        cancel_label = tr("common.cancel") if cancel_label is None else cancel_label
         self.SetTitle(title)
         pnl = wx.Panel(self)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
@@ -313,20 +317,20 @@ class ChangeDateDialog(TwoButtonDialogBase):
         self.InitUI()
 
         self.SetSize((400, 400))
-        self.SetTitle("Change Date of entry")
+        self.SetTitle(tr("dialog.change_date.title"))
 
     def InitUI(self) -> None:
         pnl = wx.Panel(self)
 
         # Define UI elements
-        top_text = wx.StaticText(self, label="Select Date and Time")
+        top_text = wx.StaticText(self, label=tr("dialog.change_date.heading"))
         top_text.SetFont(wx.Font(dialog_f_info))
         self.cal = wx.adv.CalendarCtrl(self)
-        time_txt = wx.StaticText(self, label="Time: ")
+        time_txt = wx.StaticText(self, label=tr("dialog.change_date.time") + " ")
         self.timePicker = wx.adv.TimePickerCtrl(self, dt=self.dt)
 
         # Define extra button
-        now_button = wx.Button(self, label="Now")
+        now_button = wx.Button(self, label=tr("dialog.change_date.now"))
         now_button.Bind(wx.EVT_BUTTON, self.set_now_and_close)
         now_button.SetFont(wx.Font(button_f_info))
 
@@ -342,7 +346,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
         self.v_box.Add(self.cal, flag=wx.ALIGN_CENTER | wx.ALL, border=5)
         self.v_box.Add(now_button, flag=wx.ALIGN_CENTER | wx.ALL, border=5)
 
-        self.setup(pnl, "Ok", "Cancel", self.OnOK, self.OnClose)
+        self.setup(pnl, tr("common.ok"), tr("common.cancel"), self.OnOK, self.OnClose)
 
     def set_time_now(self) -> None:
         """Sets the time to now."""
@@ -383,8 +387,9 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         self,
         file_list: Sequence,
         parent: wx.Frame = None,
-        title: str = "Image with same date already exists",
+        title: str = None,
     ) -> None:
+        title = tr("dialog.same_date.title") if title is None else title
         super().__init__(parent, title=title)
 
         self.file_list = file_list
@@ -408,14 +413,14 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
 
         # Buttons
         h_box = wx.BoxSizer(wx.HORIZONTAL)
-        selectButton = wx.Button(self, label="Select")
-        newButton = wx.Button(self, label="New")
+        selectButton = wx.Button(self, label=tr("dialog.same_date.select"))
+        newButton = wx.Button(self, label=tr("dialog.same_date.new"))
 
         h_box.Add(selectButton)
 
         if self.n_files > 1:  # No next / previous if there is only one
-            self.next_button = wx.Button(self, label="Next")
-            self.prev_button = wx.Button(self, label="Previous")
+            self.next_button = wx.Button(self, label=tr("common.next"))
+            self.prev_button = wx.Button(self, label=tr("common.previous"))
             self.prev_button.Disable()
             h_box.Add(self.prev_button)
             h_box.Add(self.next_button)
@@ -673,7 +678,7 @@ class FileDrop(wx.FileDropTarget):
         _, ext = os.path.splitext(curr_file)
         ext = ext[1:].lower()
         if ext not in ["jpg", "jpeg", "png", "bmp"]:
-            print(f"ERROR: Unsupported fucking file type: {ext}")
+            print(f"ERROR: Unsupported file type: {ext}")
             return False
 
         # Get date and set image
@@ -691,9 +696,16 @@ def format_date_time(date_time: wx.DateTime) -> str:
     h, m = pad_int_str(dt.GetHour()), pad_int_str(dt.GetMinute())
     s = pad_int_str(dt.GetSecond())
 
-    str_out = f"{wx.DateTime.GetWeekDayName(dt.GetWeekDay())}, "
-    str_out += f"{d}.{mon}.{y}, Time: {h}:{m}:{s}"
-    return str_out
+    return tr(
+        "main.datetime",
+        weekday=wx.DateTime.GetWeekDayName(dt.GetWeekDay()),
+        day=d,
+        month=mon,
+        year=y,
+        hour=h,
+        minute=m,
+        second=s,
+    )
 
 
 def getImageToShow(
@@ -812,8 +824,9 @@ class AcceptPhoto(TwoButtonDialogBase):
     orig_img = None
 
     def __init__(
-        self, parent: wx.Frame = None, img: str = None, title: str = "Accept photo?"
+        self, parent: wx.Frame = None, img: str = None, title: str = None
     ) -> None:
+        title = tr("dialog.accept_photo.title") if title is None else title
         super().__init__(parent, title=title)
 
         if img is not None:
@@ -839,7 +852,9 @@ class AcceptPhoto(TwoButtonDialogBase):
             bmp, proportion=0, flag=wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, border=5
         )
 
-        self.setup(pnl, "Accept", "Throw")
+        self.setup(
+            pnl, tr("dialog.accept_photo.accept"), tr("dialog.accept_photo.discard")
+        )
 
     def set_img(self, img: str) -> None:
         self.taken_img = img
@@ -864,7 +879,8 @@ class SelfieDialog(TwoButtonDialogBase):
 
     accept_diag: AcceptPhoto
 
-    def __init__(self, parent: Any = None, title: str = "Take a selfie") -> None:
+    def __init__(self, parent: Any = None, title: str = None) -> None:
+        title = tr("dialog.selfie.title") if title is None else title
         super().__init__(parent, title=title)
 
         try:
@@ -897,7 +913,7 @@ class SelfieDialog(TwoButtonDialogBase):
             border=5,
         )
         self._img_cap.Show()
-        self.setup(pnl, "Shoot", "Cancel")
+        self.setup(pnl, tr("dialog.selfie.shoot"), tr("common.cancel"))
 
     def OnTakePic(self, e: Any, fun: Callable = None) -> None:
         """Takes a picture with the webcam.

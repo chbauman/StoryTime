@@ -43,7 +43,7 @@ story-time = "story_time.main:main"
 include = ["story_time*"]
 
 [tool.setuptools.package-data]
-story_time = ["Icons/*"]
+story_time = ["Icons/*", "locales/*.json"]
 
 [tool.setuptools.dynamic]
 version = { file = ["version.txt"] }
