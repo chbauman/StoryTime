@@ -23,6 +23,21 @@ the command line:
 $ story-time
 ```
 
+## Keyboard shortcuts
+
+| Keys | Action |
+| --- | --- |
+| Ctrl+S | Save the entry |
+| Ctrl+P | Switch between text-only and photo mode |
+| Ctrl+D | Choose another date and time |
+| Ctrl+O | Choose another data folder |
+| Ctrl+T | Take a selfie with the webcam |
+| Ctrl+Q | Quit |
+| Alt+Left / Alt+Right | Previous / next entry in the preview |
+| Left / Right | Previous / next entry, if the cursor is not in the text input |
+
+The shortcuts are also shown in the tooltips of the toolbar.
+
 ## Languages
 
 All texts of the user interface are in the catalogs in `story_time/locales`

@@ -5,7 +5,7 @@ import wx
 
 from story_time import util
 from story_time.main import main
-from story_time.user_interface import StoryTimeAppUI
+from story_time.user_interface import StoryTimeAppUI, shortcut_for
 from tests.test_util import (
     DATA_DIR,
     SAMPLE_IMG_DIR,
@@ -246,3 +246,94 @@ class TestMain2(TestCase):
         assert res["accept"] == 0 and not res["img_after_accept"]
         assert not res["tool_after_accept"]
         assert res["warnings_total"] == 2
+
+    def test_keyboard_shortcuts(self):
+        res = {}
+
+        def send_key(ex, key, ctrl=False, alt=False):
+            evt = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
+            evt.SetKeyCode(key)
+            evt.SetControlDown(ctrl)
+            evt.SetAltDown(alt)
+            return ex.GetEventHandler().ProcessEvent(evt)
+
+        def preview(ex):
+            return ex.fix_text_box.LabelText
+
+        def play(ex, app):
+            def fun():
+                try:
+                    # Ctrl+S saves the entries
+                    for text, month in [("First entry", 2), ("Second entry", 5)]:
+                        ex.update_date(wx.DateTime(1, month, 2020, 10))
+                        ex.input_text_field.SetValue(text)
+                        res[f"save_{month}"] = send_key(ex, ord("S"), ctrl=True)
+                        res[f"cleared_{month}"] = ex.input_text_field.GetValue() == ""
+
+                    # Alt+arrows go through the entries
+                    res["last"] = "Second entry" in preview(ex)
+                    send_key(ex, wx.WXK_LEFT, alt=True)
+                    res["prev"] = "First entry" in preview(ex)
+                    send_key(ex, wx.WXK_RIGHT, alt=True)
+                    res["next"] = "Second entry" in preview(ex)
+
+                    # Ctrl+P toggles the photo mode
+                    send_key(ex, ord("P"), ctrl=True)
+                    res["photo_on"] = ex.image_drop_space.IsShown()
+                    send_key(ex, ord("P"), ctrl=True)
+                    res["photo_off"] = not ex.image_drop_space.IsShown()
+
+                    # Other keys are passed on
+                    res["other"] = send_key(ex, ord("X"))
+                    res["other_ctrl"] = send_key(ex, ord("X"), ctrl=True)
+                finally:
+                    # Ctrl+Q closes the app
+                    res["quit"] = send_key(ex, ord("Q"), ctrl=True)
+
+            wx.CallAfter(fun)
+            app.MainLoop()
+            app.Destroy()
+
+        self.run_in_test_dir(play)
+
+        assert res["save_2"] and res["save_5"]
+        assert res["cleared_2"] and res["cleared_5"]
+        assert res["last"] and res["prev"] and res["next"]
+        assert res["photo_on"] and res["photo_off"]
+        assert not res["other"] and not res["other_ctrl"]
+        assert res["quit"]
+
+
+class TestShortcutFor(TestCase):
+    def test_ctrl_shortcuts(self):
+        for letter, action in [
+            ("S", "save"),
+            ("P", "photo"),
+            ("D", "date"),
+            ("O", "folder"),
+            ("T", "selfie"),
+            ("Q", "quit"),
+        ]:
+            for in_text in (True, False):
+                for code in (ord(letter), ord(letter.lower())):
+                    assert shortcut_for(code, True, False, False, in_text) == action
+            # Not without Ctrl, nor with Shift or Alt
+            assert shortcut_for(ord(letter), False, False, False, False) is None
+            assert shortcut_for(ord(letter), True, False, True, False) is None
+            assert shortcut_for(ord(letter), True, True, False, False) is None
+        assert shortcut_for(ord("X"), True, False, False, False) is None
+
+    def test_arrows(self):
+        left, right = wx.WXK_LEFT, wx.WXK_RIGHT
+        # Plain arrows move the cursor in the text input
+        assert shortcut_for(left, False, False, False, True) is None
+        assert shortcut_for(right, False, False, False, True) is None
+        # Elsewhere they go through the entries
+        assert shortcut_for(left, False, False, False, False) == "prev"
+        assert shortcut_for(right, False, False, False, False) == "next"
+        # With Alt they always do
+        assert shortcut_for(left, False, True, False, True) == "prev"
+        assert shortcut_for(right, False, True, False, True) == "next"
+        # Ctrl+arrows (word jump) and Shift+arrows (selection) are left alone
+        assert shortcut_for(left, True, False, False, True) is None
+        assert shortcut_for(right, False, False, True, False) is None

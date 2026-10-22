@@ -44,6 +44,41 @@ from story_time.util import (
 )
 from story_time.XML_write import find_closest_entry, save_entry
 
+
+def shortcut_for(
+    key: int, ctrl: bool, alt: bool, shift: bool, in_text_input: bool
+) -> Optional[str]:
+    """Returns the name of the action of a keyboard shortcut, if there is one.
+
+    The arrow keys are only used if the cursor is not in the text input, as
+    they are needed there to move the cursor. With Alt they always work.
+
+    Args:
+        key: The key code.
+        ctrl: Whether Ctrl (Cmd on macOS) is pressed.
+        alt: Whether Alt is pressed.
+        shift: Whether Shift is pressed.
+        in_text_input: Whether the text input has the keyboard focus.
+    """
+    if shift:
+        return None
+    if ctrl and not alt and 0 < key < 256:
+        return CTRL_SHORTCUTS.get(chr(key).upper())
+    if key in (wx.WXK_LEFT, wx.WXK_RIGHT) and not ctrl and (alt or not in_text_input):
+        return "prev" if key == wx.WXK_LEFT else "next"
+    return None
+
+
+#: Actions of the shortcuts with Ctrl, by the letter of the key.
+CTRL_SHORTCUTS = {
+    "S": "save",
+    "P": "photo",
+    "D": "date",
+    "O": "folder",
+    "T": "selfie",
+    "Q": "quit",
+}
+
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 EXPAND_ALL = wx.ALL | wx.EXPAND
 
@@ -157,13 +192,13 @@ class TextAndImgPanel(wx.Panel):
 
 
 class ToolbarPanel(wx.Panel):
-    #: Icon file, key of the texts and whether it is a toggle tool.
+    #: Icon file, key of the texts, keyboard shortcut and whether it is a toggle tool.
     tool_list = [
-        ("save_icon.png", "toolbar.save"),
-        ("photo_icon.png", "toolbar.photo", True),
-        ("calendar_icon.png", "toolbar.date"),
-        ("folder_icon.png", "toolbar.folder"),
-        ("webcam_icon.png", "toolbar.selfie"),
+        ("save_icon.png", "toolbar.save", "Ctrl+S"),
+        ("photo_icon.png", "toolbar.photo", "Ctrl+P", True),
+        ("calendar_icon.png", "toolbar.date", "Ctrl+D"),
+        ("folder_icon.png", "toolbar.folder", "Ctrl+O"),
+        ("webcam_icon.png", "toolbar.selfie", "Ctrl+T"),
     ]
     tools: list[wx.ToolBarToolBase]
     photoTool: Union[Any, wx.ToolBarToolBase]
@@ -190,8 +225,9 @@ class ToolbarPanel(wx.Panel):
         self.toolbar.SetToolBitmapSize(iconSize)
 
         for t in self.tool_list:
-            icon_name, text_key, *rest = t
-            name, help_txt = tr(f"{text_key}.name"), tr(f"{text_key}.help")
+            icon_name, text_key, shortcut, *rest = t
+            name = tr(f"{text_key}.name")
+            help_txt = f"{tr(f'{text_key}.help')} ({shortcut})"
             tool_id = wx.Window.NewControlId()
             img_path = resource_filename(f"Icons/{icon_name}")
             icon = scale_bitmap(wx.Bitmap(img_path), *iconSize)
@@ -715,6 +751,40 @@ class StoryTimeAppUI(StoryTimeApp):
     def prev_entry(self, _: Any) -> None:
         self.update_preview_text(False)
 
+    def toggle_photo_mode(self) -> None:
+        """Same as clicking the photo tool: toggles it and changes the mode."""
+        tool_id = self.photoTool.Id
+        self.toolbar.ToggleTool(tool_id, not self.toolbar.GetToolState(tool_id))
+        self.OnPhoto(None)
+
+    def on_key(self, event: wx.KeyEvent) -> None:
+        """Handles the keyboard shortcuts, passes on all other keys."""
+        in_text = isinstance(wx.Window.FindFocus(), wx.TextCtrl)
+        action = shortcut_for(
+            event.GetKeyCode(),
+            event.CmdDown(),
+            event.AltDown(),
+            event.ShiftDown(),
+            in_text,
+        )
+        if action is None:
+            event.Skip()
+            return
+
+        buttons = self.next_prev_buttons
+        handlers = {
+            "save": lambda: self.OnSave(None),
+            "photo": self.toggle_photo_mode,
+            "date": lambda: self.OnChangeDate(None),
+            "folder": lambda: self.OnChangeDir(None),
+            "selfie": lambda: self.OnSelfie(None),
+            "quit": self.Close,
+            # Like the buttons, do nothing if there is no such entry
+            "prev": lambda: buttons.but_1.IsEnabled() and self.prev_entry(None),
+            "next": lambda: buttons.but_2.IsEnabled() and self.next_entry(None),
+        }
+        handlers[action]()
+
     def InitUI(self) -> None:
 
         # Setup toolbar
@@ -788,6 +858,7 @@ class StoryTimeAppUI(StoryTimeApp):
         self.set_date_txt()
         self.set_folder_txt()
         self.Bind(wx.EVT_CLOSE, self.OnX)
+        self.Bind(wx.EVT_CHAR_HOOK, self.on_key)
 
         self.Bind(wx.EVT_SIZE, self.on_resize)
         self.Bind(wx.EVT_IDLE, self.OnIdle)
