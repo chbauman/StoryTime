@@ -23,6 +23,18 @@ the command line:
 $ story-time
 ```
 
+## Languages
+
+All texts of the user interface are in the catalogs in `story_time/locales`
+(currently English and German). The language is taken from the system or
+can be set with the environment variable `STORY_TIME_LANG`, e.g.
+`STORY_TIME_LANG=de story-time`.
+
+To add a language, copy `en.json` to `<language code>.json` and translate
+the values. Keep the keys and the `{placeholders}`, missing texts fall back
+to English. In the code, use `tr("some.key")` from `story_time.texts` instead
+of writing texts directly.
+
 ## Development
 
 Install the package with the development tools and run the checks:
