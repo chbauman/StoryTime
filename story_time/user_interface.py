@@ -45,7 +45,6 @@ from story_time.XML_write import find_closest_entry, save_entry
 
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 EXPAND_ALL = wx.ALL | wx.EXPAND
-TEXT_PADDING = 8  #: Space in pixels between the border and the text input.
 
 
 class TextLinePanel(wx.Panel):
@@ -147,27 +146,16 @@ class TextAndImgPanel(wx.Panel):
         text_shown = "Default text."
         kws = {"style": wx.TE_MULTILINE, "size": (-1, 180)}
         if editable:
-            # A text control has no inner padding, so put a borderless one into
-            # a bordered panel and let the sizer provide the padding.
-            self.text_frame = wx.Panel(self, style=wx.BORDER_SIMPLE, size=(-1, 180))
-            self.text_box = wx.TextCtrl(
-                self.text_frame, style=wx.TE_MULTILINE | wx.BORDER_NONE
-            )
-            self.text_frame.SetBackgroundColour(bg_col)
-            pad_box = wx.BoxSizer(wx.VERTICAL)
-            pad_box.Add(self.text_box, 1, wx.EXPAND | wx.ALL, TEXT_PADDING)
-            self.text_frame.SetSizer(pad_box)
-            text_widget = self.text_frame
+            self.text_box = wx.TextCtrl(self, **kws)
         else:
             self.text_box = wx.StaticText(self, label=text_shown, **kws)
-            text_widget = self.text_box
         self.text_box.SetBackgroundColour(bg_col)
 
         EXP_ALL = wx.EXPAND | wx.ALL
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
 
         h_box_3.Add(self.img, proportion=1, flag=EXP_ALL, border=5)
-        h_box_3.Add(text_widget, proportion=3, flag=EXP_ALL, border=5)
+        h_box_3.Add(self.text_box, proportion=3, flag=EXP_ALL, border=5)
 
         box.Add(h_box_3, 1, EXP_ALL, 5)
         box.Fit(self)
