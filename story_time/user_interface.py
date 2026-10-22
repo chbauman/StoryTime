@@ -417,18 +417,30 @@ class StoryTimeApp(wx.Frame):
         print("Toggling")
         pass
 
-    def check_if_discard_changes(self, _deb_fun: Callable = None) -> int:
+    def check_if_discard_changes(
+        self, _deb_fun: Callable = None, only_image: bool = False
+    ) -> int:
         """Checks whether there is unsaved info.
+
+        Args:
+            _deb_fun: Function to call when the dialog pops up. For testing.
+            only_image: Whether only a loaded image counts as unsaved info.
 
         Returns 0 if there is None, 1 if it may be discarded
         and -1 if the user wants to keep it."""
         textStr = self.input_text_field.GetValue()
-        if textStr != "" or self.imgLoaded:
-            add_string = ", the loaded image" if self.imgLoaded else ""
-            msg = (
-                f"If you proceed, the text{add_string} and the chosen "
-                f"time will be lost. Do you want to proceed?"
-            )
+        if self.imgLoaded or (textStr != "" and not only_image):
+            if only_image:
+                msg = (
+                    "If you proceed, the loaded image will be lost. "
+                    "Do you want to proceed?"
+                )
+            else:
+                add_string = ", the loaded image" if self.imgLoaded else ""
+                msg = (
+                    f"If you proceed, the text{add_string} and the chosen "
+                    f"time will be lost. Do you want to proceed?"
+                )
             md = CustomMessageDialog(
                 msg,
                 "Warning",
@@ -449,27 +461,27 @@ class StoryTimeApp(wx.Frame):
     def OnPhoto(self, _: Any, _deb_fun: Callable = None) -> int:
         """Change to photo mode or back.
 
-        If there is text in the textfield or an image loaded warn
-        the user that it will be lost if he continues.
+        The written text is kept. Only if an image is loaded, the user is
+        warned that it will be lost if he continues.
         """
-        discard_int = self.check_if_discard_changes(_deb_fun)
+        discard_int = self.check_if_discard_changes(_deb_fun, only_image=True)
         if discard_int == -1:
             tog = self.photoTool.IsToggled()
             self.toolbar.ToggleTool(self.photoTool.Id, not tog)
             return -1
-        elif discard_int == 1:
-            self.remove_written_text()
 
         # Toggle the showing of the Image (drop space)
         if self.image_drop_space.IsShown():
+            if discard_int == 1:
+                # The time was taken from the image.
+                self.set_date_to_now()
             self.removeImg()
             self.imgLoaded = False
             self.image_drop_space.Hide()
         else:
             self.image_drop_space.Show()
 
-        # Update date and time and the layout
-        # self.set_date_to_now()
+        # Update the layout
         self.resized_layout()
         return 0
 
