@@ -176,3 +176,73 @@ class TestMain2(TestCase):
 
     def test_UI_preview(self):
         self.run_in_test_dir(self.play_with_app_preview)
+
+    def test_mode_switching(self):
+        """Switching between text and photo mode keeps the text and only
+        warns if an image is loaded."""
+        res = {"warnings": 0}
+
+        def count_and_cancel(d):
+            res["warnings"] += 1
+            d.OnClose(None)
+
+        def count_and_accept(d):
+            res["warnings"] += 1
+            d.OnOK(None)
+
+        def click_photo(ex, hook=None):
+            """Clicking the tool toggles it first, then calls the handler."""
+            tool_id = ex.photoTool.Id
+            ex.toolbar.ToggleTool(tool_id, not ex.toolbar.GetToolState(tool_id))
+            return ex.OnPhoto(None, hook)
+
+        def play(ex, app):
+            def fun():
+                try:
+                    ex.input_text_field.SetValue("Kept text")
+
+                    # Text -> photo: no warning, text is kept
+                    res["to_photo"] = click_photo(ex, count_and_cancel)
+                    res["drop_shown"] = ex.image_drop_space.IsShown()
+                    res["text_1"] = ex.input_text_field.GetValue()
+
+                    # Photo without image -> text: no warning, text is kept
+                    res["to_text"] = click_photo(ex, count_and_cancel)
+                    res["drop_hidden"] = not ex.image_drop_space.IsShown()
+                    res["text_2"] = ex.input_text_field.GetValue()
+                    res["warnings_no_img"] = res["warnings"]
+
+                    # Photo with image -> text: warning, cancel keeps everything
+                    click_photo(ex)
+                    ex.fileDrop.loadedFile = TEST_IMG
+                    ex.set_img_with_date(TEST_IMG, wx.DateTime(2, 11, 2020, 5, 31))
+                    res["cancel"] = click_photo(ex, count_and_cancel)
+                    res["img_after_cancel"] = ex.imgLoaded
+                    res["tool_after_cancel"] = ex.toolbar.GetToolState(ex.photoTool.Id)
+
+                    # Accepting drops the image but keeps the text
+                    res["accept"] = click_photo(ex, count_and_accept)
+                    res["tool_after_accept"] = ex.toolbar.GetToolState(ex.photoTool.Id)
+                    res["img_after_accept"] = ex.imgLoaded
+                    res["text_3"] = ex.input_text_field.GetValue()
+                    res["warnings_total"] = res["warnings"]
+                finally:
+                    ex.input_text_field.Clear()
+                    ex.imgLoaded = False
+                    ex.OnX(None)
+
+            wx.CallAfter(fun)
+            app.MainLoop()
+            app.Destroy()
+
+        self.run_in_test_dir(play)
+
+        assert res["to_photo"] == 0 and res["to_text"] == 0
+        assert res["drop_shown"] and res["drop_hidden"]
+        assert res["text_1"] == res["text_2"] == res["text_3"] == "Kept text"
+        assert res["warnings_no_img"] == 0
+        assert res["cancel"] == -1 and res["img_after_cancel"]
+        assert res["tool_after_cancel"]
+        assert res["accept"] == 0 and not res["img_after_accept"]
+        assert not res["tool_after_accept"]
+        assert res["warnings_total"] == 2
