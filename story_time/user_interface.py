@@ -72,10 +72,6 @@ class TextLinePanel(wx.Panel):
 
 
 class TwoButtonPanel(wx.Panel):
-    """Panel with one or two buttons next to each other."""
-
-    but_2: Optional[wx.Button] = None
-
     def __init__(
         self,
         parent: wx.Frame,
@@ -83,19 +79,17 @@ class TwoButtonPanel(wx.Panel):
         center: bool = True,
         bg_col: wx.Colour = but_bg_col,
     ):
-        assert 1 <= len(labels) <= 2, "Only one or two buttons are supported."
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
         # Next and previous entry buttons
         self.but_1 = wx.Button(self, wx.ID_ANY, label=labels[0], size=(100, 35))
+        self.but_2 = wx.Button(self, wx.ID_ANY, label=labels[1], size=(100, 35))
         self.but_1.SetFont(wx.Font(button_f_info))
+        self.but_2.SetFont(wx.Font(button_f_info))
 
         h_box_p_but = wx.BoxSizer(wx.HORIZONTAL)
         h_box_p_but.Add(self.but_1)
-        if len(labels) > 1:
-            self.but_2 = wx.Button(self, wx.ID_ANY, label=labels[1], size=(100, 35))
-            self.but_2.SetFont(wx.Font(button_f_info))
-            h_box_p_but.Add(self.but_2, flag=wx.LEFT, border=5)
+        h_box_p_but.Add(self.but_2, flag=wx.LEFT, border=5)
 
         flags = (
             wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM
@@ -108,12 +102,9 @@ class TwoButtonPanel(wx.Panel):
         self.SetSizer(box)
         self.SetBackgroundColour(bg_col)
 
-    def set_but_methods(
-        self, met_1: Callable, met_2: Optional[Callable] = None
-    ) -> None:
+    def set_but_methods(self, met_1: Callable, met_2: Callable) -> None:
         self.Bind(wx.EVT_BUTTON, met_1, id=self.but_1.Id)
-        if self.but_2 is not None and met_2 is not None:
-            self.Bind(wx.EVT_BUTTON, met_2, id=self.but_2.Id)
+        self.Bind(wx.EVT_BUTTON, met_2, id=self.but_2.Id)
 
 
 class TextAndImgPanel(wx.Panel):
@@ -757,11 +748,6 @@ class StoryTimeAppUI(StoryTimeApp):
         )
 
         self.next_prev_buttons.set_but_methods(self.prev_entry, self.next_entry)
-        save_close_buttons = TwoButtonPanel(
-            self, labels=["Save"], center=True, bg_col=but_bg_col
-        )
-        save_close_buttons.set_but_methods(self.OnOKButtonClick)
-
         # Text and images
         text_edit = TextAndImgPanel(
             self, editable=True, drop_tgt=True, bg_col=text_bg_col
@@ -786,7 +772,6 @@ class StoryTimeAppUI(StoryTimeApp):
         box.Add(tool_panel, 0, LR_EXPAND)
         box.Add(time_text, 0, LR_EXPAND)
         box.Add(text_edit, 1, LR_EXPAND)
-        box.Add(save_close_buttons, 0, LR_EXPAND)
         box.Add(text_preview, 1, LR_EXPAND)
         box.Add(self.next_prev_buttons, 0, LR_EXPAND)
         box.Add(path_text, 0, LR_EXPAND)
