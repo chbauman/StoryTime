@@ -23,6 +23,14 @@ the command line:
 $ story-time
 ```
 
+## Settings
+
+The chosen data folder is stored in `settings.json` in the config folder of the
+user (`~/.config/StoryTime` on Linux, `%APPDATA%\StoryTime` on Windows,
+`~/Library/Application Support/StoryTime` on macOS). It survives updates of the
+app. The folder of older versions (`Info.txt` in the package) is taken over
+automatically. Taken photos are kept in a temporary folder until they are saved.
+
 ## Keyboard shortcuts
 
 | Keys | Action |

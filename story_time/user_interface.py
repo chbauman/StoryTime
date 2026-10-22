@@ -4,7 +4,6 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 """
 
 import os
-import shutil
 from typing import Any, Callable, Optional, Union
 
 import cv2
@@ -24,22 +23,22 @@ from story_time.util import (
     but_bg_col,
     button_f_info,
     copy_img_file_to_imgs,
-    create_dir,
     create_xml_and_img_folder,
     format_date_time,
+    get_data_folder,
     get_img_name_from_time,
-    get_info_from_file,
+    get_temp_folder,
     getImageToShow,
     header_col,
     header_f_info,
     header_text_col,
     icon_path,
+    remove_temp_folder,
     resource_filename,
+    save_data_folder,
     scale_bitmap,
-    temp_folder,
     text_bg_col,
     update_folder,
-    write_folder_to_file,
 )
 from story_time.XML_write import find_closest_entry, save_entry
 
@@ -429,8 +428,7 @@ class StoryTimeApp(wx.Frame):
         if img is not None:
             curr_dt = wx.DateTime.Now()
             f_name = get_img_name_from_time(curr_dt) + "_Self.png"
-            f_path = os.path.join(temp_folder, f_name)
-            create_dir(temp_folder)
+            f_path = os.path.join(get_temp_folder(), f_name)
             cv2.imwrite(f_path, cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             self.fileDrop.loadedFile = f_path
             self.set_img_with_date(f_path, curr_dt)
@@ -602,9 +600,8 @@ class StoryTimeApp(wx.Frame):
     def Cleanup(self, _: Any) -> None:
         """Cleanup, should always be called when app is closed."""
         self.cdDialog.Destroy()
-        write_folder_to_file()
-        if os.path.isdir(temp_folder):
-            shutil.rmtree(temp_folder)
+        save_data_folder()
+        remove_temp_folder()
         self.Destroy()
 
     def set_date_to_now(self) -> None:
@@ -736,7 +733,7 @@ class StoryTimeAppUI(StoryTimeApp):
             wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY)
         )
         self.SetIcon(icon)
-        files_path = get_info_from_file()
+        files_path = get_data_folder()
         update_folder(files_path)
         print("util.img_folder", util.img_folder)
         self.InitUI()
