@@ -326,7 +326,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
         self.timePicker = wx.adv.TimePickerCtrl(self, dt=self.dt)
 
         # Define extra button
-        now_button = wx.Button(self, label="Choose now")
+        now_button = wx.Button(self, label="Now")
         now_button.Bind(wx.EVT_BUTTON, self.set_now_and_close)
         now_button.SetFont(wx.Font(button_f_info))
 

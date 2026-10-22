@@ -45,6 +45,7 @@ from story_time.XML_write import find_closest_entry, save_entry
 
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 EXPAND_ALL = wx.ALL | wx.EXPAND
+TEXT_PADDING = 8  #: Space in pixels between the border and the text input.
 
 
 class TextLinePanel(wx.Panel):
@@ -72,6 +73,10 @@ class TextLinePanel(wx.Panel):
 
 
 class TwoButtonPanel(wx.Panel):
+    """Panel with one or two buttons next to each other."""
+
+    but_2: Optional[wx.Button] = None
+
     def __init__(
         self,
         parent: wx.Frame,
@@ -79,17 +84,19 @@ class TwoButtonPanel(wx.Panel):
         center: bool = True,
         bg_col: wx.Colour = but_bg_col,
     ):
+        assert 1 <= len(labels) <= 2, "Only one or two buttons are supported."
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
         # Next and previous entry buttons
         self.but_1 = wx.Button(self, wx.ID_ANY, label=labels[0], size=(100, 35))
-        self.but_2 = wx.Button(self, wx.ID_ANY, label=labels[1], size=(100, 35))
         self.but_1.SetFont(wx.Font(button_f_info))
-        self.but_2.SetFont(wx.Font(button_f_info))
 
         h_box_p_but = wx.BoxSizer(wx.HORIZONTAL)
         h_box_p_but.Add(self.but_1)
-        h_box_p_but.Add(self.but_2, flag=wx.LEFT, border=5)
+        if len(labels) > 1:
+            self.but_2 = wx.Button(self, wx.ID_ANY, label=labels[1], size=(100, 35))
+            self.but_2.SetFont(wx.Font(button_f_info))
+            h_box_p_but.Add(self.but_2, flag=wx.LEFT, border=5)
 
         flags = (
             wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM
@@ -102,9 +109,12 @@ class TwoButtonPanel(wx.Panel):
         self.SetSizer(box)
         self.SetBackgroundColour(bg_col)
 
-    def set_but_methods(self, met_1: Callable, met_2: Callable) -> None:
+    def set_but_methods(
+        self, met_1: Callable, met_2: Optional[Callable] = None
+    ) -> None:
         self.Bind(wx.EVT_BUTTON, met_1, id=self.but_1.Id)
-        self.Bind(wx.EVT_BUTTON, met_2, id=self.but_2.Id)
+        if self.but_2 is not None and met_2 is not None:
+            self.Bind(wx.EVT_BUTTON, met_2, id=self.but_2.Id)
 
 
 class TextAndImgPanel(wx.Panel):
@@ -137,16 +147,27 @@ class TextAndImgPanel(wx.Panel):
         text_shown = "Default text."
         kws = {"style": wx.TE_MULTILINE, "size": (-1, 180)}
         if editable:
-            self.text_box = wx.TextCtrl(self, **kws)
+            # A text control has no inner padding, so put a borderless one into
+            # a bordered panel and let the sizer provide the padding.
+            self.text_frame = wx.Panel(self, style=wx.BORDER_SIMPLE, size=(-1, 180))
+            self.text_box = wx.TextCtrl(
+                self.text_frame, style=wx.TE_MULTILINE | wx.BORDER_NONE
+            )
+            self.text_frame.SetBackgroundColour(bg_col)
+            pad_box = wx.BoxSizer(wx.VERTICAL)
+            pad_box.Add(self.text_box, 1, wx.EXPAND | wx.ALL, TEXT_PADDING)
+            self.text_frame.SetSizer(pad_box)
+            text_widget = self.text_frame
         else:
             self.text_box = wx.StaticText(self, label=text_shown, **kws)
+            text_widget = self.text_box
         self.text_box.SetBackgroundColour(bg_col)
 
         EXP_ALL = wx.EXPAND | wx.ALL
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
 
         h_box_3.Add(self.img, proportion=1, flag=EXP_ALL, border=5)
-        h_box_3.Add(self.text_box, proportion=3, flag=EXP_ALL, border=5)
+        h_box_3.Add(text_widget, proportion=3, flag=EXP_ALL, border=5)
 
         box.Add(h_box_3, 1, EXP_ALL, 5)
         box.Fit(self)
@@ -749,9 +770,9 @@ class StoryTimeAppUI(StoryTimeApp):
 
         self.next_prev_buttons.set_but_methods(self.prev_entry, self.next_entry)
         save_close_buttons = TwoButtonPanel(
-            self, labels=["Save", "Close"], center=True, bg_col=but_bg_col
+            self, labels=["Save"], center=True, bg_col=but_bg_col
         )
-        save_close_buttons.set_but_methods(self.OnOKButtonClick, self.OnX)
+        save_close_buttons.set_but_methods(self.OnOKButtonClick)
 
         # Text and images
         text_edit = TextAndImgPanel(

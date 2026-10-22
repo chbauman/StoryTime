@@ -54,11 +54,9 @@ class TestMain2(TestCase):
             ex.OnX(None, self.click_on_close)
             ex.OnX(None, self.discard_text)
 
-        with change_info_txt(DATA_DIR):
-            with create_test_dirs():
-                wx.CallAfter(fun)
-                app.MainLoop()
-                app.Destroy()
+        wx.CallAfter(fun)
+        app.MainLoop()
+        app.Destroy()
 
     def play_with_app_preview(self, ex, app):
         def fun():
@@ -80,11 +78,9 @@ class TestMain2(TestCase):
 
             ex.OnX(None, self.discard_text)
 
-        with change_info_txt(DATA_DIR):
-            with create_test_dirs():
-                wx.CallAfter(fun)
-                app.MainLoop()
-                app.Destroy()
+        wx.CallAfter(fun)
+        app.MainLoop()
+        app.Destroy()
 
     def play_with_app(self, ex, app):
         def fun():
@@ -150,12 +146,19 @@ class TestMain2(TestCase):
             ex.OnX(None, self.click_on_close)
             ex.OnX(None, self.discard_text)
 
+        wx.CallAfter(fun)
+        app.MainLoop()
+        app.Destroy()
+        pass
+
+    @staticmethod
+    def run_in_test_dir(play):
+        """Creates the app using the test data folder and plays with it."""
         with change_info_txt(DATA_DIR):
             with create_test_dirs():
-                wx.CallAfter(fun)
-                app.MainLoop()
-                app.Destroy()
-        pass
+                app = wx.App()
+                ex = StoryTimeAppUI(None)
+                play(ex, app)
 
     def test_main_func(self):
         def close(d):
@@ -166,16 +169,10 @@ class TestMain2(TestCase):
                 main(close)
 
     def test_main_UI(self):
-        app = wx.App()
-        ex = StoryTimeAppUI(None)
-        self.play_with_app(ex, app)
+        self.run_in_test_dir(self.play_with_app)
 
     def test_UI_exit(self):
-        app = wx.App()
-        ex = StoryTimeAppUI(None)
-        self.play_with_app_exit(ex, app)
+        self.run_in_test_dir(self.play_with_app_exit)
 
     def test_UI_preview(self):
-        app = wx.App()
-        ex = StoryTimeAppUI(None)
-        self.play_with_app_preview(ex, app)
+        self.run_in_test_dir(self.play_with_app_preview)
