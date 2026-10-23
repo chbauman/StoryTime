@@ -63,14 +63,18 @@ jobs:
           tests/test_xml.py
 
   gui:
-    name: All tests with the GUI
+    name: All tests with the GUI (Python ${{ matrix.python-version }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install the libraries of wxPython and a virtual display
@@ -79,10 +83,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             xvfb libgtk-3-0t64 libsdl2-2.0-0 libnotify4 libxtst6 fonts-dejavu-core
       - name: Install the Python packages
-        # There is no wheel of wxPython for Linux on PyPI, so take the one built
-        # for this version of Ubuntu.
+        # PyPI has no wheel of wxPython for Linux, only the source, which takes very
+        # long to build. Take the wheel built for this version of Ubuntu instead.
         run: |
-          pip install \
+          pip install --only-binary=wxPython \
             -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-24.04 \
             wxPython opencv-python-headless pytest
       - name: Run all tests
