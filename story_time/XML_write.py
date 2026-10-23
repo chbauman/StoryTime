@@ -12,9 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-import wx
-
-from story_time import util
+from story_time import folders
 
 
 def init_XML(comm: str, year: int) -> elTree.ElementTree:
@@ -35,7 +33,7 @@ def init_XML(comm: str, year: int) -> elTree.ElementTree:
     return elTree.ElementTree(root)
 
 
-def insert_text_entry(doc: elTree.Element, date_time: wx.DateTime, text: str) -> None:
+def insert_text_entry(doc: elTree.Element, date_time: datetime, text: str) -> None:
     """Inserts a text entry into the XML element tree.
 
     Args:
@@ -43,12 +41,12 @@ def insert_text_entry(doc: elTree.Element, date_time: wx.DateTime, text: str) ->
         date_time: The DateTime of the entry.
         text: The text of the entry.
     """
-    dt = date_time.FormatISOCombined()
+    dt = date_time.isoformat(timespec="seconds")
     elTree.SubElement(doc, "entry", date_time=dt, type="text").text = text
 
 
 def insert_photo_entry(
-    doc: elTree.Element, date_time: wx.DateTime, img_filename: str, text: str
+    doc: elTree.Element, date_time: datetime, img_filename: str, text: str
 ) -> None:
     """Inserts a photo entry element as a child of the elTree doc.
 
@@ -60,7 +58,7 @@ def insert_photo_entry(
     """
     # TODO: Check if file exists?
     ent = elTree.SubElement(
-        doc, "entry", date_time=date_time.FormatISOCombined(), type="photo"
+        doc, "entry", date_time=date_time.isoformat(timespec="seconds"), type="photo"
     )
     elTree.SubElement(ent, "text").text = text
     elTree.SubElement(ent, "photo").text = img_filename
@@ -79,7 +77,7 @@ def load_XML(year: int, create: bool = True) -> tuple[elTree.ElementTree, str]:
         The element tree and the filename.
     """
     yearStr = str(year)
-    xml_file = os.path.join(util.xml_folder, f"{yearStr}.xml")
+    xml_file = os.path.join(folders.xml_folder, f"{yearStr}.xml")
     if os.path.exists(xml_file):
         tree = elTree.parse(xml_file)
     elif create:
@@ -91,7 +89,7 @@ def load_XML(year: int, create: bool = True) -> tuple[elTree.ElementTree, str]:
 
 def save_entry(
     comm: str,
-    date_time: wx.DateTime,
+    date_time: datetime,
     entry_type: str = "text",
     img_filename: str = None,
 ) -> None:
@@ -105,7 +103,7 @@ def save_entry(
         entry_type: The type of the entry, either "text" or "photo".
         img_filename:
     """
-    year = date_time.GetYear()
+    year = date_time.year
     tree, xml_file = load_XML(year)
 
     doc = tree.getroot().find("doc")
@@ -119,117 +117,6 @@ def save_entry(
     else:
         raise ValueError(f"Entry of type: {entry_type} is not supported!")
     tree.write(xml_file)
-
-
-def find_next_xml_file(
-    year: int, newer: bool = False
-) -> Optional[tuple[int, elTree.ElementTree]]:
-    """Finds the most recent XML file before year 'year'.
-
-    If there is none, returns None, otherwise, the found year and the tree of the XML
-    is returned.
-    If `newer` == True, then it finds the next newer one
-
-    Args:
-        year:
-        newer:
-
-    Returns:
-        The year of the closest entry and the element tree of the
-        closes XML file.
-    """
-    closest_year = 100000 if newer else -100000
-    for f in os.listdir(util.xml_folder):
-        y = int(f.split(".")[0])
-        if not newer and year > y > closest_year:
-            closest_year = y
-        if newer and year < y < closest_year:
-            closest_year = y
-    if abs(closest_year) == 100000:
-        return None
-    return closest_year, load_XML(closest_year, False)[0]
-
-
-def find_closest_entry_in_tree(
-    tree: elTree.ElementTree, date_time: wx.DateTime, newer: bool = False
-) -> Optional[tuple[wx.DateTime, elTree.Element]]:
-    """Finds entry closest to `date_time` in doc.
-
-    If there is no earlier entry than 'date_time' returns None.
-    If newer == True, then it finds the next newer one
-
-    Args:
-        tree: The element tree to search.
-        date_time: The search date and time.
-        newer: Whether to find the closest newer entry.
-
-    Returns:
-        The date of the found entry and the entry element.
-    """
-    doc = tree.getroot().find("doc")
-    assert doc is not None, "Invalid XML!"
-    temp = wx.DateTime(1, 1, 100000 if newer else 0)
-    curr_child = None
-    for child in doc:
-        wxDT = wx.DateTime()
-        wxDT.ParseISOCombined(child.get("date_time"))
-        if (not newer and temp < wxDT < date_time) or (
-            newer and temp > wxDT > date_time
-        ):
-            temp = wxDT
-            curr_child = child
-    if abs(temp.GetYear() - 50000) == 50000:
-        return None
-    return temp, curr_child
-
-
-def find_closest_entry(
-    dt: wx.DateTime, newer: bool = False
-) -> Optional[tuple[wx.DateTime, elTree.Element]]:
-    """Finds the latest entry before 'dt', if any.
-
-    Searches all available XML files.
-
-    Args:
-        dt: The search date and time.
-        newer: Whether to find the closest newer entry.
-
-    Returns:
-        The date of the found entry and the entry element.
-        If there is no next entry, None is returned.
-    """
-    curr_year = dt.GetYear()
-
-    # Load XML file with specified year
-    tree = None
-    try:
-        tree = load_XML(curr_year, False)
-    except FileNotFoundError:
-        pass
-    date_child = None
-    if tree is not None:
-        tree = tree[0]
-        date_child = find_closest_entry_in_tree(tree, dt, newer)
-        if date_child is None:
-            tree = None
-
-    # Entry not found yet, search next XML files
-    if tree is None:
-        date_child = None
-        while date_child is None:
-            res = find_next_xml_file(curr_year, newer)
-            if res is None:
-                # No next file found, return None
-                return None
-            tree = res[1]
-            curr_year = res[0]
-            assert tree is not None
-            date_child = find_closest_entry_in_tree(tree, dt, newer)
-
-    # Return
-    assert date_child is not None, "Terrible bug is happening!"
-    date, child = date_child
-    return date, child
 
 
 @dataclass
@@ -268,13 +155,13 @@ def load_all_entries() -> list[Entry]:
     Files and entries that are not valid are skipped.
     """
     entries: list[Entry] = []
-    if not os.path.isdir(util.xml_folder):
+    if not os.path.isdir(folders.xml_folder):
         return entries
-    for name in sorted(os.listdir(util.xml_folder)):
+    for name in sorted(os.listdir(folders.xml_folder)):
         if not re.fullmatch(r"\d+\.xml", name):
             continue
         try:
-            tree = elTree.parse(os.path.join(util.xml_folder, name))
+            tree = elTree.parse(os.path.join(folders.xml_folder, name))
         except (elTree.ParseError, OSError):
             continue
         doc = tree.getroot().find("doc")

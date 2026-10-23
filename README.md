@@ -70,8 +70,26 @@ $ ruff check .
 $ black --check .
 ```
 
-The tests open GUI windows, so on a headless machine run them
-under a virtual display, e.g. with `xvfb-run`.
+### Code structure
+
+The logic is kept apart from the GUI, so most of it can be tested without one:
+
+| Module | Content | Uses wx |
+| --- | --- | --- |
+| `controller.py` | `DiaryController`: what happens when the user writes, reads, searches, saves... | no |
+| `dates.py`, `images.py`, `folders.py`, `settings.py`, `shortcuts.py`, `texts.py` | Helpers for dates, image files, folders, settings, keys and texts | no |
+| `XML_write.py` | Reading and writing of the XML files with the entries | no |
+| `user_interface.py` | The main window, which shows what the controller says and passes on what the user does | yes |
+| `dialogs.py`, `util.py` | The dialogs, colors, fonts and image helpers | yes |
+
+The controller talks to the window through the small interface `View` and asks
+the user through `Dialogs` (both in `controller.py`). The real ones are the
+main window and `WxDialogs`, the tests of the controller use the fakes in
+`tests/fakes.py`. `tests/test_pure_modules.py` checks that the modules without
+wx do not import it.
+
+The tests of the main window and of the dialogs open real windows, so on a
+headless machine run them under a virtual display, e.g. with `xvfb-run`.
 Tests that need a webcam are skipped if none is available.
 
 The toolbar icons are drawn as SVG files in `story_time/Icons/src`.

@@ -1,416 +1,81 @@
+"""Tests of the main window with the controller, using fake dialogs.
+
+The logic is tested in `test_controller.py`. Here it is checked that the widgets
+show what the controller says and that the tools and the keys reach it.
+"""
+
 import os
 import shutil
-import tempfile
+from contextlib import contextmanager
+from datetime import datetime
 from unittest import TestCase
 
 import wx
 
-from story_time import util
+from story_time import folders, settings
 from story_time.main import main
-from story_time.user_interface import StoryTimeAppUI, month_label, shortcut_for
-from story_time.XML_write import save_entry
-from tests.test_util import (
-    DATA_DIR,
-    SAMPLE_IMG_DIR,
-    create_test_dirs,
-    replace_dir_ask,
-    use_data_dir,
-)
+from story_time.shortcuts import KEY_LEFT, KEY_RIGHT
+from story_time.texts import tr
+from story_time.user_interface import StoryTimeAppUI, month_label
+from story_time.XML_write import load_all_entries, save_entry
+from tests.fakes import FakeDialogs
+from tests.helpers import DATA_DIR, SAMPLE_IMG_DIR, create_test_dirs, use_data_dir
 
 TEST_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
 
 
-def run_in_test_dir(play, seed=None):
-    """Creates the app using the test data folder and plays with it.
-
-    Args:
-        play: Called with the frame and the app, has to run the main loop.
-        seed: Called before the app is created, to put entries into the folder.
-    """
-    with use_data_dir(DATA_DIR):
-        with create_test_dirs():
-            if seed is not None:
-                seed()
-            app = wx.App()
-            ex = StoryTimeAppUI(None)
-            play(ex, app)
+def seed_entries():
+    """Puts entries of two months, a photo and a missing photo into the folder."""
+    shutil.copy(TEST_IMG, os.path.join(folders.img_folder, "IMG_1.jpg"))
+    save_entry("Walk by the lake\n\nsecond line", datetime(2020, 10, 22, 21, 32))
+    save_entry("Logo sketch", datetime(2020, 10, 20, 18, 15), "photo", "IMG_1.jpg")
+    save_entry("Lost photo", datetime(2020, 10, 19, 10), "photo", "missing.jpg")
+    save_entry("Spring", datetime(2020, 3, 3, 7, 30))
 
 
-class TestMain2(TestCase):
-    @staticmethod
-    def discard_text(d):
-        d.OnOK(None)
+@contextmanager
+def main_window(seed=seed_entries, dialogs=None):
+    """The main window in the test folder, with fake dialogs."""
+    with use_data_dir(DATA_DIR), create_test_dirs():
+        if seed is not None:
+            seed()
+        app = wx.App()
+        dialogs = FakeDialogs() if dialogs is None else dialogs
+        frame = StoryTimeAppUI(None, dialogs)
 
-    @staticmethod
-    def click_on_close(d):
-        d.OnClose(None)
+        # Windows are only deleted later by the event loop, so note the cleanup
+        frame.closed = False
+        cleanup = frame.Cleanup
 
-    @staticmethod
-    def click_on_factory(method_name: str):
-        def click_on(d):
-            getattr(d, method_name)(None)
+        def tracked_cleanup():
+            frame.closed = True
+            cleanup()
 
-        return click_on
-
-    @staticmethod
-    def resize_and_close(d):
-        d.Size = wx.Size(400, 400)
-        d.OnSize(None)
-        d.OnIdle(None)
-        d.Close()
-
-    @staticmethod
-    def take_selfie(s_dlg):
-        def inner():
-            s_dlg.accept_diag.OnTakePic(None)
-
-        s_dlg.OnTakePic(None, inner)
-
-    def play_with_app_exit(self, ex, app):
-        def fun():
-            # Set text and try to exit
-            ex.input_text_field.SetValue("Sample Text")
-            ex.OnX(None, self.click_on_close)
-            ex.OnX(None, self.discard_text)
-
-        wx.CallAfter(fun)
-        app.MainLoop()
-        app.Destroy()
-
-    def play_with_app_preview(self, ex, app):
-        def fun():
-            # Add text entry
-            ex.input_text_field.SetValue("Sample Text")
-            ex.OnSave(None)
-
-            # Take a selfie
-            ex.OnSelfie(None, self.take_selfie, _no_cam_fun=self.discard_text)
-            ex.input_text_field.SetValue("Selfie Test Text")
-            ex.OnSave(None, _no_text_fun=self.discard_text)
-
-            # Leave the writing (without a webcam there is unsaved text, discard it)
-            # and go through the list of the entries
-            ex.toolbar.ToggleTool(ex.new_tool.Id, False)
-            ex.OnNew(None, self.discard_text)
-            ex.entry_list.select_adjacent(1)
-            ex.entry_list.select_adjacent(1)
-            ex.entry_list.select_adjacent(-1)
-            ex.entry_list.select_adjacent(-1)
-            ex.entry_list.select_adjacent(-1)
-
-            ex.OnX(None, self.discard_text)
-
-        wx.CallAfter(fun)
-        app.MainLoop()
-        app.Destroy()
-
-    def play_with_app(self, ex, app):
-        def fun():
-            # Set text, change date and save
-            ex.OnSave(None, _no_text_fun=self.click_on_close)
-            ex.input_text_field.SetValue("Sample Text")
-            ex.OnChangeDate(None, self.click_on_factory("set_now_and_close"))
-            ex.OnSave(None)
-
-            # Toggle preview
-            ex.toggle_prev_img(None)
-
-            # Change to photo mode, add image and save
-            ex.OnPhoto(None)
-            ex.toolbar.ToggleTool(ex.photoTool.Id, True)
-            ex.input_text_field.SetValue("Image Sample Text")
-            ex.OnSave(None, _no_text_fun=self.click_on_close)
-            ex.fileDrop.loadedFile = TEST_IMG
-            ex.cdDialog.dt = wx.DateTime(2, 11, 2020, 5, 31)
-            ex.OnSave(None)
-
-            # Take a selfie
-            ex.on_taken_image_clicked(None)
-            ex.OnSelfie(None, self.take_selfie, _no_cam_fun=self.discard_text)
-            ex.input_text_field.SetValue("Selfie Test Text")
-            ex.on_taken_image_clicked(None, self.resize_and_close)
-            ex.OnSave(None, _no_text_fun=self.discard_text)
-
-            ex.prev_img_name = TEST_IMG
-            ex.on_prev_image_clicked(None, self.resize_and_close)
-            ex.prev_img_name = None
-
-            # Change back to text input and close
-            ex.OnPhoto(None, self.discard_text)
-            ex.toolbar.ToggleTool(ex.photoTool.Id, False)
-
-            # Set text and try changing to photo mode
-            ex.input_text_field.SetValue("Image Sample Text")
-            ex.OnSelfie(
-                None, _photo_fun=self.click_on_close, _no_cam_fun=self.discard_text
-            )
-            ex.input_text_field.SetValue("Image Sample Text")
-            ex.OnSelfie(
-                None,
-                self.take_selfie,
-                _photo_fun=self.discard_text,
-                _no_cam_fun=self.discard_text,
-            )
-            ex.toolbar.ToggleTool(ex.photoTool.Id, True)
-
-            def new_ask_fun():
-                return None
-
-            def other_ask_fun():
-                return util.data_path
-
-            with replace_dir_ask(new_ask_fun):
-                ex.OnChangeDir(None)
-            with replace_dir_ask(other_ask_fun):
-                ex.OnChangeDir(None)
-
-            # Exit
-            ex.OnX(None, self.click_on_close)
-            ex.OnX(None, self.discard_text)
-
-        wx.CallAfter(fun)
-        app.MainLoop()
-        app.Destroy()
-        pass
-
-    @staticmethod
-    def run_in_test_dir(play):
-        run_in_test_dir(play)
-
-    def test_main_func(self):
-        def close(d):
-            d.OnX(None)
-
-        with use_data_dir(DATA_DIR):
-            with create_test_dirs():
-                main(close)
-
-    def test_main_UI(self):
-        self.run_in_test_dir(self.play_with_app)
-
-    def test_UI_exit(self):
-        self.run_in_test_dir(self.play_with_app_exit)
-
-    def test_UI_preview(self):
-        self.run_in_test_dir(self.play_with_app_preview)
-
-    def test_mode_switching(self):
-        """Switching between text and photo mode keeps the text and only
-        warns if an image is loaded."""
-        res = {"warnings": 0}
-
-        def count_and_cancel(d):
-            res["warnings"] += 1
-            d.OnClose(None)
-
-        def count_and_accept(d):
-            res["warnings"] += 1
-            d.OnOK(None)
-
-        def click_photo(ex, hook=None):
-            """Clicking the tool toggles it first, then calls the handler."""
-            tool_id = ex.photoTool.Id
-            ex.toolbar.ToggleTool(tool_id, not ex.toolbar.GetToolState(tool_id))
-            return ex.OnPhoto(None, hook)
-
-        def play(ex, app):
-            def fun():
-                try:
-                    ex.input_text_field.SetValue("Kept text")
-
-                    # Text -> photo: no warning, text is kept
-                    res["to_photo"] = click_photo(ex, count_and_cancel)
-                    res["drop_shown"] = ex.image_drop_space.IsShown()
-                    res["text_1"] = ex.input_text_field.GetValue()
-
-                    # Photo without image -> text: no warning, text is kept
-                    res["to_text"] = click_photo(ex, count_and_cancel)
-                    res["drop_hidden"] = not ex.image_drop_space.IsShown()
-                    res["text_2"] = ex.input_text_field.GetValue()
-                    res["warnings_no_img"] = res["warnings"]
-
-                    # Photo with image -> text: warning, cancel keeps everything
-                    click_photo(ex)
-                    ex.fileDrop.loadedFile = TEST_IMG
-                    ex.set_img_with_date(TEST_IMG, wx.DateTime(2, 11, 2020, 5, 31))
-                    res["cancel"] = click_photo(ex, count_and_cancel)
-                    res["img_after_cancel"] = ex.imgLoaded
-                    res["tool_after_cancel"] = ex.toolbar.GetToolState(ex.photoTool.Id)
-
-                    # Accepting drops the image but keeps the text
-                    res["accept"] = click_photo(ex, count_and_accept)
-                    res["tool_after_accept"] = ex.toolbar.GetToolState(ex.photoTool.Id)
-                    res["img_after_accept"] = ex.imgLoaded
-                    res["text_3"] = ex.input_text_field.GetValue()
-                    res["warnings_total"] = res["warnings"]
-                finally:
-                    ex.input_text_field.Clear()
-                    ex.imgLoaded = False
-                    ex.OnX(None)
-
-            wx.CallAfter(fun)
-            app.MainLoop()
+        frame.Cleanup = tracked_cleanup
+        try:
+            yield frame, dialogs
+        finally:
+            if not frame.closed:
+                frame.Cleanup()
             app.Destroy()
 
-        self.run_in_test_dir(play)
 
-        assert res["to_photo"] == 0 and res["to_text"] == 0
-        assert res["drop_shown"] and res["drop_hidden"]
-        assert res["text_1"] == res["text_2"] == res["text_3"] == "Kept text"
-        assert res["warnings_no_img"] == 0
-        assert res["cancel"] == -1 and res["img_after_cancel"]
-        assert res["tool_after_cancel"]
-        assert res["accept"] == 0 and not res["img_after_accept"]
-        assert not res["tool_after_accept"]
-        assert res["warnings_total"] == 2
-
-    def test_keyboard_shortcuts(self):
-        res = {}
-
-        def send_key(ex, key, ctrl=False, alt=False):
-            evt = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
-            evt.SetKeyCode(key)
-            evt.SetControlDown(ctrl)
-            evt.SetAltDown(alt)
-            return ex.GetEventHandler().ProcessEvent(evt)
-
-        def shown(ex):
-            return ex.fix_text_box.GetValue()
-
-        def play(ex, app):
-            def fun():
-                try:
-                    # Ctrl+S saves the entries
-                    for text, month in [("First entry", 2), ("Second entry", 5)]:
-                        ex.update_date(wx.DateTime(1, month, 2020, 10))
-                        ex.input_text_field.SetValue(text)
-                        res[f"save_{month}"] = send_key(ex, ord("S"), ctrl=True)
-                        res[f"cleared_{month}"] = ex.input_text_field.GetValue() == ""
-                    res["entries"] = len(ex.entry_list.entries)
-
-                    # Ctrl+N leaves the writing, Ctrl+S then does not save
-                    send_key(ex, ord("N"), ctrl=True)
-                    res["reading"] = not ex.editing
-                    ex.input_text_field.SetValue("Not saved")
-                    send_key(ex, ord("S"), ctrl=True)
-                    res["not_saved"] = len(ex.entry_list.entries) == res["entries"]
-                    ex.input_text_field.Clear()
-
-                    # Alt+arrows go through the entries, older ones are "previous"
-                    send_key(ex, wx.WXK_LEFT, alt=True)
-                    res["newest"] = "Second entry" in shown(ex)
-                    send_key(ex, wx.WXK_LEFT, alt=True)
-                    res["prev"] = "First entry" in shown(ex)
-                    send_key(ex, wx.WXK_LEFT, alt=True)
-                    res["oldest_stays"] = "First entry" in shown(ex)
-                    send_key(ex, wx.WXK_RIGHT, alt=True)
-                    res["next"] = "Second entry" in shown(ex)
-
-                    # Ctrl+N again to write, then Ctrl+P toggles the photo mode
-                    send_key(ex, ord("N"), ctrl=True)
-                    res["writing"] = ex.editing
-                    send_key(ex, ord("P"), ctrl=True)
-                    res["photo_on"] = ex.image_drop_space.IsShown()
-                    send_key(ex, ord("P"), ctrl=True)
-                    res["photo_off"] = not ex.image_drop_space.IsShown()
-
-                    # Other keys are passed on
-                    res["other"] = send_key(ex, ord("X"))
-                    res["other_ctrl"] = send_key(ex, ord("X"), ctrl=True)
-                finally:
-                    # Ctrl+Q closes the app
-                    res["quit"] = send_key(ex, ord("Q"), ctrl=True)
-
-            wx.CallAfter(fun)
-            app.MainLoop()
-            app.Destroy()
-
-        self.run_in_test_dir(play)
-
-        assert res["save_2"] and res["save_5"]
-        assert res["cleared_2"] and res["cleared_5"]
-        assert res["entries"] == 2
-        assert res["reading"] and res["not_saved"]
-        assert res["newest"] and res["prev"] and res["oldest_stays"] and res["next"]
-        assert res["writing"] and res["photo_on"] and res["photo_off"]
-        assert not res["other"] and not res["other_ctrl"]
-        assert res["quit"]
-
-    def test_long_entry_preview(self):
-        """The preview shows long entries completely, with their line breaks."""
-        paragraphs = [f"Paragraph {i}: " + "word " * 80 for i in range(1, 11)]
-        entry = "\n\n".join(paragraphs)
-        res = {}
-
-        def play(ex, app):
-            def fun():
-                try:
-                    ex.update_date(wx.DateTime(1, 2, 2020, 10))
-                    ex.input_text_field.SetValue(entry)
-                    ex.OnSave(None)
-                    ex.toggle_new_entry()
-                    ex.entry_list.select_adjacent(1)
-                    res["preview"] = ex.fix_text_box.GetValue()
-                    res["editable"] = ex.fix_text_box.IsEditable()
-                    res["lines"] = ex.fix_text_box.GetNumberOfLines()
-                    res["start"] = ex.fix_text_box.GetInsertionPoint()
-                finally:
-                    ex.OnX(None)
-
-            wx.CallAfter(fun)
-            app.MainLoop()
-            app.Destroy()
-
-        self.run_in_test_dir(play)
-
-        assert entry in res["preview"]
-        assert not res["editable"]
-        # More lines than fit in the control (and independent of the width)
-        assert res["lines"] >= 19
-        assert res["start"] == 0
+def click(frame, tool):
+    """Clicks a tool of the toolbar, which toggles it first if it can be toggled."""
+    toolbar = frame.toolbar
+    if tool.CanBeToggled():
+        toolbar.ToggleTool(tool.Id, not toolbar.GetToolState(tool.Id))
+    event = wx.CommandEvent(wx.wxEVT_TOOL, tool.Id)
+    toolbar.GetEventHandler().ProcessEvent(event)
 
 
-class TestShortcutFor(TestCase):
-    def test_ctrl_shortcuts(self):
-        for letter, action in [
-            ("S", "save"),
-            ("P", "photo"),
-            ("D", "date"),
-            ("O", "folder"),
-            ("T", "selfie"),
-            ("Q", "quit"),
-        ]:
-            for in_text in (True, False):
-                for code in (ord(letter), ord(letter.lower())):
-                    assert shortcut_for(code, True, False, False, in_text) == action
-            # Not without Ctrl, nor with Shift or Alt
-            assert shortcut_for(ord(letter), False, False, False, False) is None
-            assert shortcut_for(ord(letter), True, False, True, False) is None
-            assert shortcut_for(ord(letter), True, True, False, False) is None
-        assert shortcut_for(ord("X"), True, False, False, False) is None
-
-    def test_arrows(self):
-        left, right = wx.WXK_LEFT, wx.WXK_RIGHT
-        # Plain arrows move the cursor in the text input
-        assert shortcut_for(left, False, False, False, True) is None
-        assert shortcut_for(right, False, False, False, True) is None
-        # Elsewhere they go through the entries
-        assert shortcut_for(left, False, False, False, False) == "prev"
-        assert shortcut_for(right, False, False, False, False) == "next"
-        # With Alt they always do
-        assert shortcut_for(left, False, True, False, True) == "prev"
-        assert shortcut_for(right, False, True, False, True) == "next"
-        # Ctrl+arrows (word jump) and Shift+arrows (selection) are left alone
-        assert shortcut_for(left, True, False, False, True) is None
-        assert shortcut_for(right, False, False, True, False) is None
-
-
-def discard_hook(d):
-    d.OnOK(None)
-
-
-def keep_hook(d):
-    d.OnClose(None)
+def press(frame, key, ctrl=False, alt=False):
+    """Presses a key in the window, returns whether it was used."""
+    event = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
+    event.SetKeyCode(key)
+    event.SetControlDown(ctrl)
+    event.SetAltDown(alt)
+    return frame.GetEventHandler().ProcessEvent(event)
 
 
 def tree_texts(tree: wx.TreeCtrl, item=None) -> list:
@@ -424,251 +89,388 @@ def tree_texts(tree: wx.TreeCtrl, item=None) -> list:
     return texts
 
 
-def seed_entries():
-    """Puts entries of two months, a photo and a missing photo into the folder."""
-    util.update_folder(DATA_DIR)
-    shutil.copy(TEST_IMG, os.path.join(DATA_DIR, "Img", "IMG_1.jpg"))
-    save_entry("Walk by the lake\n\nsecond line", wx.DateTime(22, 9, 2020, 21, 32))
-    save_entry("Logo sketch", wx.DateTime(20, 9, 2020, 18, 15), "photo", "IMG_1.jpg")
-    save_entry("Lost photo", wx.DateTime(19, 9, 2020, 10), "photo", "missing.jpg")
-    save_entry("Spring", wx.DateTime(3, 2, 2020, 7, 30))
+def find(frame, text):
+    return next(e for e in frame.controller.entries if e.text.startswith(text))
 
 
-class TestLayout(TestCase):
-    """The list of the entries and switching between writing and reading."""
+def tool_state(frame):
+    toolbar = frame.toolbar
+    return (
+        toolbar.GetToolState(frame.new_tool.Id),
+        [toolbar.GetToolEnabled(t.Id) for t in frame.edit_tools],
+    )
 
-    @staticmethod
-    def play(fun, seed=seed_entries):
-        """Runs `fun(ex)` in the main loop and always closes the app after."""
 
-        def play_it(ex, app):
-            def inner():
-                try:
-                    fun(ex)
-                finally:
-                    ex.input_text_field.Clear()
-                    ex.imgLoaded = False
-                    ex.OnX(None)
+class TestStart(TestCase):
+    def test_starts_writing(self):
+        with main_window() as (frame, dialogs):
+            assert frame.book.GetSelection() == frame.EDIT_PAGE
+            assert tool_state(frame) == (True, [True] * 4)
+            assert frame.toolbar.GetToolState(frame.photoTool.Id) is False
+            assert not frame.image_drop_space.IsShown()
+            assert frame.input_text_field.GetValue() == ""
+            assert not dialogs.confirms and dialogs.folder_asked == 0
+            assert frame.GetTitle() == tr("app.title")
+            # The date is shown
+            assert frame.dateLabel.GetLabel().startswith("Date: ")
+            # The data folder is in the tooltip of the folder tool
+            tip = frame.toolbar.GetToolShortHelp(frame.folder_tool.Id)
+            assert DATA_DIR in tip and "Ctrl+O" in tip
 
-            wx.CallAfter(inner)
-            app.MainLoop()
-            app.Destroy()
+    def test_without_a_folder_the_app_does_not_start(self):
+        with use_data_dir(DATA_DIR):
+            settings.save_settings({})
+            app = wx.App()
+            try:
+                with self.assertRaises(SystemExit):
+                    StoryTimeAppUI(None, FakeDialogs())
+            finally:
+                app.Destroy()
 
-        run_in_test_dir(play_it, seed)
+    def test_main_function(self):
+        with use_data_dir(DATA_DIR), create_test_dirs():
+            main(lambda frame: frame.Close())
 
-    @staticmethod
-    def entry(ex, text):
-        return next(e for e in ex.entry_list.entries if e.text.startswith(text))
+    def test_key_codes_are_the_ones_of_wx(self):
+        assert KEY_LEFT == wx.WXK_LEFT and KEY_RIGHT == wx.WXK_RIGHT
 
+    def test_image_size(self):
+        size = StoryTimeAppUI.image_size
+        assert size(wx.Size(900, 500)) == 270  # a third of the width
+        assert size(wx.Size(3000, 200)) == 170  # the height
+        assert size(wx.Size(3000, 3000)) == 370  # at most the maximum
+        assert size(wx.Size(60, 500)) == 0  # too small
+        assert size(wx.Size(0, 0)) == 0
+
+
+class TestEntryList(TestCase):
     def test_list_of_entries(self):
-        res = {}
-
-        def fun(ex):
-            lst = ex.entry_list
-            res["order"] = [e.first_line for e, _ in lst.shown]
-            res["months"] = tree_texts(lst.tree)
-            first_month = lst.tree.GetFirstChild(lst.tree.GetRootItem())[0]
-            res["first_month"] = tree_texts(lst.tree, first_month)
-            res["expanded"] = [
-                lst.tree.IsExpanded(c)
-                for c in (
-                    first_month,
-                    lst.tree.GetNextSibling(first_month),
-                )
+        with main_window() as (frame, _):
+            tree = frame.entry_list.tree
+            months = tree_texts(tree)
+            first_month = tree.GetFirstChild(tree.GetRootItem())[0]
+            rows = tree_texts(tree, first_month)
+            expanded = [
+                tree.IsExpanded(first_month),
+                tree.IsExpanded(tree.GetNextSibling(first_month)),
             ]
+            info = frame.entry_list.info.GetLabel()
+        assert months == [month_label(2020, 10), month_label(2020, 3)]
+        assert len(rows) == 3 and rows[0].startswith("22.")
+        assert "[Photo] Logo sketch" in rows[1] and "Lost photo" in rows[2]
+        # The newest month is open, the others are closed
+        assert expanded == [True, False] and info == ""
 
-            # Searching
+    def test_empty_list(self):
+        with main_window(seed=None) as (frame, _):
+            assert frame.entry_list.info.GetLabel() == "No entries yet."
+            assert tree_texts(frame.entry_list.tree) == []
+
+    def test_search(self):
+        with main_window() as (frame, _):
+            lst = frame.entry_list
             lst.search.SetValue("SKETCH")
-            res["search"] = [e.first_line for e, _ in lst.shown]
-            res["search_expanded"] = lst.tree.IsExpanded(
+            found = [e.first_line for e, _ in lst.shown]
+            expanded = lst.tree.IsExpanded(
                 lst.tree.GetFirstChild(lst.tree.GetRootItem())[0]
             )
             lst.search.SetValue("zzz")
-            res["no_match"] = lst.info.GetLabel(), len(lst.shown)
+            nothing = (lst.info.GetLabel(), len(lst.shown))
             lst.search.SetValue("")
-            res["all_again"] = len(lst.shown), lst.info.GetLabel()
+            everything = (len(lst.shown), lst.info.GetLabel())
+        assert found == ["Logo sketch"] and expanded
+        assert nothing == ("No matching entries.", 0)
+        assert everything == (4, "")
 
-        self.play(fun)
+    def test_selecting_an_entry_shows_it(self):
+        with main_window() as (frame, _):
+            lst = frame.entry_list
+            lst.select_entry(find(frame, "Walk"), notify=True)
+            page = frame.book.GetSelection()
+            text = frame.fix_text_box.GetValue()
+            header = frame.view_label.GetLabel()
+            no_image = not frame.prev_img_space.IsShown()
+            state = tool_state(frame)
 
-        assert res["order"] == [
-            "Walk by the lake",
-            "Logo sketch",
-            "Lost photo",
-            "Spring",
-        ]
-        assert res["months"] == [month_label(2020, 10), month_label(2020, 3)]
-        assert len(res["first_month"]) == 3
-        assert res["first_month"][0].startswith("22.")
-        assert "[Photo] Logo sketch" in res["first_month"][1]
-        # The newest month is open, the others are closed
-        assert res["expanded"] == [True, False]
-        assert res["search"] == ["Logo sketch"] and res["search_expanded"]
-        assert res["no_match"] == ("No matching entries.", 0)
-        assert res["all_again"] == (4, "")
-
-    def test_empty_list(self):
-        res = {}
-
-        def fun(ex):
-            res["info"] = ex.entry_list.info.GetLabel()
-            res["tree"] = tree_texts(ex.entry_list.tree)
-            ex.toggle_new_entry()
-            res["nothing"] = ex.view_label.GetLabel()
-
-        self.play(fun, seed=None)
-
-        assert res["info"] == "No entries yet." and res["tree"] == []
-        assert res["nothing"] == "Select an entry on the left or write a new one."
-
-    def test_selecting_shows_entry(self):
-        res = {}
-
-        def fun(ex):
-            lst = ex.entry_list
-            res["start"] = ex.editing
-
-            # Selecting leaves the writing, as there is nothing unsaved
-            lst.select_entry(self.entry(ex, "Walk"), notify=True)
-            res["reading"] = not ex.editing
-            res["text"] = ex.fix_text_box.GetValue()
-            res["header"] = ex.view_label.GetLabel()
-            res["no_img"] = not ex.prev_img_space.IsShown()
-
-            lst.select_entry(self.entry(ex, "Logo"), notify=True)
-            res["photo_text"] = ex.fix_text_box.GetValue()
-            res["photo_shown"] = ex.prev_img_space.IsShown()
-            res["photo_name"] = os.path.basename(ex.prev_img_name or "")
-
-            lst.select_entry(self.entry(ex, "Lost"), notify=True)
-            res["lost_hidden"] = not ex.prev_img_space.IsShown()
-            lst.select_entry(self.entry(ex, "Spring"), notify=True)
-            res["text_hidden"] = not ex.prev_img_space.IsShown()
-            ex.toolbar.ToggleTool(ex.new_tool.Id, True)
-            ex.OnNew(None)
-
-            # Back to writing: nothing is selected
-            res["writing"] = ex.editing
-            res["selection_cleared"] = lst.selected_entry() is None
-
-        self.play(fun)
-
-        assert res["start"] and res["reading"]
-        assert res["text"] == "Walk by the lake\n\nsecond line"
-        assert "22.10.2020" in res["header"] and "21:32" in res["header"]
-        assert res["no_img"]
-        assert res["photo_text"] == "Logo sketch"
-        assert res["photo_shown"] and res["photo_name"] == "IMG_1.jpg"
-        assert res["lost_hidden"] and res["text_hidden"]
-        assert res["writing"] and res["selection_cleared"]
-
-    def test_tools_depend_on_mode(self):
-        res = {}
-
-        def states(ex):
-            tb = ex.toolbar
-            ids = [t.Id for t in ex.edit_tools]
-            return (
-                tb.GetToolState(ex.new_tool.Id),
-                [tb.GetToolEnabled(i) for i in ids],
-                tb.GetToolEnabled(ex.folder_tool.Id),
+            lst.select_entry(find(frame, "Logo"), notify=True)
+            photo = (
+                frame.fix_text_box.GetValue(),
+                frame.prev_img_space.IsShown(),
+                os.path.basename(frame.prev_img_name or ""),
             )
+            lst.select_entry(find(frame, "Lost"), notify=True)
+            lost = not frame.prev_img_space.IsShown()
+            lst.select_entry(find(frame, "Spring"), notify=True)
+            spring = not frame.prev_img_space.IsShown()
 
-        def fun(ex):
-            res["writing"] = states(ex)
-            ex.toggle_new_entry()
-            res["reading"] = states(ex)
-            ex.toggle_new_entry()
-            res["writing_again"] = states(ex)
-            res["tooltip"] = ex.toolbar.GetToolShortHelp(ex.folder_tool.Id)
+        assert page == frame.VIEW_PAGE and no_image
+        assert text == "Walk by the lake\n\nsecond line"
+        assert "22.10.2020" in header and "21:32" in header
+        assert state == (False, [False] * 4)  # The tools to write are disabled
+        assert photo == ("Logo sketch", True, "IMG_1.jpg")
+        assert lost and spring
 
-        self.play(fun)
+    def test_long_entry_is_shown_completely(self):
+        paragraphs = [f"Paragraph {i}: " + "word " * 80 for i in range(1, 11)]
+        entry = "\n\n".join(paragraphs)
+        with main_window(seed=None) as (frame, _):
+            frame.input_text_field.SetValue(entry)
+            click(frame, frame.edit_tools[0])  # The save tool
+            frame.controller.set_writing(False)
+            frame.controller.select_adjacent(1)
+            box = frame.fix_text_box
+            shown = box.GetValue()
+            read_only = not box.IsEditable()
+            lines = box.GetNumberOfLines()
+            start = box.GetInsertionPoint()
+        assert entry in shown and read_only
+        # More lines than fit in the control (and independent of the width)
+        assert lines >= 19 and start == 0
 
-        assert res["writing"] == (True, [True] * 4, True)
-        assert res["reading"] == (False, [False] * 4, True)
-        assert res["writing_again"] == res["writing"]
-        # The data folder is shown in the tooltip of the folder tool
-        assert DATA_DIR in res["tooltip"] and "Ctrl+O" in res["tooltip"]
 
-    def test_unsaved_draft_is_not_lost(self):
-        res = {}
+class TestTools(TestCase):
+    @staticmethod
+    def tools(frame):
+        toolbar_tools = {t.Id: t for t in frame.edit_tools}
+        save, photo, date, selfie = frame.edit_tools
+        assert photo is frame.photoTool and len(toolbar_tools) == 4
+        return save, photo, date, selfie
 
-        def fun(ex):
-            lst = ex.entry_list
-            walk = self.entry(ex, "Walk")
+    def test_new_tool_switches_between_writing_and_reading(self):
+        with main_window() as (frame, _):
+            click(frame, frame.new_tool)
+            reading = (frame.book.GetSelection(), tool_state(frame))
+            click(frame, frame.new_tool)
+            writing = (frame.book.GetSelection(), tool_state(frame))
+        assert reading == (frame.VIEW_PAGE, (False, [False] * 4))
+        assert writing == (frame.EDIT_PAGE, (True, [True] * 4))
 
-            # Keep the draft when selecting an entry
-            ex.input_text_field.SetValue("My draft")
-            lst.select_entry(walk)
-            ex.on_entry_selected(walk, keep_hook)
-            res["kept_editing"] = ex.editing
-            res["kept_text"] = ex.input_text_field.GetValue()
-            res["kept_selection"] = lst.selected_entry() is None
+    def test_unsaved_text_is_asked_about(self):
+        with main_window() as (frame, dialogs):
+            frame.input_text_field.SetValue("My draft")
+            # Keeping it: the tool is toggled back and the page stays
+            dialogs.answer_confirm(False)
+            click(frame, frame.new_tool)
+            kept = (frame.book.GetSelection(), tool_state(frame))
+            text = frame.input_text_field.GetValue()
+            # Discarding it
+            dialogs.answer_confirm(True)
+            click(frame, frame.new_tool)
+            left = (frame.book.GetSelection(), frame.input_text_field.GetValue())
+        assert kept == (frame.EDIT_PAGE, (True, [True] * 4)) and text == "My draft"
+        assert left == (frame.VIEW_PAGE, "")
+        assert dialogs.confirms[0][0] == tr("message.discard_text.text")
 
-            # Discard it
-            lst.select_entry(walk)
-            ex.on_entry_selected(walk, discard_hook)
-            res["discarded_reading"] = not ex.editing
-            res["discarded_text"] = ex.input_text_field.GetValue()
-            res["shown"] = ex.fix_text_box.GetValue().startswith("Walk")
+    def test_selecting_an_entry_with_unsaved_text_is_asked_about(self):
+        with main_window() as (frame, dialogs):
+            frame.input_text_field.SetValue("My draft")
+            dialogs.answer_confirm(False)
+            frame.entry_list.select_entry(find(frame, "Walk"), notify=True)
+            kept = (frame.book.GetSelection(), frame.entry_list.selected_entry())
+        assert kept == (frame.EDIT_PAGE, None)
 
-            # The same when leaving the writing with the tool
-            ex.toggle_new_entry()
-            ex.input_text_field.SetValue("Another draft")
-            ex.toolbar.ToggleTool(ex.new_tool.Id, False)
-            ex.OnNew(None, keep_hook)
-            res["tool_kept"] = ex.editing, ex.toolbar.GetToolState(ex.new_tool.Id)
-            ex.toolbar.ToggleTool(ex.new_tool.Id, False)
-            ex.OnNew(None, discard_hook)
-            res["tool_left"] = ex.editing, ex.input_text_field.GetValue()
+    def test_photo_tool_shows_the_image_area_and_keeps_the_text(self):
+        with main_window() as (frame, dialogs):
+            _, photo, *_ = frame.edit_tools
+            frame.input_text_field.SetValue("Kept text")
+            click(frame, photo)
+            on = frame.image_drop_space.IsShown()
+            click(frame, photo)
+            off = not frame.image_drop_space.IsShown()
+            text = frame.input_text_field.GetValue()
+        assert on and off and text == "Kept text"
+        assert not dialogs.confirms
 
-        self.play(fun)
+    def test_leaving_the_photo_mode_with_an_image_is_asked_about(self):
+        with main_window() as (frame, dialogs):
+            _, photo, *_ = frame.edit_tools
+            click(frame, photo)
+            assert frame.controller.load_image(TEST_IMG, datetime(2020, 1, 2, 3, 4, 5))
+            shown = frame.draft_image == TEST_IMG
+            date = frame.dateLabel.GetLabel()
 
-        assert res["kept_editing"] and res["kept_text"] == "My draft"
-        assert res["kept_selection"]
-        assert res["discarded_reading"] and res["discarded_text"] == ""
-        assert res["shown"]
-        assert res["tool_kept"] == (True, True)
-        assert res["tool_left"] == (False, "")
+            dialogs.answer_confirm(False)
+            click(frame, photo)
+            kept = (
+                frame.toolbar.GetToolState(photo.Id),
+                frame.image_drop_space.IsShown(),
+                frame.draft_image,
+            )
+            dialogs.answer_confirm(True)
+            click(frame, photo)
+            discarded = (frame.image_drop_space.IsShown(), frame.draft_image)
+        assert shown and "2.1.2020" in date
+        assert kept == (True, True, TEST_IMG)
+        assert discarded == (False, None)
 
-    def test_saving_updates_the_list(self):
-        res = {}
+    def test_save_tool(self):
+        with main_window() as (frame, dialogs):
+            save = frame.edit_tools[0]
+            click(frame, save)  # no text
+            frame.controller.draft_date = datetime(2021, 1, 2, 3, 4, 5)
+            frame.input_text_field.SetValue("Brand new")
+            click(frame, save)
+            text = frame.input_text_field.GetValue()
+            rows = [e.first_line for e, _ in frame.entry_list.shown]
+            entries = load_all_entries()
+        assert dialogs.infos == [
+            (tr("message.no_text.text"), tr("message.no_text.title"))
+        ]
+        assert text == "" and rows[0] == "Brand new" and len(rows) == 5
+        assert entries[0].date_time == datetime(2021, 1, 2, 3, 4, 5)
 
-        def fun(ex):
-            res["before"] = len(ex.entry_list.entries)
-            ex.update_date(wx.DateTime(1, 11, 2020, 12))
-            ex.input_text_field.SetValue("Brand new")
-            ex.OnSave(None)
-            res["after"] = [e.first_line for e, _ in ex.entry_list.shown]
-            res["still_writing"] = ex.editing
+    def test_date_tool(self):
+        with main_window() as (frame, dialogs):
+            dialogs.date = datetime(2021, 3, 4, 5, 6, 7)
+            click(frame, frame.edit_tools[2])
+            label = frame.dateLabel.GetLabel()
+        assert "4.3.2021" in label and "05:06:07" in label
 
-        self.play(fun)
+    def test_selfie_tool(self):
+        with main_window() as (frame, dialogs):
+            dialogs.selfie_source = TEST_IMG
+            click(frame, frame.edit_tools[3])
+            result = (
+                frame.toolbar.GetToolState(frame.photoTool.Id),
+                frame.image_drop_space.IsShown(),
+                os.path.basename(frame.draft_image or ""),
+            )
+        assert result[:2] == (True, True) and result[2].endswith("_Self.png")
 
-        assert res["before"] == 4
-        assert res["after"][0] == "Brand new" and len(res["after"]) == 5
-        assert res["still_writing"]
+    def test_selfie_without_webcam_shows_a_message(self):
+        with main_window() as (frame, dialogs):
+            dialogs.no_webcam = True
+            click(frame, frame.edit_tools[3])
+        assert dialogs.infos[0][1] == tr("message.no_webcam.title")
 
-    def test_changing_the_folder_reloads_the_list(self):
-        res = {}
-        other = tempfile.mkdtemp(prefix="story_time_test_other_")
-        try:
-            util.update_folder(other)
-            util.create_xml_and_img_folder(other)
-            save_entry("Somewhere else", wx.DateTime(1, 0, 2019, 9))
-            util.update_folder(DATA_DIR)
+    def test_folder_tool(self):
+        import tempfile
 
-            def fun(ex):
-                ex.toggle_new_entry()
-                ex.entry_list.select_adjacent(1)
-                with replace_dir_ask(lambda: other):
-                    ex.OnChangeDir(None)
-                res["entries"] = [e.text for e in ex.entry_list.entries]
-                res["shown"] = ex.fix_text_box.GetValue()
-                res["tooltip"] = ex.toolbar.GetToolShortHelp(ex.folder_tool.Id)
+        with tempfile.TemporaryDirectory() as other:
+            with main_window() as (frame, dialogs):
+                dialogs.folder = other
+                click(frame, frame.folder_tool)
+                rows = tree_texts(frame.entry_list.tree)
+                info = frame.entry_list.info.GetLabel()
+                tip = frame.toolbar.GetToolShortHelp(frame.folder_tool.Id)
+        assert rows == [] and info == "No entries yet." and other in tip
 
-            self.play(fun)
-        finally:
-            shutil.rmtree(other, ignore_errors=True)
+    def test_dropping_an_image(self):
+        with main_window() as (frame, _):
+            drop = frame.text_edit_panel.fileDrop
+            # The image area is not there before the photo mode
+            assert not drop.OnDropFiles(0, 0, [TEST_IMG])
+            click(frame, frame.photoTool)
+            assert drop.OnDropFiles(0, 0, [TEST_IMG])
+            assert frame.draft_image == TEST_IMG
+            assert not drop.OnDropFiles(0, 0, ["notes.txt"])
 
-        assert res["entries"] == ["Somewhere else"]
-        assert res["shown"] == ""
-        assert other in res["tooltip"]
+    def test_clicking_an_image_shows_it_large(self):
+        with main_window() as (frame, dialogs):
+            click(frame, frame.photoTool)
+            frame.controller.load_image(TEST_IMG)
+            event = wx.MouseEvent(wx.wxEVT_LEFT_DOWN)
+            frame.image_drop_space.GetEventHandler().ProcessEvent(event)
+
+            dialogs.answer_confirm(True)  # The loaded image is lost
+            frame.entry_list.select_entry(find(frame, "Logo"), notify=True)
+            event = wx.MouseEvent(wx.wxEVT_LEFT_DOWN)
+            frame.prev_img_space.GetEventHandler().ProcessEvent(event)
+        assert dialogs.photos == [
+            TEST_IMG,
+            os.path.join(DATA_DIR, "Img", "IMG_1.jpg"),
+        ]
+
+
+class TestKeys(TestCase):
+    def test_keyboard_shortcuts(self):
+        with main_window(seed=None) as (frame, dialogs):
+            # Ctrl+S saves the entries
+            for text, date in [
+                ("First entry", datetime(2020, 3, 1, 10)),
+                ("Second entry", datetime(2020, 6, 1, 10)),
+            ]:
+                frame.controller.draft_date = date
+                frame.input_text_field.SetValue(text)
+                assert press(frame, ord("S"), ctrl=True)
+                assert frame.input_text_field.GetValue() == ""
+            entries = len(frame.controller.entries)
+
+            # Ctrl+N leaves the writing, Ctrl+S then does not save
+            press(frame, ord("N"), ctrl=True)
+            reading = frame.book.GetSelection() == frame.VIEW_PAGE
+            frame.input_text_field.SetValue("Not saved")
+            press(frame, ord("S"), ctrl=True)
+            not_saved = len(frame.controller.entries) == entries
+            frame.input_text_field.Clear()
+
+            # Alt+arrows go through the entries, older ones are "previous"
+            press(frame, KEY_LEFT, alt=True)
+            newest = frame.fix_text_box.GetValue()
+            press(frame, KEY_LEFT, alt=True)
+            older = frame.fix_text_box.GetValue()
+            press(frame, KEY_LEFT, alt=True)
+            oldest_stays = frame.fix_text_box.GetValue()
+            press(frame, KEY_RIGHT, alt=True)
+            newer = frame.fix_text_box.GetValue()
+            selected = frame.entry_list.selected_entry().text
+
+            # Ctrl+N again to write, then Ctrl+P toggles the photo mode
+            press(frame, ord("N"), ctrl=True)
+            writing = frame.book.GetSelection() == frame.EDIT_PAGE
+            press(frame, ord("P"), ctrl=True)
+            photo_on = frame.image_drop_space.IsShown()
+            press(frame, ord("P"), ctrl=True)
+            photo_off = not frame.image_drop_space.IsShown()
+
+            # Other keys are passed on
+            other = (press(frame, ord("X")), press(frame, ord("X"), ctrl=True))
+
+            # Ctrl+Q closes the window
+            quit_used = press(frame, ord("Q"), ctrl=True)
+            closed = frame.closed
+
+        assert entries == 2 and reading and not_saved
+        assert newest == "Second entry" and older == "First entry"
+        assert oldest_stays == "First entry" and newer == "Second entry"
+        assert selected == "Second entry"
+        assert writing and photo_on and photo_off
+        assert other == (False, False)
+        assert quit_used and closed
+        assert not dialogs.confirms
+
+    def test_keys_for_date_folder_and_selfie(self):
+        with main_window() as (frame, dialogs):
+            press(frame, ord("D"), ctrl=True)
+            press(frame, ord("O"), ctrl=True)
+            press(frame, ord("T"), ctrl=True)
+        assert len(dialogs.date_starts) == 1
+        assert dialogs.folder_asked == 1
+        assert len(dialogs.selfie_targets) == 1
+
+
+class TestClosing(TestCase):
+    def test_close_without_a_draft(self):
+        with main_window() as (frame, dialogs):
+            frame.Close()
+            closed = frame.closed
+        assert closed and not dialogs.confirms
+
+    def test_close_with_a_draft_asks(self):
+        with main_window() as (frame, dialogs):
+            frame.input_text_field.SetValue("My draft")
+            dialogs.answer_confirm(False)
+            frame.Close()
+            kept_open = not frame.closed
+            dialogs.answer_confirm(True)
+            frame.Close()
+            closed = frame.closed
+        assert kept_open and closed
+
+    def test_closing_saves_the_folder_and_cleans_up(self):
+        with main_window() as (frame, _):
+            temp = folders.get_temp_folder()
+            settings.save_settings({})
+            frame.Close()
+            assert not os.path.exists(temp)
+            assert settings.get_data_dir() == DATA_DIR

@@ -4,7 +4,7 @@ import tempfile
 from unittest import TestCase
 from unittest.mock import patch
 
-from story_time import settings, util
+from story_time import settings
 
 
 class TestSettings(TestCase):
@@ -86,34 +86,3 @@ class TestSettings(TestCase):
                 f.write(content)
             with patch.object(settings, "LEGACY_INFO_FILE", legacy_file):
                 assert settings.get_data_dir() is None
-
-
-class TestTempFolder(TestCase):
-    def tearDown(self):
-        util.remove_temp_folder()
-
-    def test_own_folder_in_system_temp(self):
-        folder = util.get_temp_folder()
-        assert os.path.isdir(folder)
-        assert os.path.dirname(folder) == os.path.realpath(tempfile.gettempdir()) or (
-            os.path.dirname(folder) == tempfile.gettempdir()
-        )
-        assert util.get_temp_folder() == folder
-
-    def test_remove_only_removes_own_folder(self):
-        other = tempfile.mkdtemp(prefix="story_time_test_other_")
-        try:
-            with open(os.path.join(other, "keep.txt"), "w") as f:
-                f.write("keep")
-            folder = util.get_temp_folder()
-            with open(os.path.join(folder, "photo.png"), "w") as f:
-                f.write("x")
-            util.remove_temp_folder()
-            assert not os.path.exists(folder)
-            assert os.path.exists(os.path.join(other, "keep.txt"))
-
-            # Removing twice is fine and a new folder is created when needed
-            util.remove_temp_folder()
-            assert os.path.isdir(util.get_temp_folder())
-        finally:
-            shutil.rmtree(other, ignore_errors=True)
