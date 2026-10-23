@@ -9,21 +9,21 @@ from story_time import settings
 from story_time.controller import DiaryController
 from story_time.folders import DataFolder
 from story_time.images import NEW_IMAGE
+from story_time.sqlite_storage import SqliteEntryStore
 from story_time.texts import tr
-from story_time.xml_storage import EntryStore
 from tests.fakes import FakeDialogs, FakeView
 from tests.helpers import (
     DATA_DIR,
     SAMPLE_IMG_DIR,
+    LazyStore,
     create_test_dirs,
     img_dir,
     use_data_dir,
-    xml_dir,
 )
 
 SAMPLE_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
 NOW = datetime(2026, 10, 23, 12, 0, 0)
-STORE = EntryStore(xml_dir)
+STORE = LazyStore()
 
 
 class ControllerTestCase(TestCase):
@@ -115,13 +115,13 @@ class TestStartWithoutFolder(TestCase):
             assert self.ctrl.start()
             assert self.dialogs.folder_asked == 1
             assert self.view.folder == folder
-            assert os.path.isdir(os.path.join(folder, "XML"))
+            assert os.path.isdir(os.path.join(folder, "Img"))
             assert self.view.total == 0
 
     def test_no_folder_chosen_does_not_start(self):
         assert not self.ctrl.start()
         assert self.view.folder is None
-        assert not os.path.exists("XML") and not os.path.exists("Img")
+        assert not os.path.exists("story_time.sqlite") and not os.path.exists("Img")
 
 
 class TestReadingAndWriting(ControllerTestCase):
@@ -416,7 +416,7 @@ class TestChangeFolder(ControllerTestCase):
             self.ctrl.change_folder()
             assert self.view.folder == other
             assert self.ctrl.folder == DataFolder(other)
-            assert os.path.isdir(os.path.join(other, "XML"))
+            assert os.path.isdir(os.path.join(other, "Img"))
             assert self.ctrl.entries == [] and self.view.total == 0
             assert self.ctrl.selected is None
             assert self.view.entry is None  # The page to read is empty
@@ -427,7 +427,7 @@ class TestChangeFolder(ControllerTestCase):
         with tempfile.TemporaryDirectory() as other:
             folder = DataFolder(other)
             folder.create()
-            EntryStore(folder.xml_folder).save_entry(
+            SqliteEntryStore(folder.db_file).save_entry(
                 "Somewhere else", datetime(2019, 1, 1, 9)
             )
             self.dialogs.folder = other

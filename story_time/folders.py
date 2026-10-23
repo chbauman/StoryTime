@@ -16,7 +16,7 @@ from story_time import settings
 
 @dataclass(frozen=True)
 class DataFolder:
-    """The folder with the data of the diary: the XML files and the images."""
+    """The folder with the data of the diary: the entries and the images."""
 
     path: str
 
@@ -26,14 +26,18 @@ class DataFolder:
         return os.path.join(self.path, "Img")
 
     @property
+    def db_file(self) -> str:
+        """The database with the entries."""
+        return os.path.join(self.path, "story_time.sqlite")
+
+    @property
     def xml_folder(self) -> str:
-        """The folder where the XML documents are stored."""
+        """The folder with the XML files, where older versions stored the entries."""
         return os.path.join(self.path, "XML")
 
     def create(self) -> None:
-        """Creates the folders for the images and the XML files if they are missing."""
+        """Creates the folder and the one for the images if they are missing."""
         os.makedirs(self.img_folder, exist_ok=True)
-        os.makedirs(self.xml_folder, exist_ok=True)
 
 
 def get_data_folder(ask_folder: Callable[[], Optional[str]]) -> Optional[DataFolder]:
