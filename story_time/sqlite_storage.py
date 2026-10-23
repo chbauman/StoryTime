@@ -21,7 +21,7 @@ from story_time.entries import Entry
 
 #: The version of the layout of the tables, kept in the database with
 #: `PRAGMA user_version`, to be able to change them later.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS entries (
@@ -29,12 +29,16 @@ CREATE TABLE IF NOT EXISTS entries (
     date_time TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('text', 'photo')),
     text TEXT NOT NULL,
-    photo TEXT
+    photo TEXT,
+    deleted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS entries_date_time ON entries (date_time);
 PRAGMA user_version = {SCHEMA_VERSION};
 """
 
+
+#: Changes of the tables from a version to the next one.
+_MIGRATIONS = {1: ["ALTER TABLE entries ADD COLUMN deleted_at TEXT"]}
 
 _INSERT = "INSERT INTO entries (date_time, type, text, photo) VALUES (?, ?, ?, ?)"
 
@@ -49,14 +53,21 @@ def _to_text(date_time: datetime) -> str:
 
 
 def _entry_of(row: tuple) -> Entry:
-    entry_id, date_time, entry_type, text, photo = row
-    return Entry(datetime.fromisoformat(date_time), entry_type, text, photo, entry_id)
+    entry_id, date_time, entry_type, text, photo, deleted_at = row
+    return Entry(
+        datetime.fromisoformat(date_time),
+        entry_type,
+        text,
+        photo,
+        entry_id,
+        None if deleted_at is None else datetime.fromisoformat(deleted_at),
+    )
 
 
 class SqliteEntryStore:
     """The entries of the diary, kept in a SQLite database file."""
 
-    _COLUMNS = "id, date_time, type, text, photo"
+    _COLUMNS = "id, date_time, type, text, photo, deleted_at"
 
     def __init__(self, db_file: str) -> None:
         """Opens the database, creates it if there is none yet.
@@ -74,7 +85,13 @@ class SqliteEntryStore:
                     raise StorageError(
                         f"{db_file} was written by a newer version of the app."
                     )
-                conn.executescript(_SCHEMA)
+                if version == 0:
+                    conn.executescript(_SCHEMA)
+                else:
+                    for old in range(version, SCHEMA_VERSION):
+                        for statement in _MIGRATIONS[old]:
+                            conn.execute(statement)
+                    conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         except sqlite3.DatabaseError as error:
             raise StorageError(
                 f"{db_file} is not a usable database: {error}"
@@ -139,13 +156,90 @@ class SqliteEntryStore:
             )
         return len(rows)
 
+    def update_entry(
+        self,
+        entry_id: int,
+        comm: str,
+        date_time: datetime,
+        entry_type: str = "text",
+        img_filename: Optional[str] = None,
+    ) -> Entry:
+        """Changes the text, date, type and image of an entry and returns it.
+
+        Raises:
+            KeyError: If there is no entry with the id.
+        """
+        photo = self._check(entry_type, img_filename)
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "UPDATE entries SET date_time = ?, type = ?, text = ?, photo = ? "
+                "WHERE id = ?",
+                (_to_text(date_time), entry_type, comm, photo, entry_id),
+            )
+            if cursor.rowcount == 0:
+                raise KeyError(entry_id)
+            row = conn.execute(
+                f"SELECT {self._COLUMNS} FROM entries WHERE id = ?", (entry_id,)
+            ).fetchone()
+        return _entry_of(row)
+
+    def trash_entry(self, entry_id: int, when: datetime) -> None:
+        """Moves an entry to the trash.
+
+        Raises:
+            KeyError: If there is no entry with the id that is not in the trash.
+        """
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "UPDATE entries SET deleted_at = ? "
+                "WHERE id = ? AND deleted_at IS NULL",
+                (_to_text(when), entry_id),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(entry_id)
+
+    def restore_entry(self, entry_id: int) -> None:
+        """Takes an entry out of the trash.
+
+        Raises:
+            KeyError: If there is no entry with the id in the trash.
+        """
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "UPDATE entries SET deleted_at = NULL "
+                "WHERE id = ? AND deleted_at IS NOT NULL",
+                (entry_id,),
+            )
+        if cursor.rowcount == 0:
+            raise KeyError(entry_id)
+
+    def delete_forever(self, entry_ids: list[int]) -> None:
+        """Removes entries from the trash for good, all or none of them.
+
+        Entries that are not in the trash are never removed.
+        """
+        with self._connect() as conn:
+            conn.executemany(
+                "DELETE FROM entries WHERE id = ? AND deleted_at IS NOT NULL",
+                [(entry_id,) for entry_id in entry_ids],
+            )
+
+    def _load(self, where: str, order: str) -> list[Entry]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"SELECT {self._COLUMNS} FROM entries WHERE {where} ORDER BY {order}"
+            ).fetchall()
+        return [_entry_of(row) for row in rows]
+
     def load_all(self) -> list[Entry]:
-        """Loads all entries, newest first.
+        """Loads all entries that are not in the trash, newest first.
 
         Entries with the same time are in the order they were added.
         """
-        with self._connect() as conn:
-            rows = conn.execute(
-                f"SELECT {self._COLUMNS} FROM entries ORDER BY date_time DESC, id ASC"
-            ).fetchall()
-        return [_entry_of(row) for row in rows]
+        return self._load("deleted_at IS NULL", "date_time DESC, id ASC")
+
+    def load_trash(self) -> list[Entry]:
+        """Loads the entries in the trash, the last deleted first."""
+        return self._load(
+            "deleted_at IS NOT NULL", "deleted_at DESC, date_time DESC, id ASC"
+        )

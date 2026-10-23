@@ -6,9 +6,10 @@ show what the controller says and that the tools and the keys reach it.
 
 import os
 import shutil
+import time
 from contextlib import contextmanager
 from datetime import datetime
-from unittest import TestCase
+from unittest import TestCase, mock
 
 import wx
 
@@ -258,29 +259,33 @@ class TestTools(TestCase):
         assert reading == (frame.VIEW_PAGE, (False, [False] * 4))
         assert writing == (frame.EDIT_PAGE, (True, [True] * 4))
 
-    def test_unsaved_text_is_asked_about(self):
+    def test_leaving_with_unsaved_text_can_be_undone(self):
         with main_window() as (frame, dialogs):
             frame.input_text_field.SetValue("My draft")
-            # Keeping it: the tool is toggled back and the page stays
-            dialogs.answer_confirm(False)
             click(frame, frame.new_tool)
-            kept = (frame.book.GetSelection(), tool_state(frame))
-            text = frame.input_text_field.GetValue()
-            # Discarding it
-            dialogs.answer_confirm(True)
-            click(frame, frame.new_tool)
-            left = (frame.book.GetSelection(), frame.input_text_field.GetValue())
-        assert kept == (frame.EDIT_PAGE, (True, [True] * 4)) and text == "My draft"
-        assert left == (frame.VIEW_PAGE, "")
-        assert dialogs.confirms[0][0] == tr("message.discard_text.text")
+            left = (
+                frame.book.GetSelection(),
+                frame.input_text_field.GetValue(),
+                frame.undo_bar.IsShown(),
+                frame.undo_label.GetLabel(),
+            )
+            frame.controller.undo_discard()
+            back = (
+                frame.book.GetSelection(),
+                frame.input_text_field.GetValue(),
+                frame.undo_bar.IsShown(),
+            )
+        assert left == (frame.VIEW_PAGE, "", True, tr("undo.draft_discarded"))
+        assert back == (frame.EDIT_PAGE, "My draft", False)
+        assert not dialogs.confirms
 
-    def test_selecting_an_entry_with_unsaved_text_is_asked_about(self):
+    def test_selecting_an_entry_with_unsaved_text_can_be_undone(self):
         with main_window() as (frame, dialogs):
             frame.input_text_field.SetValue("My draft")
-            dialogs.answer_confirm(False)
             frame.entry_list.select_entry(find(frame, "Walk"), notify=True)
-            kept = (frame.book.GetSelection(), frame.entry_list.selected_entry())
-        assert kept == (frame.EDIT_PAGE, None)
+            read = (frame.book.GetSelection(), frame.entry_list.selected_entry())
+        assert read[0] == frame.VIEW_PAGE and read[1].text.startswith("Walk")
+        assert not dialogs.confirms
 
     def test_photo_tool_shows_the_image_area_and_keeps_the_text(self):
         with main_window() as (frame, dialogs):
@@ -294,27 +299,85 @@ class TestTools(TestCase):
         assert on and off and text == "Kept text"
         assert not dialogs.confirms
 
-    def test_leaving_the_photo_mode_with_an_image_is_asked_about(self):
+    def test_leaving_the_photo_mode_with_an_image_can_be_undone(self):
         with main_window() as (frame, dialogs):
             _, photo, *_ = frame.edit_tools
             click(frame, photo)
             assert frame.controller.load_image(TEST_IMG, datetime(2020, 1, 2, 3, 4, 5))
             shown = frame.draft_image == TEST_IMG
             date = frame.date_label.GetLabel()
-
-            dialogs.answer_confirm(False)
             click(frame, photo)
-            kept = (
+            removed = (
+                frame.image_drop_space.IsShown(),
+                frame.draft_image,
+                frame.undo_bar.IsShown(),
+            )
+            frame.controller.undo_discard()
+            back = (
                 frame.toolbar.GetToolState(photo.Id),
                 frame.image_drop_space.IsShown(),
                 frame.draft_image,
             )
-            dialogs.answer_confirm(True)
-            click(frame, photo)
-            discarded = (frame.image_drop_space.IsShown(), frame.draft_image)
         assert shown and "2.1.2020" in date
-        assert kept == (True, True, TEST_IMG)
-        assert discarded == (False, None)
+        assert removed == (False, None, True)
+        assert back == (True, True, TEST_IMG)
+        assert not dialogs.confirms
+
+    def test_remove_image_button(self):
+        with main_window() as (frame, _):
+            hidden = not frame.remove_image_button.IsShown()
+            click(frame, frame.photo_tool)
+            no_image = not frame.remove_image_button.IsShown()
+            frame.input_text_field.SetValue("Kept text")
+            frame.controller.load_image(TEST_IMG)
+            shown = frame.remove_image_button.IsShown()
+            frame.remove_image_button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+            removed = (
+                frame.draft_image,
+                frame.remove_image_button.IsShown(),
+                frame.image_drop_space.IsShown(),
+                frame.input_text_field.GetValue(),
+                frame.undo_bar.IsShown(),
+            )
+        assert hidden and no_image and shown
+        assert removed == (None, False, True, "Kept text", True)
+
+    def test_discard_button_and_undo_bar(self):
+        with main_window() as (frame, dialogs):
+            frame.discard_button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+            nothing = not frame.undo_bar.IsShown()
+            frame.input_text_field.SetValue("My draft")
+            frame.discard_button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+            discarded = (frame.input_text_field.GetValue(), frame.undo_bar.IsShown())
+            timer_runs = frame.undo_timer.IsRunning()
+            # Typing again ends the undo
+            frame.input_text_field.AppendText("New")
+            typed = frame.undo_bar.IsShown()
+        assert nothing and discarded == ("", True) and timer_runs and not typed
+        assert not dialogs.confirms
+
+    def test_undo_button(self):
+        with main_window() as (frame, _):
+            frame.input_text_field.SetValue("My draft")
+            press(frame, wx.WXK_ESCAPE)
+            gone = frame.input_text_field.GetValue() == ""
+            frame.undo_button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+            back = (frame.input_text_field.GetValue(), frame.undo_bar.IsShown())
+        assert gone and back == ("My draft", False)
+
+    def test_the_undo_bar_goes_away_by_itself(self):
+        short = mock.patch("story_time.user_interface.UNDO_SECONDS", 0.05)
+        with short, main_window() as (frame, _):
+            frame.input_text_field.SetValue("My draft")
+            frame.controller.discard_draft()
+            shown = frame.undo_bar.IsShown()
+            end = time.time() + 3
+            while frame.undo_bar.IsShown() and time.time() < end:
+                wx.GetApp().Yield()
+                time.sleep(0.01)
+            hidden = not frame.undo_bar.IsShown()
+            undone = frame.controller.undo_discard()
+        assert shown and hidden and not undone
 
     def test_save_tool(self):
         with main_window() as (frame, dialogs):
@@ -384,7 +447,6 @@ class TestTools(TestCase):
             event = wx.MouseEvent(wx.wxEVT_LEFT_DOWN)
             frame.image_drop_space.GetEventHandler().ProcessEvent(event)
 
-            dialogs.answer_confirm(True)  # The loaded image is lost
             frame.entry_list.select_entry(find(frame, "Logo"), notify=True)
             event = wx.MouseEvent(wx.wxEVT_LEFT_DOWN)
             frame.prev_img_space.GetEventHandler().ProcessEvent(event)
@@ -392,6 +454,179 @@ class TestTools(TestCase):
             TEST_IMG,
             os.path.join(img_dir, "IMG_1.jpg"),
         ]
+
+
+def press_button(button):
+    button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+
+
+def toggle_trash(frame, active):
+    toggle = frame.entry_list.trash_toggle
+    toggle.SetValue(active)
+    toggle.Command(wx.CommandEvent(wx.wxEVT_TOGGLEBUTTON))
+
+
+def list_texts(frame):
+    return [e.first_line for e, _ in frame.entry_list.shown]
+
+
+class TestEditAndDelete(TestCase):
+    def read(self, frame, text):
+        """Selects the entry in the list, which can be the trash."""
+        entries = frame.controller.trash + frame.controller.entries
+        entry = next(e for e in entries if e.text.startswith(text))
+        frame.entry_list.select_entry(entry, notify=True)
+
+    def action_buttons(self, frame):
+        return [
+            frame.edit_button.IsShown(),
+            frame.delete_button.IsShown(),
+            frame.restore_button.IsShown(),
+            frame.delete_forever_button.IsShown(),
+        ]
+
+    def test_buttons_follow_the_entry_and_the_trash(self):
+        with main_window() as (frame, _):
+            writing = self.action_buttons(frame)
+            click(frame, frame.new_tool)  # reading, nothing selected
+            nothing = self.action_buttons(frame)
+            self.read(frame, "Walk")
+            entry = self.action_buttons(frame)
+            frame.controller.delete_selected()
+            gone = self.action_buttons(frame)
+            toggle_trash(frame, True)
+            in_trash = self.action_buttons(frame)
+            self.read(frame, "Walk")
+            trashed = self.action_buttons(frame)
+        assert nothing == gone == in_trash == [False] * 4
+        assert writing == [False] * 4
+        assert entry == [True, True, False, False]
+        assert trashed == [False, False, True, True]
+
+    def test_edit_button(self):
+        with main_window() as (frame, dialogs):
+            self.read(frame, "Walk")
+            press_button(frame.edit_button)
+            editing = (
+                frame.book.GetSelection(),
+                frame.input_text_field.GetValue(),
+                frame.discard_button.GetLabel(),
+                frame.date_label.GetLabel(),
+            )
+            frame.input_text_field.SetValue("Edited walk")
+            dialogs.answer_confirm(True)
+            press_button(frame.discard_button)
+        assert editing[0] == frame.EDIT_PAGE
+        assert editing[1].startswith("Walk by the lake")
+        assert editing[2] == tr("main.cancel_edit")
+        assert editing[3].startswith(tr("main.editing_line", date="")[:8])
+
+    def test_save_changes_the_entry_in_the_list(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Spring")
+            press_button(frame.edit_button)
+            frame.input_text_field.SetValue("Late spring")
+            click(frame, frame.edit_tools[0])  # save
+            page = frame.book.GetSelection()
+            shown = frame.view_label.GetLabel(), frame.fix_text_box.GetValue()
+            selected = frame.entry_list.selected_entry()
+            texts = list_texts(frame)
+            label = frame.discard_button.GetLabel()
+        assert page == frame.VIEW_PAGE and shown[1] == "Late spring"
+        assert selected.text == "Late spring" and "Late spring" in texts
+        assert "Spring" not in texts
+        assert label == tr("main.discard")
+
+    def test_cancel_button_asks_about_changes(self):
+        with main_window() as (frame, dialogs):
+            self.read(frame, "Spring")
+            press_button(frame.edit_button)
+            frame.input_text_field.SetValue("Changed")
+            dialogs.answer_confirm(False, True)
+            press_button(frame.discard_button)
+            kept = frame.book.GetSelection()
+            press_button(frame.discard_button)
+            read = (frame.book.GetSelection(), frame.fix_text_box.GetValue())
+        assert kept == frame.EDIT_PAGE
+        assert read == (frame.VIEW_PAGE, "Spring")
+
+    def test_edit_shortcut(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Walk")
+            press(frame, ord("E"), ctrl=True)
+            assert frame.book.GetSelection() == frame.EDIT_PAGE
+
+    def test_delete_button_and_undo(self):
+        with main_window() as (frame, dialogs):
+            self.read(frame, "Spring")
+            press_button(frame.delete_button)
+            deleted = (
+                list_texts(frame),
+                frame.undo_bar.IsShown(),
+                frame.undo_label.GetLabel(),
+                frame.entry_list.trash_toggle.GetLabel(),
+            )
+            press_button(frame.undo_button)
+            back = (list_texts(frame), frame.fix_text_box.GetValue())
+        assert "Spring" not in deleted[0]
+        assert deleted[1:] == (
+            True,
+            tr("undo.entry_deleted"),
+            tr("main.trash", count=1),
+        )
+        assert "Spring" in back[0] and back[1] == "Spring"
+        assert not dialogs.confirms
+
+    def test_typing_does_not_end_the_undo_of_a_deletion(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Spring")
+            press_button(frame.delete_button)
+            click(frame, frame.new_tool)
+            frame.input_text_field.AppendText("Typing")
+            assert frame.undo_bar.IsShown()
+
+    def test_trash_toggle_shows_the_trash(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Spring")
+            press_button(frame.delete_button)
+            toggle_trash(frame, True)
+            in_trash = list_texts(frame), frame.entry_list.empty_trash_button.IsShown()
+            toggle_trash(frame, False)
+            back = list_texts(frame), frame.entry_list.empty_trash_button.IsShown()
+        assert in_trash == (["Spring"], True)
+        assert "Spring" not in back[0] and back[1] is False
+
+    def test_restore_button(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Spring")
+            press_button(frame.delete_button)
+            toggle_trash(frame, True)
+            self.read(frame, "Spring")
+            press_button(frame.restore_button)
+            emptied = list_texts(frame), frame.entry_list.trash_toggle.GetLabel()
+            toggle_trash(frame, False)
+            texts = list_texts(frame)
+        assert emptied == ([], tr("main.trash", count=0))
+        assert "Spring" in texts
+
+    def test_delete_for_good_and_empty_trash_ask(self):
+        with main_window() as (frame, dialogs):
+            for text in ("Spring", "Logo"):
+                self.read(frame, text)
+                press_button(frame.delete_button)
+            toggle_trash(frame, True)
+            self.read(frame, "Spring")
+            dialogs.answer_confirm(True)
+            press_button(frame.delete_forever_button)
+            one_left = list_texts(frame)
+            dialogs.answer_confirm(False, True)
+            press_button(frame.entry_list.empty_trash_button)
+            kept = list_texts(frame)
+            press_button(frame.entry_list.empty_trash_button)
+            empty = list_texts(frame), frame.entry_list.info.GetLabel()
+        assert one_left == ["Logo sketch"] and kept == ["Logo sketch"]
+        assert empty == ([], tr("main.list.trash_empty"))
+        assert not os.path.exists(os.path.join(img_dir, "IMG_1.jpg"))
 
 
 class TestKeys(TestCase):

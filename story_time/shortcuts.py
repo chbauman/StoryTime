@@ -2,9 +2,11 @@
 
 from typing import Optional
 
-# The key codes of the arrow keys, the same as `wx.WXK_LEFT` and `wx.WXK_RIGHT`.
+# The key codes of the arrow keys and Escape, the same as `wx.WXK_LEFT`,
+# `wx.WXK_RIGHT` and `wx.WXK_ESCAPE`.
 KEY_LEFT = 314
 KEY_RIGHT = 316
+KEY_ESCAPE = 27
 
 #: Actions of the shortcuts with Ctrl, by the letter of the key.
 CTRL_SHORTCUTS = {
@@ -12,6 +14,7 @@ CTRL_SHORTCUTS = {
     "S": "save",
     "P": "photo",
     "D": "date",
+    "E": "edit",
     "O": "folder",
     "T": "selfie",
     "Q": "quit",
@@ -35,6 +38,8 @@ def shortcut_for(
     """
     if shift:
         return None
+    if key == KEY_ESCAPE and not (ctrl or alt):
+        return "discard"
     if ctrl and not alt and 0 < key < 256:
         return CTRL_SHORTCUTS.get(chr(key).upper())
     if key in (KEY_LEFT, KEY_RIGHT) and not ctrl and (alt or not in_text_input):

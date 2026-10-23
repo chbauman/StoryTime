@@ -20,6 +20,8 @@ class Entry:
     photo: str | None = None  #: For photo entries the file name in the Img folder.
     #: Identifies the entry in its store, None if it was not stored (yet).
     id: int | None = None
+    #: When the entry was moved to the trash, None if it is not in the trash.
+    deleted_at: datetime | None = None
 
     @property
     def first_line(self) -> str:
@@ -49,8 +51,30 @@ class EntryStore(Protocol):
             img_filename: For a photo the image file, only its name is stored.
         """
 
+    def update_entry(
+        self,
+        entry_id: int,
+        comm: str,
+        date_time: datetime,
+        entry_type: str = "text",
+        img_filename: str | None = None,
+    ) -> Entry:
+        """Changes an entry, raises `KeyError` if there is none with the id."""
+
+    def trash_entry(self, entry_id: int, when: datetime) -> None:
+        """Moves an entry to the trash, raises `KeyError` if there is none."""
+
+    def restore_entry(self, entry_id: int) -> None:
+        """Takes an entry out of the trash, raises `KeyError` if it is not in it."""
+
+    def delete_forever(self, entry_ids: list[int]) -> None:
+        """Removes entries from the trash for good. Others are not touched."""
+
     def load_all(self) -> list[Entry]:
-        """Loads all entries, newest first."""
+        """Loads all entries that are not in the trash, newest first."""
+
+    def load_trash(self) -> list[Entry]:
+        """Loads the entries in the trash, the last deleted first."""
 
 
 def filter_entries(entries: list[Entry], query: str) -> list[Entry]:

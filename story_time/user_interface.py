@@ -33,6 +33,7 @@ from story_time.util import (
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 SIDEBAR_WIDTH = 340  #: Initial width of the list of the entries.
 MAX_IMAGE_SIZE = 400  #: Maximum edge length of the shown images in pixels.
+UNDO_SECONDS = 8  #: How long a discard can be undone.
 MAX_LABEL_TEXT = 28  #: Maximum number of characters of an entry in the list.
 EXPAND_ALL = wx.ALL | wx.EXPAND
 
@@ -71,6 +72,7 @@ class TextAndImgPanel(wx.Panel):
         drop_tgt: bool = False,
         bg_col: wx.Colour = text_bg_col,
         on_image: Optional[Callable[[str], bool]] = None,
+        on_remove_image: Optional[Callable[[], object]] = None,
     ):
         """
         Args:
@@ -80,6 +82,8 @@ class TextAndImgPanel(wx.Panel):
             bg_col: The background color.
             on_image: Called with the path of an image dropped on the image area,
                 returns whether it was accepted.
+            on_remove_image: Called when the button to remove the image is
+                clicked, only used with `drop_tgt`.
         """
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
@@ -110,7 +114,18 @@ class TextAndImgPanel(wx.Panel):
         exp_all = wx.EXPAND | wx.ALL
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
 
-        h_box_3.Add(self.img, proportion=1, flag=wx.ALL | wx.ALIGN_TOP, border=5)
+        if drop_tgt:
+            self.remove_image_button = wx.Button(self, label=tr("main.remove_image"))
+            self.remove_image_button.Hide()
+            self.remove_image_button.Bind(
+                wx.EVT_BUTTON, lambda _: (on_remove_image or (lambda: None))()
+            )
+            img_box = wx.BoxSizer(wx.VERTICAL)
+            img_box.Add(self.img, 0, wx.ALIGN_CENTER_HORIZONTAL)
+            img_box.Add(self.remove_image_button, 0, wx.ALIGN_CENTER | wx.TOP, 5)
+            h_box_3.Add(img_box, proportion=1, flag=wx.ALL | wx.ALIGN_TOP, border=5)
+        else:
+            h_box_3.Add(self.img, proportion=1, flag=wx.ALL | wx.ALIGN_TOP, border=5)
         h_box_3.Add(self.text_box, proportion=3, flag=exp_all, border=5)
 
         box.Add(h_box_3, 1, exp_all, 5)
@@ -151,6 +166,8 @@ class EntryListPanel(wx.Panel):
         parent: wx.Window,
         on_select: Callable[[Entry], None],
         on_query: Callable[[str], None],
+        on_trash: Callable[[bool], None],
+        on_empty_trash: Callable[[], object],
         bg_col: wx.Colour = text_bg_col,
     ):
         """
@@ -158,6 +175,9 @@ class EntryListPanel(wx.Panel):
             parent: The parent window.
             on_select: Called with the entry when the user selects one.
             on_query: Called with the text when the user changes the search.
+            on_trash: Called with whether to show the trash when the user
+                switches between the entries and the trash.
+            on_empty_trash: Called when the user wants to empty the trash.
             bg_col: The background color.
         """
         wx.Panel.__init__(self, parent)
@@ -180,6 +200,9 @@ class EntryListPanel(wx.Panel):
             | wx.TR_SINGLE,
         )
         self.info = wx.StaticText(self, label="")
+        self.trash_toggle = wx.ToggleButton(self, label=tr("main.trash", count=0))
+        self.empty_trash_button = wx.Button(self, label=tr("main.empty_trash"))
+        self.empty_trash_button.Hide()
         self.tree.SetBackgroundColour(bg_col)
         self.SetBackgroundColour(bg_col)
 
@@ -187,10 +210,25 @@ class EntryListPanel(wx.Panel):
         box.Add(self.search, 0, wx.EXPAND | wx.ALL, 5)
         box.Add(self.tree, 1, wx.EXPAND)
         box.Add(self.info, 0, wx.EXPAND | wx.ALL, 8)
+        trash_box = wx.BoxSizer(wx.HORIZONTAL)
+        trash_box.Add(self.trash_toggle, 0, wx.ALL, 5)
+        trash_box.Add(self.empty_trash_button, 0, wx.ALL, 5)
+        box.Add(trash_box, 0, wx.EXPAND)
         self.SetSizer(box)
 
         self.search.Bind(wx.EVT_TEXT, lambda _: self.on_query(self.search.GetValue()))
         self.tree.Bind(wx.EVT_TREE_SEL_CHANGED, self._on_tree_selection)
+        self.trash_toggle.Bind(
+            wx.EVT_TOGGLEBUTTON, lambda _: on_trash(self.trash_toggle.GetValue())
+        )
+        self.empty_trash_button.Bind(wx.EVT_BUTTON, lambda _: on_empty_trash())
+
+    def show_trash(self, active: bool, count: int) -> None:
+        """Shows whether the trash is shown, and how many entries it has."""
+        self.trash_toggle.SetValue(active)
+        self.trash_toggle.SetLabel(tr("main.trash", count=count))
+        self.empty_trash_button.Show(active and count > 0)
+        self.Layout()
 
     def set_entries(
         self, shown: list[Entry], total: int, selected: Optional[Entry] = None
@@ -226,7 +264,9 @@ class EntryListPanel(wx.Panel):
         finally:
             self._notify = True
 
-        if total == 0:
+        if total == 0 and self.trash_toggle.GetValue():
+            self.info.SetLabel(tr("main.list.trash_empty"))
+        elif total == 0:
             self.info.SetLabel(tr("main.list.empty"))
         elif not shown:
             self.info.SetLabel(tr("main.list.no_match"))
@@ -370,6 +410,14 @@ class StoryTimeAppUI(wx.Frame):
     draft_image: Optional[str] = None
     #: The path of the image of the entry that is read, if there is one.
     prev_img_name: Optional[str] = None
+    #: The entry on the page to read.
+    shown_entry: Optional[Entry] = None
+    #: Whether the list shows the trash.
+    trash_active = False
+    #: Whether a saved entry is changed.
+    editing_existing = False
+    #: The date of the entry that is written.
+    draft_date: Optional[datetime] = None
 
     def __init__(
         self, parent: Optional[wx.Window] = None, dialogs: Optional[Dialogs] = None
@@ -426,12 +474,14 @@ class StoryTimeAppUI(wx.Frame):
             splitter,
             on_select=lambda entry: self.controller.select_entry(entry),
             on_query=lambda query: self.controller.set_query(query),
+            on_trash=lambda active: self.controller.set_trash_view(active),
+            on_empty_trash=lambda: self.controller.empty_trash(),
         )
         right = wx.Panel(splitter)
         self.book = wx.Simplebook(right)
 
         # Page to read an entry
-        view_page = wx.Panel(self.book)
+        view_page = self.view_page = wx.Panel(self.book)
         view_header = TextLinePanel(
             view_page,
             text="",
@@ -449,13 +499,40 @@ class StoryTimeAppUI(wx.Frame):
         self.prev_img_space.Bind(
             wx.EVT_LEFT_DOWN, lambda _: self.controller.show_selected_image()
         )
+        self.edit_button = wx.Button(view_page, label=tr("main.edit"))
+        self.edit_button.SetToolTip(f"{tr('toolbar.edit.help')} (Ctrl+E)")
+        self.delete_button = wx.Button(view_page, label=tr("main.delete"))
+        self.restore_button = wx.Button(view_page, label=tr("main.restore"))
+        self.delete_forever_button = wx.Button(
+            view_page, label=tr("main.delete_forever")
+        )
+        for button, action in (
+            (self.edit_button, lambda: self.controller.edit_selected()),
+            (self.delete_button, lambda: self.controller.delete_selected()),
+            (self.restore_button, lambda: self.controller.restore_selected()),
+            (
+                self.delete_forever_button,
+                lambda: self.controller.delete_selected_forever(),
+            ),
+        ):
+            button.Bind(wx.EVT_BUTTON, lambda _, action=action: action())
+        action_box = wx.BoxSizer(wx.HORIZONTAL)
+        action_box.AddStretchSpacer()
+        for button in (
+            self.edit_button,
+            self.delete_button,
+            self.restore_button,
+            self.delete_forever_button,
+        ):
+            action_box.Add(button, 0, wx.LEFT, 8)
         view_box = wx.BoxSizer(wx.VERTICAL)
         view_box.Add(view_header, 0, LR_EXPAND)
         view_box.Add(text_preview, 1, LR_EXPAND)
+        view_box.Add(action_box, 0, wx.EXPAND | wx.ALL, 8)
         view_page.SetSizer(view_box)
 
         # Page to write an entry
-        edit_page = wx.Panel(self.book)
+        edit_page = self.edit_page = wx.Panel(self.book)
         time_text = TextLinePanel(
             edit_page,
             text=tr("main.date_line", date="12.12.1212, 23:12:55"),
@@ -470,6 +547,7 @@ class StoryTimeAppUI(wx.Frame):
             drop_tgt=True,
             bg_col=text_bg_col,
             on_image=lambda path: self.controller.load_image(path),
+            on_remove_image=lambda: self.controller.remove_image(),
         )
         text_edit.SetMinSize((200, 200))
         self.text_edit_panel = text_edit
@@ -479,9 +557,19 @@ class StoryTimeAppUI(wx.Frame):
         )
         self.input_text_sizer = text_edit.GetSizer()
         self.input_text_field = text_edit.text_box
+        self.input_text_field.Bind(
+            wx.EVT_TEXT, lambda _: self.controller.draft_edited()
+        )
+        self.remove_image_button = text_edit.remove_image_button
+        self.discard_button = wx.Button(edit_page, label=tr("main.discard"))
+        self.discard_button.SetToolTip(f"{tr('toolbar.discard.help')} (Esc)")
+        self.discard_button.Bind(
+            wx.EVT_BUTTON, lambda _: self.controller.discard_draft()
+        )
         edit_box = wx.BoxSizer(wx.VERTICAL)
         edit_box.Add(time_text, 0, LR_EXPAND)
         edit_box.Add(text_edit, 1, LR_EXPAND)
+        edit_box.Add(self.discard_button, 0, wx.ALIGN_RIGHT | wx.ALL, 8)
         edit_page.SetSizer(edit_box)
 
         # The order of the pages is given by `VIEW_PAGE` and `EDIT_PAGE`
@@ -490,6 +578,24 @@ class StoryTimeAppUI(wx.Frame):
         right_box = wx.BoxSizer(wx.VERTICAL)
         right_box.Add(self.book, 1, wx.EXPAND)
         right.SetSizer(right_box)
+
+        # The bar to undo a discard, only shown for a few seconds
+        self.undo_bar = wx.Panel(right)
+        self.undo_bar.SetBackgroundColour(but_bg_col)
+        self.undo_label = wx.StaticText(self.undo_bar, label="")
+        self.undo_label.SetForegroundColour(bar_text_col)
+        self.undo_button = wx.Button(self.undo_bar, label=tr("undo.undo"))
+        self.undo_button.Bind(wx.EVT_BUTTON, lambda _: self.controller.undo_discard())
+        undo_box = wx.BoxSizer(wx.HORIZONTAL)
+        undo_box.Add(self.undo_label, 1, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 8)
+        undo_box.Add(self.undo_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
+        self.undo_bar.SetSizer(undo_box)
+        self.undo_bar.Hide()
+        self.undo_timer = wx.Timer(self)
+        self.Bind(
+            wx.EVT_TIMER, lambda _: self.controller.dismiss_undo(), self.undo_timer
+        )
+        right_box.Add(self.undo_bar, 0, wx.EXPAND)
 
         splitter.SplitVertically(self.entry_list, right, SIDEBAR_WIDTH)
         splitter.SetMinimumPaneSize(220)
@@ -545,7 +651,8 @@ class StoryTimeAppUI(wx.Frame):
         return self.input_text_field.GetValue()
 
     def set_text(self, text: str) -> None:
-        self.input_text_field.SetValue(text)
+        # Without the event, which is for what the user types
+        self.input_text_field.ChangeValue(text)
 
     def show_mode(self, editing: bool, photo_mode: bool) -> None:
         self.book.ChangeSelection(self.EDIT_PAGE if editing else self.VIEW_PAGE)
@@ -556,6 +663,7 @@ class StoryTimeAppUI(wx.Frame):
         for tool in self.edit_tools:
             self.toolbar.EnableTool(tool.Id, editing)
         self.image_drop_space.Show(photo_mode)
+        self._show_remove_button()
         if editing:
             self.input_text_field.SetFocus()
         self.resized_layout()
@@ -565,15 +673,48 @@ class StoryTimeAppUI(wx.Frame):
         self.image_drop_space.SetBitmap(
             get_image_to_show(self.default_img_drop if path is None else path)
         )
+        self._show_remove_button()
         self.resized_layout()
 
-    def show_draft_date(self, date_time: datetime) -> None:
-        self.date_label.SetLabelText(
-            tr("main.date_line", date=format_date_time(date_time))
+    def _show_remove_button(self) -> None:
+        """The button to remove the image is only there if there is one."""
+        self.remove_image_button.Show(
+            self.draft_image is not None and self.image_drop_space.IsShown()
         )
+        self.input_text_sizer.Layout()
+
+    def show_draft_date(self, date_time: datetime) -> None:
+        self.draft_date = date_time
+        key = "main.editing_line" if self.editing_existing else "main.date_line"
+        self.date_label.SetLabelText(tr(key, date=format_date_time(date_time)))
         self.Layout()
 
+    def show_editing_existing(self, existing: bool) -> None:
+        self.editing_existing = existing
+        self.discard_button.SetLabel(
+            tr("main.cancel_edit" if existing else "main.discard")
+        )
+        if self.draft_date is not None:
+            self.show_draft_date(self.draft_date)
+        self.edit_page.Layout()
+
+    def show_trash_view(self, active: bool, count: int) -> None:
+        self.trash_active = active
+        self.entry_list.show_trash(active, count)
+        self._show_actions()
+
+    def _show_actions(self) -> None:
+        """Shows the buttons for the entry that is read, if there is one."""
+        has_entry = self.shown_entry is not None
+        self.edit_button.Show(has_entry and not self.trash_active)
+        self.delete_button.Show(has_entry and not self.trash_active)
+        self.restore_button.Show(has_entry and self.trash_active)
+        self.delete_forever_button.Show(has_entry and self.trash_active)
+        self.view_page.Layout()
+
     def show_entry(self, entry: Optional[Entry], image: Optional[str]) -> None:
+        self.shown_entry = entry
+        self._show_actions()
         if entry is None:
             self.view_label.SetLabel(tr("main.view.nothing_selected"))
             self.fix_text_box.SetValue("")
@@ -596,6 +737,15 @@ class StoryTimeAppUI(wx.Frame):
             self.entry_list.clear_selection()
         else:
             self.entry_list.select_entry(entry)
+
+    def show_undo(self, message: Optional[str]) -> None:
+        self.undo_timer.Stop()
+        if message is not None:
+            self.undo_label.SetLabel(message)
+            self.undo_timer.StartOnce(int(UNDO_SECONDS * 1000))
+        self.undo_bar.Show(message is not None)
+        self.undo_bar.GetParent().Layout()
+        self.Layout()
 
     def show_folder(self, path: str) -> None:
         """Shows the data folder in the tooltip of the folder tool."""

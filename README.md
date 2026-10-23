@@ -30,6 +30,7 @@ $ story-time
 The entries are stored in one SQLite database, `story_time.sqlite`, in the data
 folder; the photos are in its `Img` folder. Every entry gets a stable id and
 every change is written atomically, so a crash cannot corrupt the diary.
+Deleted entries stay in the database, marked as deleted, until the trash is emptied.
 
 Diaries of older versions (one XML file per year in the `XML` folder) are taken
 over once, automatically, when the folder is opened: either all entries are
@@ -50,8 +51,10 @@ automatically. Taken photos are kept in a temporary folder until they are saved.
 | --- | --- |
 | Ctrl+N | Write a new entry, or go back to reading |
 | Ctrl+S | Save the entry |
+| Ctrl+E | Edit the entry that is read |
 | Ctrl+P | Switch between text-only and photo mode |
 | Ctrl+D | Choose another date and time |
+| Esc | Discard the text, image and date of the entry (can be undone) |
 | Ctrl+O | Choose another data folder |
 | Ctrl+T | Take a selfie with the webcam |
 | Ctrl+Q | Quit |
@@ -118,6 +121,19 @@ The entries are listed on the left, grouped by month, with a search field on
 top. Click an entry to read it. The first tool of the toolbar (or Ctrl+N)
 switches to writing a new entry, and back. The other tools (save, photo mode,
 date, selfie) are only active while writing.
+
+**Edit** (or Ctrl+E) below an entry that is read changes its text, date and
+photo; the button to discard becomes **Cancel** then, and asks first if
+something was changed. **Delete** moves the entry to the trash with an Undo bar.
+The **Trash** button below the list shows the trash: there an entry can be
+restored or **deleted for good**, or the whole trash be emptied, which also
+deletes the images that no entry uses any more. A replaced image is not deleted.
+
+**Discard** (button or Esc) clears the text, the image and the date of the entry
+that is written. **Remove image** below the image removes only the photo.
+Instead of asking for confirmation, an **Undo** bar appears for a few seconds.
+Leaving the page to write, or choosing an entry to read, discards a draft the
+same way. Only closing the app with unsaved changes asks first.
 
 ## Screenshots
 
