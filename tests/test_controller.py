@@ -4,16 +4,25 @@ import tempfile
 from datetime import datetime
 from unittest import TestCase
 
-from story_time import folders, settings
+from story_time import settings
 from story_time.controller import DiaryController
+from story_time.folders import DataFolder
 from story_time.images import NEW_IMAGE
 from story_time.texts import tr
-from story_time.XML_write import load_all_entries, save_entry
+from story_time.XML_write import EntryStore
 from tests.fakes import FakeDialogs, FakeView
-from tests.helpers import DATA_DIR, SAMPLE_IMG_DIR, create_test_dirs, use_data_dir
+from tests.helpers import (
+    DATA_DIR,
+    SAMPLE_IMG_DIR,
+    create_test_dirs,
+    img_dir,
+    use_data_dir,
+    xml_dir,
+)
 
 SAMPLE_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
 NOW = datetime(2026, 10, 23, 12, 0, 0)
+STORE = EntryStore(xml_dir)
 
 
 class ControllerTestCase(TestCase):
@@ -37,15 +46,21 @@ class ControllerTestCase(TestCase):
         self.dialogs = FakeDialogs()
         self.ctrl = DiaryController(self.view, self.dialogs, now=lambda: self.now)
         assert self.ctrl.start()
-        self.addCleanup(folders.remove_temp_folder)
+        self.addCleanup(self.ctrl.temp.remove)
 
     @staticmethod
     def seed_entries():
-        shutil.copy(SAMPLE_IMG, os.path.join(folders.img_folder, "IMG_1.jpg"))
-        save_entry("Walk by the lake\n\nsecond line", datetime(2020, 10, 22, 21, 32))
-        save_entry("Logo sketch", datetime(2020, 10, 20, 18, 15), "photo", "IMG_1.jpg")
-        save_entry("Lost photo", datetime(2020, 10, 19, 10), "photo", "missing.jpg")
-        save_entry("Spring", datetime(2020, 3, 3, 7, 30))
+        shutil.copy(SAMPLE_IMG, os.path.join(img_dir, "IMG_1.jpg"))
+        STORE.save_entry(
+            "Walk by the lake\n\nsecond line", datetime(2020, 10, 22, 21, 32)
+        )
+        STORE.save_entry(
+            "Logo sketch", datetime(2020, 10, 20, 18, 15), "photo", "IMG_1.jpg"
+        )
+        STORE.save_entry(
+            "Lost photo", datetime(2020, 10, 19, 10), "photo", "missing.jpg"
+        )
+        STORE.save_entry("Spring", datetime(2020, 3, 3, 7, 30))
 
     def entry(self, text):
         return next(e for e in self.ctrl.entries if e.text.startswith(text))
@@ -77,7 +92,7 @@ class TestStart(ControllerTestCase):
         assert self.dialogs.folder_asked == 0 and not self.dialogs.confirms
 
     def test_data_folder_is_created_and_remembered(self):
-        assert folders.data_path == DATA_DIR
+        assert self.ctrl.folder == DataFolder(DATA_DIR)
         self.ctrl.finish()
         assert settings.get_data_dir() == DATA_DIR
 
@@ -162,7 +177,7 @@ class TestSelecting(ControllerTestCase):
 
     def test_photo_entry_shows_the_image(self):
         self.ctrl.select_entry(self.entry("Logo"))
-        assert self.view.entry_image == os.path.join(folders.img_folder, "IMG_1.jpg")
+        assert self.view.entry_image == os.path.join(img_dir, "IMG_1.jpg")
 
     def test_missing_image_is_not_shown(self):
         self.ctrl.select_entry(self.entry("Lost"))
@@ -194,7 +209,7 @@ class TestSelecting(ControllerTestCase):
         assert self.dialogs.photos == []
         self.read("Logo")
         self.ctrl.show_selected_image()
-        assert self.dialogs.photos == [os.path.join(folders.img_folder, "IMG_1.jpg")]
+        assert self.dialogs.photos == [os.path.join(img_dir, "IMG_1.jpg")]
 
     def test_adjacent_entries(self):
         ctrl, view = self.ctrl, self.view
@@ -339,7 +354,7 @@ class TestSelfie(ControllerTestCase):
     def test_selfie_is_loaded_with_the_time_of_taking_it(self):
         self.dialogs.selfie_source = SAMPLE_IMG
         self.ctrl.take_selfie()
-        target = os.path.join(folders.get_temp_folder(), "IMG_20261023_120000_Self.png")
+        target = os.path.join(self.ctrl.temp.path, "IMG_20261023_120000_Self.png")
         assert self.dialogs.selfie_targets == [target]
         assert (self.ctrl.photo_mode, self.view.photo_mode) == (True, True)
         assert self.view.draft_image == target and os.path.isfile(target)
@@ -394,7 +409,8 @@ class TestChangeFolder(ControllerTestCase):
             self.read("Walk")
             self.dialogs.folder = other
             self.ctrl.change_folder()
-            assert self.view.folder == other and folders.data_path == other
+            assert self.view.folder == other
+            assert self.ctrl.folder == DataFolder(other)
             assert os.path.isdir(os.path.join(other, "XML"))
             assert self.ctrl.entries == [] and self.view.total == 0
             assert self.ctrl.selected is None
@@ -404,10 +420,11 @@ class TestChangeFolder(ControllerTestCase):
 
     def test_other_folder_with_entries(self):
         with tempfile.TemporaryDirectory() as other:
-            folders.update_folder(other)
-            folders.create_xml_and_img_folder(other)
-            save_entry("Somewhere else", datetime(2019, 1, 1, 9))
-            folders.update_folder(DATA_DIR)
+            folder = DataFolder(other)
+            folder.create()
+            EntryStore(folder.xml_folder).save_entry(
+                "Somewhere else", datetime(2019, 1, 1, 9)
+            )
             self.dialogs.folder = other
             self.ctrl.change_folder()
             assert self.texts() == ["Somewhere else"]
@@ -424,7 +441,7 @@ class TestSave(ControllerTestCase):
         self.view.text = "Brand new"
         assert self.ctrl.save()
 
-        entries = load_all_entries()
+        entries = STORE.load_all()
         assert entries[0].text == "Brand new" and entries[0].type == "text"
         assert entries[0].date_time == datetime(2021, 1, 2, 3, 4, 5)
         # The next entry starts, in the same mode
@@ -438,7 +455,7 @@ class TestSave(ControllerTestCase):
         assert self.dialogs.infos == [
             (tr("message.no_text.text"), tr("message.no_text.title"))
         ]
-        assert len(load_all_entries()) == 4
+        assert len(STORE.load_all()) == 4
 
     def test_photo_without_image(self):
         self.ctrl.set_photo_mode(True)
@@ -455,10 +472,10 @@ class TestSave(ControllerTestCase):
         self.view.text = "A photo"
         assert self.ctrl.save()
 
-        entry = load_all_entries()[0]
+        entry = STORE.load_all()[0]
         assert (entry.type, entry.text) == ("photo", "A photo")
         assert entry.photo == "IMG_20210102_030405.jpg"
-        assert os.path.isfile(os.path.join(folders.img_folder, entry.photo))
+        assert os.path.isfile(os.path.join(img_dir, entry.photo))
         # The next entry starts in the photo mode, without the image
         assert self.view.photo_mode and self.view.draft_image is None
         assert self.view.text == ""
@@ -469,8 +486,9 @@ class TestSave(ControllerTestCase):
             self.ctrl.load_image(SAMPLE_IMG, datetime(2021, 1, 2, 3, 4, 5))
             self.view.text = "A photo"
             assert self.ctrl.save()
-        assert self.dialogs.image_choices == [["IMG_20210102_030405.jpg"]]
-        photos = {e.photo for e in load_all_entries() if e.type == "photo"}
+        # The dialog is asked with the folder of the images and the existing ones
+        assert self.dialogs.image_choices == [(img_dir, ["IMG_20210102_030405.jpg"])]
+        photos = {e.photo for e in STORE.load_all() if e.type == "photo"}
         assert {"IMG_20210102_030405.jpg", "IMG_20210102_030405_0.jpg"} <= photos
 
     def test_existing_image_can_be_used(self):
@@ -482,11 +500,9 @@ class TestSave(ControllerTestCase):
         self.view.text = "Two"
         self.dialogs.image_choice = 0
         assert self.ctrl.save()
-        two = next(e for e in load_all_entries() if e.text == "Two")
+        two = next(e for e in STORE.load_all() if e.text == "Two")
         assert two.photo == "IMG_20210102_030405.jpg"
-        assert not os.path.exists(
-            os.path.join(folders.img_folder, "IMG_20210102_030405_0.jpg")
-        )
+        assert not os.path.exists(os.path.join(img_dir, "IMG_20210102_030405_0.jpg"))
 
     def test_no_decision_keeps_the_draft(self):
         self.ctrl.set_photo_mode(True)
@@ -499,14 +515,14 @@ class TestSave(ControllerTestCase):
         self.dialogs.image_choice = None
         assert not self.ctrl.save()
         assert self.view.text == "Two" and self.view.draft_image == SAMPLE_IMG
-        assert not any(e.text == "Two" for e in load_all_entries())
+        assert not any(e.text == "Two" for e in STORE.load_all())
         assert NEW_IMAGE == -1  # The default choice of the fake dialogs
 
     def test_not_while_reading(self):
         self.ctrl.set_writing(False)
         self.view.text = "Text"
         assert not self.ctrl.save()
-        assert len(load_all_entries()) == 4 and not self.dialogs.infos
+        assert len(STORE.load_all()) == 4 and not self.dialogs.infos
 
 
 class TestShortcuts(ControllerTestCase):
@@ -579,7 +595,7 @@ class TestClosing(ControllerTestCase):
         assert self.ctrl.request_close()
 
     def test_finish_cleans_up(self):
-        temp = folders.get_temp_folder()
+        temp = self.ctrl.temp.path
         self.ctrl.finish()
         assert not os.path.exists(temp)
         assert settings.get_data_dir() == DATA_DIR

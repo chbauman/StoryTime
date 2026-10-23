@@ -3,37 +3,39 @@ import shutil
 import tempfile
 from unittest import TestCase
 
-from story_time import folders, settings
+from story_time import settings
+from story_time.folders import (
+    DataFolder,
+    TempFolder,
+    get_data_folder,
+    save_data_folder,
+)
 
 
-class TestFolders(TestCase):
+class TestDataFolder(TestCase):
     def setUp(self):
         self.base = tempfile.mkdtemp(prefix="story_time_test_folders_")
         self.addCleanup(shutil.rmtree, self.base, True)
-        self.old_state = (folders.data_path, folders.img_folder, folders.xml_folder)
-        self.old_settings = settings.load_settings()
+        old_settings = settings.load_settings()
+        self.addCleanup(settings.save_settings, old_settings)
 
-    def tearDown(self):
-        folders.data_path, folders.img_folder, folders.xml_folder = self.old_state
-        settings.save_settings(self.old_settings)
+    def test_sub_folders(self):
+        folder = DataFolder(self.base)
+        assert folder.path == self.base
+        assert folder.img_folder == os.path.join(self.base, "Img")
+        assert folder.xml_folder == os.path.join(self.base, "XML")
 
-    def test_update_folder(self):
-        folders.update_folder(self.base)
-        assert folders.data_path == self.base
-        assert folders.img_folder == os.path.join(self.base, "Img")
-        assert folders.xml_folder == os.path.join(self.base, "XML")
+    def test_folders_are_independent(self):
+        # There is no global state, each folder knows its paths
+        other = DataFolder(os.path.join(self.base, "other"))
+        assert DataFolder(self.base).xml_folder != other.xml_folder
 
-    def test_dir_creation(self):
-        folders.create_xml_and_img_folder(self.base)
-        folders.create_xml_and_img_folder(self.base)  # Is fine if they exist
-        assert os.path.isdir(os.path.join(self.base, "Img"))
-        assert os.path.isdir(os.path.join(self.base, "XML"))
-
-    def test_create_dir(self):
-        nested = os.path.join(self.base, "a", "b", "c")
-        folders.create_dir(nested)
-        folders.create_dir(nested)
-        assert os.path.isdir(nested)
+    def test_creation(self):
+        folder = DataFolder(os.path.join(self.base, "new", "diary"))
+        folder.create()
+        folder.create()  # Is fine if they exist
+        assert os.path.isdir(folder.img_folder)
+        assert os.path.isdir(folder.xml_folder)
 
     def test_data_folder_from_settings(self):
         settings.set_data_dir(self.base)
@@ -41,7 +43,7 @@ class TestFolders(TestCase):
         def ask():
             raise AssertionError("must not ask")
 
-        assert folders.get_data_folder(ask) == self.base
+        assert get_data_folder(ask) == DataFolder(self.base)
         assert os.path.isdir(os.path.join(self.base, "XML"))
 
     def test_data_folder_is_asked_for(self):
@@ -52,49 +54,59 @@ class TestFolders(TestCase):
             asked.append(True)
             return self.base
 
-        assert folders.get_data_folder(ask) == self.base
+        assert get_data_folder(ask) == DataFolder(self.base)
         assert asked == [True]
         assert os.path.isdir(os.path.join(self.base, "Img"))
 
     def test_no_folder_chosen(self):
         settings.save_settings({})
-        assert folders.get_data_folder(lambda: None) is None
-        assert folders.get_data_folder(lambda: "") is None
+        assert get_data_folder(lambda: None) is None
+        assert get_data_folder(lambda: "") is None
         # Nothing is created in the current folder
         assert not os.path.exists("XML") and not os.path.exists("Img")
 
     def test_save_data_folder(self):
-        folders.update_folder(self.base)
-        folders.save_data_folder()
+        save_data_folder(DataFolder(self.base))
         assert settings.get_data_dir() == self.base
 
 
 class TestTempFolder(TestCase):
-    def tearDown(self):
-        folders.remove_temp_folder()
-
     def test_own_folder_in_system_temp(self):
-        folder = folders.get_temp_folder()
+        temp = TempFolder()
+        self.addCleanup(temp.remove)
+        folder = temp.path
         assert os.path.isdir(folder)
         assert os.path.dirname(folder) == os.path.realpath(tempfile.gettempdir()) or (
             os.path.dirname(folder) == tempfile.gettempdir()
         )
-        assert folders.get_temp_folder() == folder
+        assert temp.path == folder
+
+    def test_not_created_until_needed(self):
+        temp = TempFolder()
+        temp.remove()  # Nothing to remove, is fine
+
+    def test_each_one_has_its_own_folder(self):
+        first, second = TempFolder(), TempFolder()
+        self.addCleanup(first.remove)
+        self.addCleanup(second.remove)
+        assert first.path != second.path
 
     def test_remove_only_removes_own_folder(self):
         other = tempfile.mkdtemp(prefix="story_time_test_other_")
+        temp = TempFolder()
         try:
             with open(os.path.join(other, "keep.txt"), "w") as f:
                 f.write("keep")
-            folder = folders.get_temp_folder()
+            folder = temp.path
             with open(os.path.join(folder, "photo.png"), "w") as f:
                 f.write("x")
-            folders.remove_temp_folder()
+            temp.remove()
             assert not os.path.exists(folder)
             assert os.path.exists(os.path.join(other, "keep.txt"))
 
             # Removing twice is fine and a new folder is created when needed
-            folders.remove_temp_folder()
-            assert os.path.isdir(folders.get_temp_folder())
+            temp.remove()
+            assert os.path.isdir(temp.path)
         finally:
+            temp.remove()
             shutil.rmtree(other, ignore_errors=True)

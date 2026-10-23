@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from story_time import folders
-
 
 def init_XML(comm: str, year: int) -> elTree.ElementTree:
     """Initializes an XML document for a new year.
@@ -64,12 +62,15 @@ def insert_photo_entry(
     elTree.SubElement(ent, "photo").text = img_filename
 
 
-def load_XML(year: int, create: bool = True) -> tuple[elTree.ElementTree, str]:
+def load_XML(
+    xml_folder: str, year: int, create: bool = True
+) -> tuple[elTree.ElementTree, str]:
     """Loads an existing XML file and returns the Element tree.
 
     If it does not exist, a new element tree is initializes.
 
     Args:
+        xml_folder: The folder with the XML files.
         year: The year specifying the XML file.
         create: Whether to return a new tree if file not found.
 
@@ -77,7 +78,7 @@ def load_XML(year: int, create: bool = True) -> tuple[elTree.ElementTree, str]:
         The element tree and the filename.
     """
     yearStr = str(year)
-    xml_file = os.path.join(folders.xml_folder, f"{yearStr}.xml")
+    xml_file = os.path.join(xml_folder, f"{yearStr}.xml")
     if os.path.exists(xml_file):
         tree = elTree.parse(xml_file)
     elif create:
@@ -85,38 +86,6 @@ def load_XML(year: int, create: bool = True) -> tuple[elTree.ElementTree, str]:
     else:
         raise FileNotFoundError("File not found and create == False")
     return tree, xml_file
-
-
-def save_entry(
-    comm: str,
-    date_time: datetime,
-    entry_type: str = "text",
-    img_filename: str = None,
-) -> None:
-    """Reads the XML file and adds an entry element with the specified content.
-
-    Then saves the tree back to the file.
-
-    Args:
-        comm: The text for the entry.
-        date_time: The DateTime of the entry.
-        entry_type: The type of the entry, either "text" or "photo".
-        img_filename:
-    """
-    year = date_time.year
-    tree, xml_file = load_XML(year)
-
-    doc = tree.getroot().find("doc")
-    assert doc is not None, f"No doc found in XML of year {year}."
-    if entry_type == "text":
-        insert_text_entry(doc, date_time, comm)
-    elif entry_type == "photo":
-        assert img_filename is not None, "Need to specify image filename!"
-        bn: str = os.path.basename(img_filename)
-        insert_photo_entry(doc, date_time, bn, comm)
-    else:
-        raise ValueError(f"Entry of type: {entry_type} is not supported!")
-    tree.write(xml_file)
 
 
 @dataclass
@@ -149,30 +118,67 @@ def _entry_from_element(element: elTree.Element) -> Optional[Entry]:
     return Entry(date_time, "text", element.text or "")
 
 
-def load_all_entries() -> list[Entry]:
-    """Loads the entries of all XML files in the XML folder, newest first.
+class EntryStore:
+    """The entries of the diary, stored in one XML file per year in a folder."""
 
-    Files and entries that are not valid are skipped.
-    """
-    entries: list[Entry] = []
-    if not os.path.isdir(folders.xml_folder):
-        return entries
-    for name in sorted(os.listdir(folders.xml_folder)):
-        if not re.fullmatch(r"\d+\.xml", name):
-            continue
-        try:
-            tree = elTree.parse(os.path.join(folders.xml_folder, name))
-        except (elTree.ParseError, OSError):
-            continue
+    def __init__(self, xml_folder: str) -> None:
+        self.xml_folder = xml_folder
+
+    def save_entry(
+        self,
+        comm: str,
+        date_time: datetime,
+        entry_type: str = "text",
+        img_filename: Optional[str] = None,
+    ) -> None:
+        """Reads the XML file and adds an entry element with the specified content.
+
+        Then saves the tree back to the file.
+
+        Args:
+            comm: The text for the entry.
+            date_time: The date and time of the entry.
+            entry_type: The type of the entry, either "text" or "photo".
+            img_filename: For a photo the image file, only its name is stored.
+        """
+        year = date_time.year
+        tree, xml_file = load_XML(self.xml_folder, year)
+
         doc = tree.getroot().find("doc")
-        if doc is None:
-            continue
-        for element in doc.findall("entry"):
-            entry = _entry_from_element(element)
-            if entry is not None:
-                entries.append(entry)
-    entries.sort(key=lambda e: e.date_time, reverse=True)
-    return entries
+        assert doc is not None, f"No doc found in XML of year {year}."
+        if entry_type == "text":
+            insert_text_entry(doc, date_time, comm)
+        elif entry_type == "photo":
+            assert img_filename is not None, "Need to specify image filename!"
+            insert_photo_entry(doc, date_time, os.path.basename(img_filename), comm)
+        else:
+            raise ValueError(f"Entry of type: {entry_type} is not supported!")
+        tree.write(xml_file)
+
+    def load_all(self) -> list[Entry]:
+        """Loads the entries of all XML files in the folder, newest first.
+
+        Files and entries that are not valid are skipped.
+        """
+        entries: list[Entry] = []
+        if not os.path.isdir(self.xml_folder):
+            return entries
+        for name in sorted(os.listdir(self.xml_folder)):
+            if not re.fullmatch(r"\d+\.xml", name):
+                continue
+            try:
+                tree = elTree.parse(os.path.join(self.xml_folder, name))
+            except (elTree.ParseError, OSError):
+                continue
+            doc = tree.getroot().find("doc")
+            if doc is None:
+                continue
+            for element in doc.findall("entry"):
+                entry = _entry_from_element(element)
+                if entry is not None:
+                    entries.append(entry)
+        entries.sort(key=lambda e: e.date_time, reverse=True)
+        return entries
 
 
 def filter_entries(entries: list[Entry], query: str) -> list[Entry]:

@@ -6,7 +6,7 @@ from unittest.mock import patch
 import cv2
 import wx
 
-from story_time import dialogs, folders
+from story_time import dialogs
 from story_time.controller import NoWebcamError
 from story_time.dialogs import (
     AcceptPhoto,
@@ -23,9 +23,8 @@ from story_time.images import NEW_IMAGE
 from tests.helpers import SAMPLE_IMG_DIR
 from tests.wx_helpers import HAS_WEBCAM, NoFrameCapture, create_app, run_diag
 
-IMG_LIST = [
-    os.path.join(SAMPLE_IMG_DIR, f) for f in ["Entwurf.jpg", "calendar_icon.png"]
-]
+IMG_NAMES = ["Entwurf.jpg", "calendar_icon.png"]
+IMG_LIST = [os.path.join(SAMPLE_IMG_DIR, f) for f in IMG_NAMES]
 
 
 class TestDialogs(TestCase):
@@ -75,7 +74,7 @@ class TestDialogs(TestCase):
     def test_photo_exists_dialog(self):
         with create_app():
             # A destroyed dialog cannot be shown again, so create a new one each time.
-            photo_dlg = PhotoWithSameDateExistsDialog(IMG_LIST)
+            photo_dlg = PhotoWithSameDateExistsDialog(SAMPLE_IMG_DIR, IMG_NAMES)
 
             def test_1():
                 photo_dlg.OnNext(None)
@@ -85,11 +84,11 @@ class TestDialogs(TestCase):
             run_diag(photo_dlg, test_1)
             assert photo_dlg.chosenImgInd == 0
 
-            photo_dlg = PhotoWithSameDateExistsDialog(IMG_LIST)
+            photo_dlg = PhotoWithSameDateExistsDialog(SAMPLE_IMG_DIR, IMG_NAMES)
             run_diag(photo_dlg, lambda: photo_dlg.OnClose(None))
             assert photo_dlg.chosenImgInd is None
 
-            photo_dlg = PhotoWithSameDateExistsDialog(IMG_LIST)
+            photo_dlg = PhotoWithSameDateExistsDialog(SAMPLE_IMG_DIR, IMG_NAMES)
             run_diag(photo_dlg, lambda: photo_dlg.OnNew(None))
             assert photo_dlg.chosenImgInd == -1
 
@@ -149,9 +148,6 @@ class TestWxDialogs(TestCase):
         self.app = wx.App()
         self.addCleanup(self.app.Destroy)
         self.dialogs = WxDialogs()
-        old_img_folder = folders.img_folder
-        folders.img_folder = SAMPLE_IMG_DIR
-        self.addCleanup(setattr, folders, "img_folder", old_img_folder)
 
     def test_confirm(self):
         seen = []
@@ -174,11 +170,13 @@ class TestWxDialogs(TestCase):
 
     def test_choose_image(self):
         with answer(PhotoWithSameDateExistsDialog, lambda d: d.OnSelect(None)):
-            assert self.dialogs.choose_image(["Entwurf.jpg"]) == 0
+            assert self.dialogs.choose_image(SAMPLE_IMG_DIR, ["Entwurf.jpg"]) == 0
         with answer(PhotoWithSameDateExistsDialog, lambda d: d.OnNew(None)):
-            assert self.dialogs.choose_image(["Entwurf.jpg"]) == NEW_IMAGE
+            assert (
+                self.dialogs.choose_image(SAMPLE_IMG_DIR, ["Entwurf.jpg"]) == NEW_IMAGE
+            )
         with answer(PhotoWithSameDateExistsDialog, lambda d: d.OnClose(None)):
-            assert self.dialogs.choose_image(["Entwurf.jpg"]) is None
+            assert self.dialogs.choose_image(SAMPLE_IMG_DIR, ["Entwurf.jpg"]) is None
 
     def test_pick_date(self):
         start = datetime(2021, 3, 4, 5, 6, 7)

@@ -14,7 +14,6 @@ import cv2
 import wx
 import wx.adv
 
-from story_time import folders
 from story_time.controller import NoWebcamError
 from story_time.texts import tr
 from story_time.util import (
@@ -270,13 +269,22 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
 
     def __init__(
         self,
+        img_folder: str,
         file_list: Sequence,
         parent: wx.Frame = None,
         title: str = None,
     ) -> None:
+        """
+        Args:
+            img_folder: The folder with the images.
+            file_list: The names of the images in the folder to choose from.
+            parent: The parent window.
+            title: The title of the dialog.
+        """
         title = tr("dialog.same_date.title") if title is None else title
         super().__init__(parent, title=title)
 
+        self.img_folder = img_folder
         self.file_list = file_list
         self.chosenImgInd: Optional[int] = None
         self.shownImgInd = 0
@@ -318,7 +326,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         newButton.Bind(wx.EVT_BUTTON, self.OnNew)
 
     def get_img_at_ind(self, ind: int) -> wx.Bitmap:
-        pth = os.path.join(folders.img_folder, self.file_list[ind])
+        pth = os.path.join(self.img_folder, self.file_list[ind])
         return getImageToShow(pth, 100, border=5)
 
     def updateImg(self) -> None:
@@ -547,8 +555,8 @@ class WxDialogs:
         dialog.ShowModal()
         dialog.Destroy()
 
-    def choose_image(self, files: list[str]) -> Optional[int]:
-        dialog = PhotoWithSameDateExistsDialog(files)
+    def choose_image(self, img_folder: str, files: list[str]) -> Optional[int]:
+        dialog = PhotoWithSameDateExistsDialog(img_folder, files)
         dialog.ShowModal()
         dialog.Destroy()
         return dialog.chosenImgInd

@@ -12,25 +12,35 @@ from unittest import TestCase
 
 import wx
 
-from story_time import folders, settings
+from story_time import settings
 from story_time.main import main
 from story_time.shortcuts import KEY_LEFT, KEY_RIGHT
 from story_time.texts import tr
 from story_time.user_interface import StoryTimeAppUI, month_label
-from story_time.XML_write import load_all_entries, save_entry
+from story_time.XML_write import EntryStore
 from tests.fakes import FakeDialogs
-from tests.helpers import DATA_DIR, SAMPLE_IMG_DIR, create_test_dirs, use_data_dir
+from tests.helpers import (
+    DATA_DIR,
+    SAMPLE_IMG_DIR,
+    create_test_dirs,
+    img_dir,
+    use_data_dir,
+    xml_dir,
+)
 
 TEST_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
+STORE = EntryStore(xml_dir)
 
 
 def seed_entries():
     """Puts entries of two months, a photo and a missing photo into the folder."""
-    shutil.copy(TEST_IMG, os.path.join(folders.img_folder, "IMG_1.jpg"))
-    save_entry("Walk by the lake\n\nsecond line", datetime(2020, 10, 22, 21, 32))
-    save_entry("Logo sketch", datetime(2020, 10, 20, 18, 15), "photo", "IMG_1.jpg")
-    save_entry("Lost photo", datetime(2020, 10, 19, 10), "photo", "missing.jpg")
-    save_entry("Spring", datetime(2020, 3, 3, 7, 30))
+    shutil.copy(TEST_IMG, os.path.join(img_dir, "IMG_1.jpg"))
+    STORE.save_entry("Walk by the lake\n\nsecond line", datetime(2020, 10, 22, 21, 32))
+    STORE.save_entry(
+        "Logo sketch", datetime(2020, 10, 20, 18, 15), "photo", "IMG_1.jpg"
+    )
+    STORE.save_entry("Lost photo", datetime(2020, 10, 19, 10), "photo", "missing.jpg")
+    STORE.save_entry("Spring", datetime(2020, 3, 3, 7, 30))
 
 
 @contextmanager
@@ -312,7 +322,7 @@ class TestTools(TestCase):
             click(frame, save)
             text = frame.input_text_field.GetValue()
             rows = [e.first_line for e, _ in frame.entry_list.shown]
-            entries = load_all_entries()
+            entries = STORE.load_all()
         assert dialogs.infos == [
             (tr("message.no_text.text"), tr("message.no_text.title"))
         ]
@@ -378,7 +388,7 @@ class TestTools(TestCase):
             frame.prev_img_space.GetEventHandler().ProcessEvent(event)
         assert dialogs.photos == [
             TEST_IMG,
-            os.path.join(DATA_DIR, "Img", "IMG_1.jpg"),
+            os.path.join(img_dir, "IMG_1.jpg"),
         ]
 
 
@@ -469,7 +479,7 @@ class TestClosing(TestCase):
 
     def test_closing_saves_the_folder_and_cleans_up(self):
         with main_window() as (frame, _):
-            temp = folders.get_temp_folder()
+            temp = frame.controller.temp.path
             settings.save_settings({})
             frame.Close()
             assert not os.path.exists(temp)
