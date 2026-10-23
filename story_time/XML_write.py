@@ -6,7 +6,10 @@ in the file.
 """
 
 import os
+import re
 import xml.etree.ElementTree as elTree
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
 
 import wx
@@ -227,3 +230,79 @@ def find_closest_entry(
     assert date_child is not None, "Terrible bug is happening!"
     date, child = date_child
     return date, child
+
+
+@dataclass
+class Entry:
+    """An entry of the diary."""
+
+    date_time: datetime
+    type: str  #: Either "text" or "photo".
+    text: str
+    photo: Optional[str] = None  #: For photo entries the file name in the Img folder.
+
+    @property
+    def first_line(self) -> str:
+        """The first non-empty line of the text."""
+        for line in self.text.splitlines():
+            if line.strip():
+                return line.strip()
+        return ""
+
+
+def _entry_from_element(element: elTree.Element) -> Optional[Entry]:
+    """Converts an entry element, returns None if it is not valid."""
+    try:
+        date_time = datetime.fromisoformat(element.get("date_time", ""))
+    except ValueError:
+        return None
+    if element.get("type") == "photo":
+        text = element.findtext("text") or ""
+        return Entry(date_time, "photo", text, element.findtext("photo"))
+    return Entry(date_time, "text", element.text or "")
+
+
+def load_all_entries() -> list[Entry]:
+    """Loads the entries of all XML files in the XML folder, newest first.
+
+    Files and entries that are not valid are skipped.
+    """
+    entries: list[Entry] = []
+    if not os.path.isdir(util.xml_folder):
+        return entries
+    for name in sorted(os.listdir(util.xml_folder)):
+        if not re.fullmatch(r"\d+\.xml", name):
+            continue
+        try:
+            tree = elTree.parse(os.path.join(util.xml_folder, name))
+        except (elTree.ParseError, OSError):
+            continue
+        doc = tree.getroot().find("doc")
+        if doc is None:
+            continue
+        for element in doc.findall("entry"):
+            entry = _entry_from_element(element)
+            if entry is not None:
+                entries.append(entry)
+    entries.sort(key=lambda e: e.date_time, reverse=True)
+    return entries
+
+
+def filter_entries(entries: list[Entry], query: str) -> list[Entry]:
+    """Returns the entries whose text contains all words of the query.
+
+    The search ignores the case. All entries are returned for an empty query.
+    """
+    words = query.lower().split()
+    return [e for e in entries if all(w in e.text.lower() for w in words)]
+
+
+def group_by_month(entries: list[Entry]) -> list[tuple[tuple[int, int], list[Entry]]]:
+    """Groups entries by (year, month), in the order of the entries."""
+    groups: list[tuple[tuple[int, int], list[Entry]]] = []
+    for entry in entries:
+        key = (entry.date_time.year, entry.date_time.month)
+        if not groups or groups[-1][0] != key:
+            groups.append((key, []))
+        groups[-1][1].append(entry)
+    return groups

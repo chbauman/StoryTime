@@ -21,9 +21,9 @@ from story_time.util import (
     SelfieDialog,
     bar_text_col,
     but_bg_col,
-    button_f_info,
     copy_img_file_to_imgs,
     create_xml_and_img_folder,
+    datetime_to_wx_datetime,
     format_date_time,
     get_data_folder,
     get_img_name_from_time,
@@ -40,7 +40,13 @@ from story_time.util import (
     text_bg_col,
     update_folder,
 )
-from story_time.XML_write import find_closest_entry, save_entry
+from story_time.XML_write import (
+    Entry,
+    filter_entries,
+    group_by_month,
+    load_all_entries,
+    save_entry,
+)
 
 
 def shortcut_for(
@@ -48,15 +54,15 @@ def shortcut_for(
 ) -> Optional[str]:
     """Returns the name of the action of a keyboard shortcut, if there is one.
 
-    The arrow keys are only used if the cursor is not in the text input, as
-    they are needed there to move the cursor. With Alt they always work.
+    The arrow keys are only used if the cursor is not in the text input or the
+    list, as they are needed there to move around. With Alt they always work.
 
     Args:
         key: The key code.
         ctrl: Whether Ctrl (Cmd on macOS) is pressed.
         alt: Whether Alt is pressed.
         shift: Whether Shift is pressed.
-        in_text_input: Whether the text input has the keyboard focus.
+        in_text_input: Whether the text input or the list has the keyboard focus.
     """
     if shift:
         return None
@@ -69,6 +75,7 @@ def shortcut_for(
 
 #: Actions of the shortcuts with Ctrl, by the letter of the key.
 CTRL_SHORTCUTS = {
+    "N": "new",
     "S": "save",
     "P": "photo",
     "D": "date",
@@ -78,6 +85,9 @@ CTRL_SHORTCUTS = {
 }
 
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
+SIDEBAR_WIDTH = 340  #: Initial width of the list of the entries.
+MAX_IMAGE_SIZE = 400  #: Maximum edge length of the shown images in pixels.
+MAX_LABEL_TEXT = 28  #: Maximum number of characters of an entry in the list.
 EXPAND_ALL = wx.ALL | wx.EXPAND
 
 
@@ -105,42 +115,6 @@ class TextLinePanel(wx.Panel):
         self.SetBackgroundColour(bg_col)
 
 
-class TwoButtonPanel(wx.Panel):
-    def __init__(
-        self,
-        parent: wx.Frame,
-        labels: list[str],
-        center: bool = True,
-        bg_col: wx.Colour = but_bg_col,
-    ):
-        wx.Panel.__init__(self, parent)
-        box = wx.BoxSizer(wx.VERTICAL)
-        # Next and previous entry buttons
-        self.but_1 = wx.Button(self, wx.ID_ANY, label=labels[0], size=(100, 35))
-        self.but_2 = wx.Button(self, wx.ID_ANY, label=labels[1], size=(100, 35))
-        self.but_1.SetFont(wx.Font(button_f_info))
-        self.but_2.SetFont(wx.Font(button_f_info))
-
-        h_box_p_but = wx.BoxSizer(wx.HORIZONTAL)
-        h_box_p_but.Add(self.but_1)
-        h_box_p_but.Add(self.but_2, flag=wx.LEFT, border=5)
-
-        flags = (
-            wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM
-            if center
-            else wx.ALIGN_RIGHT | wx.TOP | wx.BOTTOM
-        )
-        box.Add(h_box_p_but, 1, flags, 5)
-        box.Fit(self)
-        self.SetAutoLayout(True)
-        self.SetSizer(box)
-        self.SetBackgroundColour(bg_col)
-
-    def set_but_methods(self, met_1: Callable, met_2: Callable) -> None:
-        self.Bind(wx.EVT_BUTTON, met_1, id=self.but_1.Id)
-        self.Bind(wx.EVT_BUTTON, met_2, id=self.but_2.Id)
-
-
 class TextAndImgPanel(wx.Panel):
     text_box: wx.TextCtrl
 
@@ -150,7 +124,16 @@ class TextAndImgPanel(wx.Panel):
         editable: bool = False,
         drop_tgt: bool = False,
         bg_col: wx.Colour = text_bg_col,
+        frame: Optional[wx.Frame] = None,
     ):
+        """
+        Args:
+            parent: The parent window.
+            editable: Whether it is the text input (otherwise a read-only text).
+            drop_tgt: Whether the image is a drop target for image files.
+            bg_col: The background color.
+            frame: The main frame that gets the dropped files, default `parent`.
+        """
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
 
@@ -163,7 +146,7 @@ class TextAndImgPanel(wx.Panel):
         self.img = wx.StaticBitmap(self, -1, self.bmp_shown)
         if drop_tgt:
             self.img.Hide()
-            self.fileDrop = FileDrop(self.img, parent)
+            self.fileDrop = FileDrop(self.img, frame or parent)
             self.img.SetDropTarget(self.fileDrop)
         self.img.Hide()
 
@@ -181,7 +164,7 @@ class TextAndImgPanel(wx.Panel):
         EXP_ALL = wx.EXPAND | wx.ALL
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
 
-        h_box_3.Add(self.img, proportion=1, flag=EXP_ALL, border=5)
+        h_box_3.Add(self.img, proportion=1, flag=wx.ALL | wx.ALIGN_TOP, border=5)
         h_box_3.Add(self.text_box, proportion=3, flag=EXP_ALL, border=5)
 
         box.Add(h_box_3, 1, EXP_ALL, 5)
@@ -191,9 +174,170 @@ class TextAndImgPanel(wx.Panel):
         self.SetBackgroundColour(bg_col)
 
 
+def entry_label(entry: Entry) -> str:
+    """The text of an entry in the list: day, time and the first line."""
+    dt = entry.date_time
+    weekday = wx.DateTime.GetWeekDayName(
+        datetime_to_wx_datetime(dt).GetWeekDay(), wx.DateTime.Name_Abbr
+    )
+    text = entry.first_line
+    if len(text) > MAX_LABEL_TEXT:
+        text = text[: MAX_LABEL_TEXT - 1].rstrip() + "\u2026"
+    if entry.type == "photo":
+        text = f"{tr('main.list.photo')} {text}".strip()
+    return f"{dt.day}. {weekday}  {dt:%H:%M}  {text}"
+
+
+def month_label(year: int, month: int) -> str:
+    """The text of a month in the list."""
+    return f"{wx.DateTime.GetMonthName(month - 1, wx.DateTime.Name_Full)} {year}"
+
+
+class EntryListPanel(wx.Panel):
+    """Searchable list of the entries, newest first and grouped by month."""
+
+    def __init__(
+        self,
+        parent: wx.Window,
+        on_select: Callable[[Entry], None],
+        bg_col: wx.Colour = text_bg_col,
+    ):
+        """
+        Args:
+            parent: The parent window.
+            on_select: Called with the entry when the user selects one.
+            bg_col: The background color.
+        """
+        wx.Panel.__init__(self, parent)
+        self.on_select = on_select
+        self.entries: list[Entry] = []
+        #: The shown entries in the order of the list, with their tree items.
+        self.shown: list[tuple[Entry, wx.TreeItemId]] = []
+        self._notify = True
+
+        self.search = wx.SearchCtrl(self)
+        self.search.SetDescriptiveText(tr("main.list.search_hint"))
+        self.search.ShowCancelButton(True)
+        self.tree = wx.TreeCtrl(
+            self,
+            style=wx.TR_HIDE_ROOT
+            | wx.TR_HAS_BUTTONS
+            | wx.TR_LINES_AT_ROOT
+            | wx.TR_NO_LINES
+            | wx.TR_FULL_ROW_HIGHLIGHT
+            | wx.TR_SINGLE,
+        )
+        self.info = wx.StaticText(self, label="")
+        self.tree.SetBackgroundColour(bg_col)
+        self.SetBackgroundColour(bg_col)
+
+        box = wx.BoxSizer(wx.VERTICAL)
+        box.Add(self.search, 0, wx.EXPAND | wx.ALL, 5)
+        box.Add(self.tree, 1, wx.EXPAND)
+        box.Add(self.info, 0, wx.EXPAND | wx.ALL, 8)
+        self.SetSizer(box)
+
+        self.search.Bind(wx.EVT_TEXT, lambda _: self.refresh())
+        self.tree.Bind(wx.EVT_TREE_SEL_CHANGED, self._on_tree_selection)
+
+    def set_entries(self, entries: list[Entry]) -> None:
+        """Sets all entries, newest first. Keeps the selection if possible."""
+        self.entries = entries
+        self.refresh()
+
+    def refresh(self) -> None:
+        """Rebuilds the tree, only with the entries matching the search."""
+        query = self.search.GetValue()
+        selected = self.selected_entry()
+        shown = filter_entries(self.entries, query)
+
+        self._notify = False
+        try:
+            self.tree.Freeze()
+            self.tree.DeleteAllItems()
+            root = self.tree.AddRoot("")
+            self.shown = []
+            for n, ((year, month), group) in enumerate(group_by_month(shown)):
+                month_item = self.tree.AppendItem(root, month_label(year, month))
+                for entry in group:
+                    item = self.tree.AppendItem(month_item, entry_label(entry))
+                    self.tree.SetItemData(item, entry)
+                    self.shown.append((entry, item))
+                # Show the newest month, or everything if searching
+                if n == 0 or query.strip():
+                    self.tree.Expand(month_item)
+            for entry, item in self.shown:
+                if entry == selected:
+                    self.tree.SelectItem(item)
+                    self.tree.EnsureVisible(item)
+            self.tree.Thaw()
+        finally:
+            self._notify = True
+
+        if not self.entries:
+            self.info.SetLabel(tr("main.list.empty"))
+        elif not shown:
+            self.info.SetLabel(tr("main.list.no_match"))
+        else:
+            self.info.SetLabel("")
+        self.Layout()
+
+    def selected_entry(self) -> Optional[Entry]:
+        """The selected entry, None if none or a month is selected."""
+        item = self.tree.GetSelection()
+        if not item.IsOk():
+            return None
+        data = self.tree.GetItemData(item)
+        return data if isinstance(data, Entry) else None
+
+    def clear_selection(self) -> None:
+        """Deselects the entry without notifying."""
+        self._notify = False
+        try:
+            self.tree.Unselect()  # `UnselectAll` does nothing for a single selection
+        finally:
+            self._notify = True
+
+    def select_entry(self, entry: Entry, notify: bool = False) -> bool:
+        """Selects the given entry, returns whether it is in the list."""
+        for shown_entry, item in self.shown:
+            if shown_entry == entry:
+                self._notify = notify
+                try:
+                    self.tree.SelectItem(item)
+                    self.tree.EnsureVisible(item)
+                finally:
+                    self._notify = True
+                return True
+        return False
+
+    def select_adjacent(self, step: int) -> bool:
+        """Selects the entry `step` positions further down in the list.
+
+        Selects the first one if none is selected. Does not go past the ends.
+        Returns whether the selection changed.
+        """
+        if not self.shown:
+            return False
+        selected = self.selected_entry()
+        index = next((i for i, (e, _) in enumerate(self.shown) if e == selected), None)
+        new_index = (
+            0 if index is None else min(max(index + step, 0), len(self.shown) - 1)
+        )
+        if new_index == index:
+            return False
+        return self.select_entry(self.shown[new_index][0], notify=True)
+
+    def _on_tree_selection(self, _: Any) -> None:
+        entry = self.selected_entry()
+        if self._notify and entry is not None:
+            self.on_select(entry)
+
+
 class ToolbarPanel(wx.Panel):
     #: Icon file, key of the texts, keyboard shortcut and whether it is a toggle tool.
     tool_list = [
+        ("new_icon.png", "toolbar.new", "Ctrl+N", True),
         ("save_icon.png", "toolbar.save", "Ctrl+S"),
         ("photo_icon.png", "toolbar.photo", "Ctrl+P", True),
         ("calendar_icon.png", "toolbar.date", "Ctrl+D"),
@@ -202,6 +346,10 @@ class ToolbarPanel(wx.Panel):
     ]
     tools: list[wx.ToolBarToolBase]
     photoTool: Union[Any, wx.ToolBarToolBase]
+    new_tool: wx.ToolBarToolBase
+    folder_tool: wx.ToolBarToolBase
+    #: The tools that are only needed to write an entry.
+    edit_tools: list[wx.ToolBarToolBase]
 
     def __init__(self, parent: wx.Frame, bg_col: wx.Colour = header_col):
         wx.Panel.__init__(self, parent)
@@ -227,7 +375,7 @@ class ToolbarPanel(wx.Panel):
         for t in self.tool_list:
             icon_name, text_key, shortcut, *rest = t
             name = tr(f"{text_key}.name")
-            help_txt = f"{tr(f'{text_key}.help')} ({shortcut})"
+            help_txt = self.tool_help(text_key, shortcut)
             tool_id = wx.Window.NewControlId()
             img_path = resource_filename(f"Icons/{icon_name}")
             icon = scale_bitmap(wx.Bitmap(img_path), *iconSize)
@@ -240,13 +388,23 @@ class ToolbarPanel(wx.Panel):
             tool = fun(*args, shortHelp=help_txt)
             self.tools.append(tool)
 
-        self.photoTool = self.tools[1]
+        self.new_tool = self.tools[0]
+        self.photoTool = self.tools[2]
+        self.folder_tool = self.tools[4]
+        self.edit_tools = [self.tools[i] for i in (1, 2, 3, 5)]
 
         self.toolbar.AddSeparator()
         self.toolbar.Realize()
 
+    @staticmethod
+    def tool_help(text_key: str, shortcut: str, extra: str = "") -> str:
+        """The tooltip of a tool, with its shortcut and optionally more info."""
+        return f"{tr(f'{text_key}.help')} ({shortcut})" + (
+            f"\n{extra}" if extra else ""
+        )
+
     def bind_tools(self, met_list: list[Callable]) -> None:
-        assert len(met_list) == 5 == len(self.tools), f"Tools: {self.tools}"
+        assert len(met_list) == 6 == len(self.tools), f"Tools: {self.tools}"
         for met, tool in zip(met_list, self.tools):
             self.Bind(wx.EVT_TOOL, met, tool)
 
@@ -265,14 +423,19 @@ class StoryTimeApp(wx.Frame):
 
     # GUI elements
     photoTool: wx.ToolBarToolBase
+    new_tool: wx.ToolBarToolBase
+    folder_tool: wx.ToolBarToolBase
+    edit_tools: list[wx.ToolBarToolBase]
     toolbar: wx.ToolBar
     main_panel: Union[wx.BoxSizer, wx.Panel]
     fileDrop: FileDrop
+    entry_list: EntryListPanel
+    book: wx.Simplebook  #: The pages to read (`VIEW_PAGE`) and to write (`EDIT_PAGE`).
 
     # Text
     input_text_field: wx.TextCtrl
     dateLabel: wx.StaticText
-    cwd: wx.StaticText
+    view_label: wx.StaticText
     fix_text_box: wx.TextCtrl
 
     # Images
@@ -284,24 +447,18 @@ class StoryTimeApp(wx.Frame):
 
     prev_img_name = None
 
-    curr_next_prev = None
-    curr_prev_prev = None
-
     # Boxes
     v_box: wx.BoxSizer
-    h_box_1: wx.BoxSizer
-    h_box_cwd: wx.BoxSizer
-    h_box_4: wx.BoxSizer
 
-    next_prev_buttons: TwoButtonPanel
+    VIEW_PAGE = 0
+    EDIT_PAGE = 1
 
-    # Data to keep track of the entry in the preview. `prev_dt` contains the
-    # wx.DateTime of the previewed entry. If it reaches the end, it is either
-    # `max_dt` or `min_dt`.
-    prev_dt: wx.DateTime
-    newest_reached: Optional[bool] = None
-    max_dt: wx.DateTime = wx.DateTime(1, 1, 10000)
-    min_dt: wx.DateTime = wx.DateTime(1, 1, 1)
+    text_edit_panel: "TextAndImgPanel"  #: Text input and image to write an entry.
+    text_preview_panel: "TextAndImgPanel"  #: Text and image of the shown entry.
+    splitter: wx.SplitterWindow
+
+    #: Whether a new entry is written (otherwise the entries are read).
+    editing: bool = True
 
     cdDialog: ChangeDateDialog
     default_img_drop: str
@@ -323,8 +480,11 @@ class StoryTimeApp(wx.Frame):
         self.dateLabel.SetLabelText(self.date_txt(dt))
 
     def set_folder_txt(self) -> None:
-        """Sets the text in the directory textbox."""
-        self.cwd.SetLabelText(self.working_dir_txt())
+        """Shows the data folder in the tooltip of the folder tool."""
+        self.toolbar.SetToolShortHelp(
+            self.folder_tool.Id,
+            ToolbarPanel.tool_help("toolbar.folder", "Ctrl+O", self.working_dir_txt()),
+        )
 
     def set_img(self, name: str) -> None:
         """Sets an image in the preview panel in photo mode.
@@ -557,6 +717,7 @@ class StoryTimeApp(wx.Frame):
         # Clear the contents
         self.removeImg()
         self.remove_written_text()
+        self.reload_entries()
 
     def remove_written_text(self) -> None:
         """Clear text field and update date and time to now."""
@@ -586,9 +747,13 @@ class StoryTimeApp(wx.Frame):
 
         # Update and create data directories if not existing
         update_folder(files_path)
-        self.cwd.SetLabelText(self.working_dir_txt())
+        self.set_folder_txt()
         create_xml_and_img_folder(files_path)
         self.set_date_to_now()
+        self.reload_entries()
+        self.entry_list.clear_selection()
+        if not self.editing:
+            self.show_entry(None)
 
     def OnX(self, _: Any, _deb_fun: Callable = None) -> None:
         """Called when the X is clicked to close.
@@ -609,107 +774,96 @@ class StoryTimeApp(wx.Frame):
         self.update_date(wx.DateTime.Now())
 
     def update_date(self, new_date: wx.DateTime = None) -> None:
-        """Updates the date to specified datetime.
-
-        Updates the static datetime text and looks
-        for the most recent XML text entries for text preview.
-        """
+        """Updates the date to specified datetime and shows it."""
         if new_date is not None:
             self.cdDialog.dt = new_date
-        new_lab = self.date_txt(self.cdDialog.dt)
-        curr_lt = self.dateLabel.LabelText
-        if curr_lt != new_lab:
-            self.set_date_txt()
-            self.prev_dt = self.cdDialog.dt
-            self.update_preview_text(set_next=False)
-            self.Layout()
+        self.set_date_txt()
+        self.Layout()
 
-    def _get_text_to_put(
-        self, last: bool = True, set_img: bool = False, use_prev_dt: bool = False
-    ) -> tuple[str, bool]:
-        search_dt = self.cdDialog.dt if not use_prev_dt else self.prev_dt
-        ret_val = find_closest_entry(search_dt, not last)
-        if ret_val is None:
-            if use_prev_dt:
-                self.newest_reached = not last
-                self.prev_dt = self.min_dt if last else self.max_dt
-                self.rem_prev_img()
-            return "", True
-        self.newest_reached = None
-        child: Any
-        date, child = ret_val
-        is_text = child.get("type") == "text"
-        child_text = (
-            child.text
-            if is_text
-            else tr("main.preview.photo", text=child.find("text").text)
-        )
-        changed_img = False
-        if set_img:
-            if not is_text:
-                prev_img_name = child.find("photo").text
-                new_p_img_name = os.path.join(
-                    story_time.util.data_path, "Img", prev_img_name
-                )
-                if self.prev_img_name != new_p_img_name:
-                    self.prev_img_name = new_p_img_name
-                    changed_img = True
-                    self.set_prev_img(self.prev_img_name)
-            else:
-                if self.prev_img_name is not None:
-                    r = self.rem_prev_img()
-                    changed_img = not r
+    def reload_entries(self) -> None:
+        """Loads all entries from the files and shows them in the list."""
+        self.entry_list.set_entries(load_all_entries())
 
-        self.prev_dt = date
-        ret_str = tr(
-            "main.preview.last" if last else "main.preview.next",
-            date=format_date_time(date),
-        )
-        ret_str += "\n\n"
-        ret_str += child_text + "\n\n"
-        return ret_str, changed_img
-
-    def update_preview_text(self, set_next: bool = None) -> None:
-        """Fills the static datetime text with the most recent entries
-        for preview.
-        """
-
-        # Construct the text to put into the preview panel.
-        text_to_put = ""
-        ch_img = True
-        if set_next is not None:
-            nxt, ch_img = self._get_text_to_put(not set_next, True, True)
-            text_to_put += nxt
+    def show_entry(self, entry: Optional[Entry]) -> None:
+        """Shows the entry on the page to read, nothing if `entry` is None."""
+        if entry is None:
+            self.view_label.SetLabel(tr("main.view.nothing_selected"))
+            self.fix_text_box.SetValue("")
+            self.rem_prev_img()
         else:
-            prv, ch_img_prv = self._get_text_to_put(True, True)
-            text_to_put += prv
-            ch_img = ch_img or ch_img_prv
-        if text_to_put == "":
-            text_to_put = tr(
-                "main.preview.no_newer"
-                if self.newest_reached
-                else "main.preview.no_older"
+            self.view_label.SetLabel(
+                format_date_time(datetime_to_wx_datetime(entry.date_time))
             )
-            if self.newest_reached:
-                self.next_prev_buttons.but_2.Disable()
-                if not self.next_prev_buttons.but_1.IsEnabled():
-                    self.next_prev_buttons.but_1.Enable()
+            self.fix_text_box.SetValue(entry.text)
+            img_path = (
+                os.path.join(story_time.util.img_folder, entry.photo)
+                if entry.photo
+                else None
+            )
+            if img_path is not None and os.path.isfile(img_path):
+                self.prev_img_name = img_path
+                self.set_prev_img(img_path)
             else:
-                self.next_prev_buttons.but_1.Disable()
-                if not self.next_prev_buttons.but_2.IsEnabled():
-                    self.next_prev_buttons.but_2.Enable()
-            if set_next is None:
-                self.prev_dt = self.min_dt
-        else:
-            if not self.next_prev_buttons.but_2.IsEnabled():
-                self.next_prev_buttons.but_2.Enable()
-            if not self.next_prev_buttons.but_1.IsEnabled():
-                self.next_prev_buttons.but_1.Enable()
+                self.rem_prev_img()
+        self.layout_all()
 
-        if self.fix_text_box.GetValue() != text_to_put or ch_img:
-            # Set text and update layout
-            self.fix_text_box.SetValue(text_to_put)
-            self.v_box.Layout()
+    def set_editing(self, editing: bool) -> None:
+        """Switches between writing a new entry and reading the entries."""
+        self.editing = editing
+        self.book.ChangeSelection(self.EDIT_PAGE if editing else self.VIEW_PAGE)
+        self.Layout()
+        self.toolbar.ToggleTool(self.new_tool.Id, editing)
+        for tool in self.edit_tools:
+            self.toolbar.EnableTool(tool.Id, editing)
+        if editing:
+            self.entry_list.clear_selection()
+            self.input_text_field.SetFocus()
+        else:
+            self.show_entry(self.entry_list.selected_entry())
+        self.resized_layout()
+
+    def reset_draft(self) -> None:
+        """Throws away the text, the image, the chosen time and the photo mode."""
+        self.removeImg()
+        self.remove_written_text()
+        if self.image_drop_space.IsShown():
+            self.image_drop_space.Hide()
+        self.toolbar.ToggleTool(self.photoTool.Id, False)
+
+    def leave_editing(self, _deb_fun: Callable = None) -> bool:
+        """Goes back to reading, asks first if there is something unsaved.
+
+        Returns whether it was left.
+        """
+        if self.check_if_discard_changes(_deb_fun) == -1:
+            return False
+        self.reset_draft()
+        self.set_editing(False)
+        return True
+
+    def OnNew(self, _: Any, _deb_fun: Callable = None) -> None:
+        """Handles the tool to write a new entry, which can also leave it again."""
+        if self.toolbar.GetToolState(self.new_tool.Id):
+            self.set_editing(True)
+        elif not self.leave_editing(_deb_fun):
+            self.toolbar.ToggleTool(self.new_tool.Id, True)
+
+    def on_entry_selected(self, entry: Entry, _deb_fun: Callable = None) -> None:
+        """Called if the user selects an entry in the list."""
+        if self.editing and not self.leave_editing(_deb_fun):
+            self.entry_list.clear_selection()
+        else:
+            self.show_entry(entry)
+
+    def layout_all(self) -> None:
+        """Lays out the frame and the panels with the texts and the images.
+
+        Showing or hiding an image does not lay out the panels around it.
+        """
+        self.Layout()
+        for panel in (self.text_edit_panel, self.text_preview_panel):
+            panel.Layout()
+            panel.GetParent().Layout()
 
     def resized_layout(self) -> None:
         self.Layout()
@@ -736,18 +890,18 @@ class StoryTimeAppUI(StoryTimeApp):
         files_path = get_data_folder()
         update_folder(files_path)
         print("util.img_folder", util.img_folder)
+        self.imgLoaded = False
         self.InitUI()
-        self.SetSize((700, 800))
+        self.SetSize((1000, 720))
+        self.splitter.SetSashPosition(SIDEBAR_WIDTH)  # It has to follow the size
         self.SetTitle(tr("app.title"))
         self.Center()
 
-        self.imgLoaded = False
-
-    def next_entry(self, _: Any) -> None:
-        self.update_preview_text(True)
-
-    def prev_entry(self, _: Any) -> None:
-        self.update_preview_text(False)
+    def toggle_new_entry(self) -> None:
+        """Same as clicking the tool to write a new entry."""
+        tool_id = self.new_tool.Id
+        self.toolbar.ToggleTool(tool_id, not self.toolbar.GetToolState(tool_id))
+        self.OnNew(None)
 
     def toggle_photo_mode(self) -> None:
         """Same as clicking the photo tool: toggles it and changes the mode."""
@@ -757,7 +911,8 @@ class StoryTimeAppUI(StoryTimeApp):
 
     def on_key(self, event: wx.KeyEvent) -> None:
         """Handles the keyboard shortcuts, passes on all other keys."""
-        in_text = isinstance(wx.Window.FindFocus(), wx.TextCtrl)
+        # The cursor keys are needed to move in the text and in the list
+        in_text = isinstance(wx.Window.FindFocus(), (wx.TextCtrl, wx.TreeCtrl))
         action = shortcut_for(
             event.GetKeyCode(),
             event.CmdDown(),
@@ -769,17 +924,22 @@ class StoryTimeAppUI(StoryTimeApp):
             event.Skip()
             return
 
-        buttons = self.next_prev_buttons
+        # Only the writing tools are needed to write, just like the toolbar
+        writing_only = {"save", "photo", "date", "selfie"}
+        if action in writing_only and not self.editing:
+            return
+
         handlers = {
+            "new": self.toggle_new_entry,
             "save": lambda: self.OnSave(None),
             "photo": self.toggle_photo_mode,
             "date": lambda: self.OnChangeDate(None),
             "folder": lambda: self.OnChangeDir(None),
             "selfie": lambda: self.OnSelfie(None),
             "quit": self.Close,
-            # Like the buttons, do nothing if there is no such entry
-            "prev": lambda: buttons.but_1.IsEnabled() and self.prev_entry(None),
-            "next": lambda: buttons.but_2.IsEnabled() and self.next_entry(None),
+            # The list has the newest entry on top, so older ones are further down
+            "prev": lambda: not self.editing and self.entry_list.select_adjacent(1),
+            "next": lambda: not self.editing and self.entry_list.select_adjacent(-1),
         }
         handlers[action]()
 
@@ -787,6 +947,7 @@ class StoryTimeAppUI(StoryTimeApp):
 
         # Setup toolbar
         met_list: list = [
+            self.OnNew,
             self.OnSave,
             self.OnPhoto,
             self.OnChangeDate,
@@ -796,93 +957,128 @@ class StoryTimeAppUI(StoryTimeApp):
         tool_panel = ToolbarPanel(self, bg_col=header_col)
         tool_panel.bind_tools(met_list)
         self.photoTool = tool_panel.photoTool
+        self.new_tool = tool_panel.new_tool
+        self.folder_tool = tool_panel.folder_tool
+        self.edit_tools = tool_panel.edit_tools
         self.toolbar = tool_panel.toolbar
 
-        path_text = TextLinePanel(
-            self,
-            text=tr("main.working_dir", path="Path/to/the/working/directory"),
-            bg_col=header_col,
+        # Left the list of the entries, right the page to read or write one
+        splitter = self.splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
+        self.entry_list = EntryListPanel(splitter, self.on_entry_selected)
+        right = wx.Panel(splitter)
+        self.book = wx.Simplebook(right)
+
+        # Page to read an entry
+        view_page = wx.Panel(self.book)
+        view_header = TextLinePanel(
+            view_page,
+            text="",
+            center_text=True,
+            bg_col=but_bg_col,
+            text_col=bar_text_col,
         )
-        self.cwd = path_text.stat_text
+        self.view_label = view_header.stat_text
+        text_preview = TextAndImgPanel(
+            view_page, editable=False, bg_col=text_bg_col, frame=self
+        )
+        text_preview.SetMinSize((200, 200))
+        self.text_preview_panel = text_preview
+        self.text_prev_sizer = text_preview.GetSizer()
+        self.fix_text_box = text_preview.text_box
+        self.prev_img_space = text_preview.img
+        self.prev_img_space.Bind(wx.EVT_LEFT_DOWN, self.on_prev_image_clicked)
+        view_box = wx.BoxSizer(wx.VERTICAL)
+        view_box.Add(view_header, 0, LR_EXPAND)
+        view_box.Add(text_preview, 1, LR_EXPAND)
+        view_page.SetSizer(view_box)
+
+        # Page to write an entry
+        edit_page = wx.Panel(self.book)
         time_text = TextLinePanel(
-            self,
+            edit_page,
             text=tr("main.date_line", date="12.12.1212, 23:12:55"),
             center_text=True,
             bg_col=but_bg_col,
             text_col=bar_text_col,
         )
         self.dateLabel = time_text.stat_text
-
-        # Buttons
-        self.next_prev_buttons = TwoButtonPanel(
-            self, labels=[tr("common.previous"), tr("common.next")], bg_col=but_bg_col
-        )
-
-        self.next_prev_buttons.set_but_methods(self.prev_entry, self.next_entry)
-        # Text and images
         text_edit = TextAndImgPanel(
-            self, editable=True, drop_tgt=True, bg_col=text_bg_col
+            edit_page, editable=True, drop_tgt=True, bg_col=text_bg_col, frame=self
         )
         text_edit.SetMinSize((200, 200))
+        self.text_edit_panel = text_edit
         self.fileDrop = text_edit.fileDrop
         self.image_drop_space = text_edit.img
         self.image_drop_space.Bind(wx.EVT_LEFT_DOWN, self.on_taken_image_clicked)
         self.input_text_sizer = text_edit.GetSizer()
         self.input_text_field = text_edit.text_box
+        edit_box = wx.BoxSizer(wx.VERTICAL)
+        edit_box.Add(time_text, 0, LR_EXPAND)
+        edit_box.Add(text_edit, 1, LR_EXPAND)
+        edit_page.SetSizer(edit_box)
 
-        text_preview = TextAndImgPanel(self, editable=False, bg_col=text_bg_col)
-        text_preview.SetMinSize((200, 200))
-        self.text_prev_sizer = text_preview.GetSizer()
-        self.fix_text_box = text_preview.text_box
-        self.prev_img_space = text_preview.img
-        self.prev_img_space.Bind(wx.EVT_LEFT_DOWN, self.on_prev_image_clicked)
+        # The order of the pages is given by `VIEW_PAGE` and `EDIT_PAGE`
+        self.book.AddPage(view_page, "")
+        self.book.AddPage(edit_page, "")
+        right_box = wx.BoxSizer(wx.VERTICAL)
+        right_box.Add(self.book, 1, wx.EXPAND)
+        right.SetSizer(right_box)
+
+        splitter.SplitVertically(self.entry_list, right, SIDEBAR_WIDTH)
+        splitter.SetMinimumPaneSize(220)
 
         # Put it all together
         box = wx.BoxSizer(wx.VERTICAL)
-        # box.Add(tool_panel, 0, wx.ALIGN_CENTER_HORIZONTAL)
         box.Add(tool_panel, 0, LR_EXPAND)
-        box.Add(time_text, 0, LR_EXPAND)
-        box.Add(text_edit, 1, LR_EXPAND)
-        box.Add(text_preview, 1, LR_EXPAND)
-        box.Add(self.next_prev_buttons, 0, LR_EXPAND)
-        box.Add(path_text, 0, LR_EXPAND)
+        box.Add(splitter, 1, wx.EXPAND)
         box.Fit(self)
         self.v_box = box
         self.main_panel = box
         self.SetSizer(box)
 
         # Prepare UI
-        self.update_preview_text()
         self.set_date_txt()
         self.set_folder_txt()
+        self.reload_entries()
+        self.set_editing(True)
         self.Bind(wx.EVT_CLOSE, self.OnX)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_key)
 
         self.Bind(wx.EVT_SIZE, self.on_resize)
         self.Bind(wx.EVT_IDLE, self.OnIdle)
 
-        self.SetMinSize((400, 600))
+        self.SetMinSize((700, 500))
 
     def on_resize(self, _: Any) -> None:
         self.resized = True  # set dirty
         self.Layout()
 
+    @staticmethod
+    def image_size(area: wx.Size) -> int:
+        """The edge length of an image next to a text in the given area.
+
+        It fits into the height, leaves most of the width to the text and is not
+        larger than `MAX_IMAGE_SIZE`. Returns 0 if the area is too small.
+        """
+        size = min(area[1], area[0] // 3, MAX_IMAGE_SIZE) - 30
+        return size if size > 0 else 0
+
     def OnIdle(self, _: Any) -> None:
         if self.resized:
             lf = self.fileDrop.loadedFile
-            s_min = min(self.input_text_sizer.Size)
-            if s_min > 30:
+            img_size = self.image_size(self.input_text_sizer.Size)
+            if img_size > 0:
                 set_img = self.default_img_drop if lf is None else lf
-                self.image_drop_space.SetBitmap(getImageToShow(set_img, s_min - 30))
+                self.image_drop_space.SetBitmap(getImageToShow(set_img, img_size))
 
             if self.prev_img_name is not None:
-                s_min = min(self.text_prev_sizer.Size)
-                if s_min > 30:
+                img_size = self.image_size(self.text_prev_sizer.Size)
+                if img_size > 0:
                     self.prev_img_space.SetBitmap(
-                        getImageToShow(self.prev_img_name, s_min - 30)
+                        getImageToShow(self.prev_img_name, img_size)
                     )
 
-            self.Layout()
+            self.layout_all()
             self.resized = False  # reset the flag
 
     def resized_layout(self) -> None:
