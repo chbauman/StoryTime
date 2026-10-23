@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, code-cleanup]  # TEMPORARY: to try the workflow before the PR
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

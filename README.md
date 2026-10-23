@@ -1,5 +1,7 @@
 # StoryTime
 
+[![CI](https://github.com/chbauman/StoryTime/actions/workflows/ci.yml/badge.svg)](https://github.com/chbauman/StoryTime/actions/workflows/ci.yml)
+
 Digital diary written in python using wxPython.
 Works completely offline, so there are no privacy issues.
 On the other hand side, there is no backup included. 
