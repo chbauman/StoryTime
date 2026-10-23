@@ -133,30 +133,31 @@ class TestReadingAndWriting(ControllerTestCase):
         self.ctrl.set_writing(True)
         assert (self.view.editing, self.ctrl.editing) == (True, True)
 
-    def test_leave_writing_with_text_asks(self):
+    def test_leave_writing_with_text_can_be_undone(self):
         self.view.text = "Draft"
-        self.dialogs.answer_confirm(False)
         self.ctrl.set_writing(False)
-        # The draft stays and the view shows the writing again
+        assert not self.ctrl.editing and not self.view.editing
+        assert self.view.text == "" and self.view.undo == tr("undo.draft_discarded")
+        assert not self.dialogs.confirms
+        assert self.ctrl.undo_discard()
+        # The draft is back and it is written again
         assert self.ctrl.editing and self.view.editing
-        assert self.view.text == "Draft"
-        text, title, ok, cancel = self.dialogs.confirms[0]
-        assert text == tr("message.discard_text.text")
-        assert (title, ok, cancel) == (tr("common.warning"), "Discard", "Keep")
+        assert self.view.text == "Draft" and self.view.undo is None
 
-    def test_leave_writing_and_discard(self):
+    def test_leave_writing_and_undo_with_image(self):
         self.view.text = "Draft"
         self.ctrl.set_photo_mode(True)
         self.ctrl.load_image(SAMPLE_IMG, datetime(2019, 1, 1))
-        self.dialogs.answer_confirm(True)
         self.ctrl.set_writing(False)
         assert not self.ctrl.editing and not self.view.editing
         # Everything of the draft is gone
         assert self.view.text == "" and self.view.draft_image is None
         assert (self.ctrl.photo_mode, self.view.photo_mode) == (False, False)
         assert self.view.draft_date == NOW
-        # The message mentions the image too
-        assert self.dialogs.confirms[0][0] == tr("message.discard_text_image.text")
+        assert self.ctrl.undo_discard()
+        assert self.view.text == "Draft" and self.view.draft_image == SAMPLE_IMG
+        assert self.view.draft_date == datetime(2019, 1, 1)
+        assert (self.ctrl.photo_mode, self.view.photo_mode) == (True, True)
 
     def test_writing_clears_the_selection(self):
         self.read("Walk")
@@ -188,17 +189,17 @@ class TestSelecting(ControllerTestCase):
         self.ctrl.select_entry(self.entry("Lost"))
         assert self.view.entry.text == "Lost photo" and self.view.entry_image is None
 
-    def test_selecting_with_a_draft_asks(self):
+    def test_selecting_with_a_draft_can_be_undone(self):
         self.view.text = "Draft"
-        self.dialogs.answer_confirm(False)
-        self.ctrl.select_entry(self.entry("Walk"))
-        assert self.ctrl.editing and self.view.text == "Draft"
-        assert self.view.selected is None and self.view.entry is None
-
-        self.dialogs.answer_confirm(True)
         self.ctrl.select_entry(self.entry("Walk"))
         assert not self.ctrl.editing and self.view.text == ""
         assert self.view.entry == self.entry("Walk")
+        assert self.view.undo == tr("undo.draft_discarded")
+        assert not self.dialogs.confirms
+
+        assert self.ctrl.undo_discard()
+        assert self.ctrl.editing and self.view.text == "Draft"
+        assert self.view.selected is None and self.ctrl.selected is None
 
     def test_selecting_while_reading_does_not_ask(self):
         self.read("Walk")
@@ -292,26 +293,28 @@ class TestPhotoMode(ControllerTestCase):
         assert self.ctrl.draft_date == datetime(2020, 1, 1)
         assert not self.dialogs.confirms
 
-    def test_leaving_photo_mode_with_image_asks(self):
+    def test_leaving_photo_mode_with_image_can_be_undone(self):
         self.view.text = "Kept text"
         self.ctrl.set_photo_mode(True)
         self.ctrl.load_image(SAMPLE_IMG, datetime(2019, 5, 6, 7, 8))
         assert self.view.draft_date == datetime(2019, 5, 6, 7, 8)
 
-        # Keeping the image
-        self.dialogs.answer_confirm(False)
-        self.ctrl.set_photo_mode(False)
-        assert self.ctrl.photo_mode and self.view.photo_mode
-        assert self.view.draft_image == SAMPLE_IMG
-        assert self.dialogs.confirms[0][0] == tr("message.discard_image.text")
-
-        # Discarding it keeps the text, but the date is not the one of the image
-        self.dialogs.answer_confirm(True)
+        # The text is kept, but the date is not the one of the image
         self.ctrl.set_photo_mode(False)
         assert not self.ctrl.photo_mode and not self.view.photo_mode
         assert self.view.draft_image is None and self.ctrl.draft_image is None
         assert self.view.text == "Kept text"
         assert self.view.draft_date == NOW
+        assert self.view.undo == tr("undo.image_removed")
+        assert not self.dialogs.confirms
+
+        # Undoing brings the image back, not touching the text
+        self.view.text = "Changed text"
+        assert self.ctrl.undo_discard()
+        assert self.ctrl.photo_mode and self.view.photo_mode
+        assert self.view.draft_image == SAMPLE_IMG
+        assert self.view.draft_date == datetime(2019, 5, 6, 7, 8)
+        assert self.view.text == "Changed text"
 
     def test_text_alone_is_not_asked_about(self):
         self.ctrl.set_photo_mode(True)
@@ -573,6 +576,106 @@ class TestShortcuts(ControllerTestCase):
     def test_quit(self):
         self.ctrl.run_shortcut("quit")
         assert self.view.closed
+
+
+class TestDiscard(ControllerTestCase):
+    def draft(self):
+        self.view.text = "Draft"
+        self.ctrl.set_photo_mode(True)
+        self.ctrl.load_image(SAMPLE_IMG, datetime(2019, 1, 1))
+
+    def test_nothing_to_discard(self):
+        assert not self.ctrl.discard_draft()
+        assert self.view.undo is None and not self.ctrl.can_undo
+        # A date alone is not worth keeping
+        self.ctrl.draft_date = datetime(2020, 1, 1)
+        assert not self.ctrl.discard_draft()
+
+    def test_discard_clears_text_image_and_date(self):
+        self.draft()
+        assert self.ctrl.discard_draft()
+        assert self.view.text == "" and self.view.draft_image is None
+        assert self.ctrl.draft_image is None and self.view.draft_date == NOW
+        # The user still adds an image
+        assert self.ctrl.photo_mode and self.view.photo_mode
+        assert self.view.undo == tr("undo.draft_discarded")
+        assert not self.dialogs.confirms
+
+    def test_undo(self):
+        self.draft()
+        self.ctrl.discard_draft()
+        assert self.ctrl.can_undo and self.ctrl.undo_discard()
+        assert self.view.text == "Draft" and self.view.draft_image == SAMPLE_IMG
+        assert self.ctrl.draft_image == SAMPLE_IMG
+        assert self.view.draft_date == datetime(2019, 1, 1)
+        assert self.view.undo is None and not self.ctrl.can_undo
+        assert not self.ctrl.undo_discard()  # only once
+
+    def test_undo_text_only(self):
+        self.view.text = "Draft"
+        self.ctrl.discard_draft()
+        assert not self.ctrl.photo_mode
+        self.ctrl.undo_discard()
+        assert self.view.text == "Draft" and not self.view.photo_mode
+
+    def test_the_undo_goes_away(self):
+        self.draft()
+        self.ctrl.discard_draft()
+        self.ctrl.dismiss_undo()
+        assert self.view.undo is None and not self.ctrl.undo_discard()
+        assert self.view.text == ""
+        self.ctrl.dismiss_undo()  # nothing to dismiss
+
+    def test_new_changes_end_the_undo(self):
+        for change in (
+            lambda: self.ctrl.load_image(SAMPLE_IMG),
+            lambda: setattr(self.dialogs, "date", datetime(2020, 5, 5))
+            or self.ctrl.change_date(),
+            lambda: self.ctrl.set_writing(True),
+        ):
+            self.draft()
+            self.ctrl.discard_draft()
+            change()
+            assert self.view.undo is None and not self.ctrl.can_undo
+            self.ctrl.set_photo_mode(False)
+
+    def test_saving_ends_the_undo(self):
+        self.view.text = "Draft"
+        self.ctrl.discard_draft()
+        self.view.text = "Something else"
+        assert self.ctrl.save()
+        assert not self.ctrl.can_undo and self.view.undo is None
+
+    def test_shortcut(self):
+        self.view.text = "Draft"
+        self.ctrl.run_shortcut("discard")
+        assert self.view.text == "" and self.ctrl.can_undo
+        self.ctrl.set_writing(False)
+        self.view.text = "Not part of an entry that is read"
+        self.ctrl.run_shortcut("discard")
+        assert self.view.text == "Not part of an entry that is read"
+
+    def test_remove_image_keeps_the_text(self):
+        self.draft()
+        assert self.ctrl.remove_image()
+        assert self.view.draft_image is None and self.view.text == "Draft"
+        assert self.view.draft_date == NOW
+        # Still in the photo mode, to add another image
+        assert self.ctrl.photo_mode and self.view.photo_mode
+        assert self.view.undo == tr("undo.image_removed")
+        assert self.ctrl.undo_discard()
+        assert self.view.draft_image == SAMPLE_IMG
+        assert self.view.draft_date == datetime(2019, 1, 1)
+
+    def test_remove_image_without_image(self):
+        assert not self.ctrl.remove_image()
+        assert self.view.undo is None
+
+    def test_undo_does_nothing_after_leaving_writing(self):
+        self.view.text = "Draft"
+        self.ctrl.discard_draft()
+        self.ctrl.set_writing(False)
+        assert not self.ctrl.undo_discard()
 
 
 class TestClosing(ControllerTestCase):

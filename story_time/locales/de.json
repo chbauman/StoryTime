@@ -37,7 +37,12 @@
   "message.no_image.text": "Bitte zuerst ein Bild hinzufügen.",
   "message.no_webcam.title": "Keine Webcam",
   "message.no_webcam.text": "Keine Webcam gefunden, ein Selfie ist nicht möglich.",
-  "message.discard_image.text": "Wenn du fortfährst, geht das geladene Bild verloren. Möchtest du fortfahren?",
+  "undo.draft_discarded": "Entwurf verworfen.",
+  "undo.image_removed": "Bild entfernt.",
+  "undo.undo": "Rückgängig",
+  "toolbar.discard.help": "Text, Bild und Datum des Eintrags verwerfen. Das lässt sich rückgängig machen.",
+  "main.remove_image": "Bild entfernen",
+  "main.discard": "Verwerfen",
   "message.discard_text.text": "Wenn du fortfährst, gehen der geschriebene Text und die gewählte Zeit verloren. Möchtest du fortfahren?",
   "message.discard_text_image.text": "Wenn du fortfährst, gehen der geschriebene Text, das geladene Bild und die gewählte Zeit verloren. Möchtest du fortfahren?",
 

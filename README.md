@@ -52,6 +52,7 @@ automatically. Taken photos are kept in a temporary folder until they are saved.
 | Ctrl+S | Save the entry |
 | Ctrl+P | Switch between text-only and photo mode |
 | Ctrl+D | Choose another date and time |
+| Esc | Discard the text, image and date of the entry (can be undone) |
 | Ctrl+O | Choose another data folder |
 | Ctrl+T | Take a selfie with the webcam |
 | Ctrl+Q | Quit |
@@ -118,6 +119,12 @@ The entries are listed on the left, grouped by month, with a search field on
 top. Click an entry to read it. The first tool of the toolbar (or Ctrl+N)
 switches to writing a new entry, and back. The other tools (save, photo mode,
 date, selfie) are only active while writing.
+
+**Discard** (button or Esc) clears the text, the image and the date of the entry
+that is written. **Remove image** below the image removes only the photo.
+Instead of asking for confirmation, an **Undo** bar appears for a few seconds.
+Leaving the page to write, or choosing an entry to read, discards a draft the
+same way. Only closing the app with unsaved changes asks first.
 
 ## Screenshots
 

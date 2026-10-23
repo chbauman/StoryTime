@@ -33,6 +33,7 @@ from story_time.util import (
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 SIDEBAR_WIDTH = 340  #: Initial width of the list of the entries.
 MAX_IMAGE_SIZE = 400  #: Maximum edge length of the shown images in pixels.
+UNDO_SECONDS = 8  #: How long a discard can be undone.
 MAX_LABEL_TEXT = 28  #: Maximum number of characters of an entry in the list.
 EXPAND_ALL = wx.ALL | wx.EXPAND
 
@@ -71,6 +72,7 @@ class TextAndImgPanel(wx.Panel):
         drop_tgt: bool = False,
         bg_col: wx.Colour = text_bg_col,
         on_image: Optional[Callable[[str], bool]] = None,
+        on_remove_image: Optional[Callable[[], object]] = None,
     ):
         """
         Args:
@@ -80,6 +82,8 @@ class TextAndImgPanel(wx.Panel):
             bg_col: The background color.
             on_image: Called with the path of an image dropped on the image area,
                 returns whether it was accepted.
+            on_remove_image: Called when the button to remove the image is
+                clicked, only used with `drop_tgt`.
         """
         wx.Panel.__init__(self, parent)
         box = wx.BoxSizer(wx.VERTICAL)
@@ -110,7 +114,18 @@ class TextAndImgPanel(wx.Panel):
         exp_all = wx.EXPAND | wx.ALL
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
 
-        h_box_3.Add(self.img, proportion=1, flag=wx.ALL | wx.ALIGN_TOP, border=5)
+        if drop_tgt:
+            self.remove_image_button = wx.Button(self, label=tr("main.remove_image"))
+            self.remove_image_button.Hide()
+            self.remove_image_button.Bind(
+                wx.EVT_BUTTON, lambda _: (on_remove_image or (lambda: None))()
+            )
+            img_box = wx.BoxSizer(wx.VERTICAL)
+            img_box.Add(self.img, 0, wx.ALIGN_CENTER_HORIZONTAL)
+            img_box.Add(self.remove_image_button, 0, wx.ALIGN_CENTER | wx.TOP, 5)
+            h_box_3.Add(img_box, proportion=1, flag=wx.ALL | wx.ALIGN_TOP, border=5)
+        else:
+            h_box_3.Add(self.img, proportion=1, flag=wx.ALL | wx.ALIGN_TOP, border=5)
         h_box_3.Add(self.text_box, proportion=3, flag=exp_all, border=5)
 
         box.Add(h_box_3, 1, exp_all, 5)
@@ -470,6 +485,7 @@ class StoryTimeAppUI(wx.Frame):
             drop_tgt=True,
             bg_col=text_bg_col,
             on_image=lambda path: self.controller.load_image(path),
+            on_remove_image=lambda: self.controller.remove_image(),
         )
         text_edit.SetMinSize((200, 200))
         self.text_edit_panel = text_edit
@@ -479,9 +495,19 @@ class StoryTimeAppUI(wx.Frame):
         )
         self.input_text_sizer = text_edit.GetSizer()
         self.input_text_field = text_edit.text_box
+        self.input_text_field.Bind(
+            wx.EVT_TEXT, lambda _: self.controller.dismiss_undo()
+        )
+        self.remove_image_button = text_edit.remove_image_button
+        self.discard_button = wx.Button(edit_page, label=tr("main.discard"))
+        self.discard_button.SetToolTip(f"{tr('toolbar.discard.help')} (Esc)")
+        self.discard_button.Bind(
+            wx.EVT_BUTTON, lambda _: self.controller.discard_draft()
+        )
         edit_box = wx.BoxSizer(wx.VERTICAL)
         edit_box.Add(time_text, 0, LR_EXPAND)
         edit_box.Add(text_edit, 1, LR_EXPAND)
+        edit_box.Add(self.discard_button, 0, wx.ALIGN_RIGHT | wx.ALL, 8)
         edit_page.SetSizer(edit_box)
 
         # The order of the pages is given by `VIEW_PAGE` and `EDIT_PAGE`
@@ -490,6 +516,24 @@ class StoryTimeAppUI(wx.Frame):
         right_box = wx.BoxSizer(wx.VERTICAL)
         right_box.Add(self.book, 1, wx.EXPAND)
         right.SetSizer(right_box)
+
+        # The bar to undo a discard, only shown for a few seconds
+        self.undo_bar = wx.Panel(right)
+        self.undo_bar.SetBackgroundColour(but_bg_col)
+        self.undo_label = wx.StaticText(self.undo_bar, label="")
+        self.undo_label.SetForegroundColour(bar_text_col)
+        self.undo_button = wx.Button(self.undo_bar, label=tr("undo.undo"))
+        self.undo_button.Bind(wx.EVT_BUTTON, lambda _: self.controller.undo_discard())
+        undo_box = wx.BoxSizer(wx.HORIZONTAL)
+        undo_box.Add(self.undo_label, 1, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 8)
+        undo_box.Add(self.undo_button, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 4)
+        self.undo_bar.SetSizer(undo_box)
+        self.undo_bar.Hide()
+        self.undo_timer = wx.Timer(self)
+        self.Bind(
+            wx.EVT_TIMER, lambda _: self.controller.dismiss_undo(), self.undo_timer
+        )
+        right_box.Add(self.undo_bar, 0, wx.EXPAND)
 
         splitter.SplitVertically(self.entry_list, right, SIDEBAR_WIDTH)
         splitter.SetMinimumPaneSize(220)
@@ -545,7 +589,8 @@ class StoryTimeAppUI(wx.Frame):
         return self.input_text_field.GetValue()
 
     def set_text(self, text: str) -> None:
-        self.input_text_field.SetValue(text)
+        # Without the event, which is for what the user types
+        self.input_text_field.ChangeValue(text)
 
     def show_mode(self, editing: bool, photo_mode: bool) -> None:
         self.book.ChangeSelection(self.EDIT_PAGE if editing else self.VIEW_PAGE)
@@ -556,6 +601,7 @@ class StoryTimeAppUI(wx.Frame):
         for tool in self.edit_tools:
             self.toolbar.EnableTool(tool.Id, editing)
         self.image_drop_space.Show(photo_mode)
+        self._show_remove_button()
         if editing:
             self.input_text_field.SetFocus()
         self.resized_layout()
@@ -565,7 +611,15 @@ class StoryTimeAppUI(wx.Frame):
         self.image_drop_space.SetBitmap(
             get_image_to_show(self.default_img_drop if path is None else path)
         )
+        self._show_remove_button()
         self.resized_layout()
+
+    def _show_remove_button(self) -> None:
+        """The button to remove the image is only there if there is one."""
+        self.remove_image_button.Show(
+            self.draft_image is not None and self.image_drop_space.IsShown()
+        )
+        self.input_text_sizer.Layout()
 
     def show_draft_date(self, date_time: datetime) -> None:
         self.date_label.SetLabelText(
@@ -596,6 +650,15 @@ class StoryTimeAppUI(wx.Frame):
             self.entry_list.clear_selection()
         else:
             self.entry_list.select_entry(entry)
+
+    def show_undo(self, message: Optional[str]) -> None:
+        self.undo_timer.Stop()
+        if message is not None:
+            self.undo_label.SetLabel(message)
+            self.undo_timer.StartOnce(int(UNDO_SECONDS * 1000))
+        self.undo_bar.Show(message is not None)
+        self.undo_bar.GetParent().Layout()
+        self.Layout()
 
     def show_folder(self, path: str) -> None:
         """Shows the data folder in the tooltip of the folder tool."""

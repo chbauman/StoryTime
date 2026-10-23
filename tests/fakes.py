@@ -26,6 +26,8 @@ class FakeView:
         self.selected: Optional[Entry] = None
         self.folder: Optional[str] = None
         self.closed = False
+        #: The message of the undo bar, None if it is hidden.
+        self.undo: Optional[str] = None
 
     def get_text(self) -> str:
         return self.text
@@ -56,6 +58,9 @@ class FakeView:
 
     def select_entry(self, entry: Optional[Entry]) -> None:
         self.selected = entry
+
+    def show_undo(self, message: Optional[str]) -> None:
+        self.undo = message
 
     def show_folder(self, path: str) -> None:
         self.folder = path

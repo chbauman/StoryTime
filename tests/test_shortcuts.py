@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from story_time.shortcuts import KEY_LEFT, KEY_RIGHT, shortcut_for
+from story_time.shortcuts import KEY_ESCAPE, KEY_LEFT, KEY_RIGHT, shortcut_for
 
 
 class TestShortcutFor(TestCase):
@@ -22,6 +22,14 @@ class TestShortcutFor(TestCase):
             assert shortcut_for(ord(letter), True, False, True, False) is None
             assert shortcut_for(ord(letter), True, True, False, False) is None
         assert shortcut_for(ord("X"), True, False, False, False) is None
+
+    def test_escape_discards(self):
+        for in_text in (True, False):
+            assert shortcut_for(KEY_ESCAPE, False, False, False, in_text) == "discard"
+        # Not combined with other keys
+        assert shortcut_for(KEY_ESCAPE, True, False, False, True) is None
+        assert shortcut_for(KEY_ESCAPE, False, True, False, True) is None
+        assert shortcut_for(KEY_ESCAPE, False, False, True, True) is None
 
     def test_arrows(self):
         left, right = KEY_LEFT, KEY_RIGHT

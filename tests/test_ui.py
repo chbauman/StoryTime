@@ -6,9 +6,10 @@ show what the controller says and that the tools and the keys reach it.
 
 import os
 import shutil
+import time
 from contextlib import contextmanager
 from datetime import datetime
-from unittest import TestCase
+from unittest import TestCase, mock
 
 import wx
 
@@ -258,29 +259,33 @@ class TestTools(TestCase):
         assert reading == (frame.VIEW_PAGE, (False, [False] * 4))
         assert writing == (frame.EDIT_PAGE, (True, [True] * 4))
 
-    def test_unsaved_text_is_asked_about(self):
+    def test_leaving_with_unsaved_text_can_be_undone(self):
         with main_window() as (frame, dialogs):
             frame.input_text_field.SetValue("My draft")
-            # Keeping it: the tool is toggled back and the page stays
-            dialogs.answer_confirm(False)
             click(frame, frame.new_tool)
-            kept = (frame.book.GetSelection(), tool_state(frame))
-            text = frame.input_text_field.GetValue()
-            # Discarding it
-            dialogs.answer_confirm(True)
-            click(frame, frame.new_tool)
-            left = (frame.book.GetSelection(), frame.input_text_field.GetValue())
-        assert kept == (frame.EDIT_PAGE, (True, [True] * 4)) and text == "My draft"
-        assert left == (frame.VIEW_PAGE, "")
-        assert dialogs.confirms[0][0] == tr("message.discard_text.text")
+            left = (
+                frame.book.GetSelection(),
+                frame.input_text_field.GetValue(),
+                frame.undo_bar.IsShown(),
+                frame.undo_label.GetLabel(),
+            )
+            frame.controller.undo_discard()
+            back = (
+                frame.book.GetSelection(),
+                frame.input_text_field.GetValue(),
+                frame.undo_bar.IsShown(),
+            )
+        assert left == (frame.VIEW_PAGE, "", True, tr("undo.draft_discarded"))
+        assert back == (frame.EDIT_PAGE, "My draft", False)
+        assert not dialogs.confirms
 
-    def test_selecting_an_entry_with_unsaved_text_is_asked_about(self):
+    def test_selecting_an_entry_with_unsaved_text_can_be_undone(self):
         with main_window() as (frame, dialogs):
             frame.input_text_field.SetValue("My draft")
-            dialogs.answer_confirm(False)
             frame.entry_list.select_entry(find(frame, "Walk"), notify=True)
-            kept = (frame.book.GetSelection(), frame.entry_list.selected_entry())
-        assert kept == (frame.EDIT_PAGE, None)
+            read = (frame.book.GetSelection(), frame.entry_list.selected_entry())
+        assert read[0] == frame.VIEW_PAGE and read[1].text.startswith("Walk")
+        assert not dialogs.confirms
 
     def test_photo_tool_shows_the_image_area_and_keeps_the_text(self):
         with main_window() as (frame, dialogs):
@@ -294,27 +299,85 @@ class TestTools(TestCase):
         assert on and off and text == "Kept text"
         assert not dialogs.confirms
 
-    def test_leaving_the_photo_mode_with_an_image_is_asked_about(self):
+    def test_leaving_the_photo_mode_with_an_image_can_be_undone(self):
         with main_window() as (frame, dialogs):
             _, photo, *_ = frame.edit_tools
             click(frame, photo)
             assert frame.controller.load_image(TEST_IMG, datetime(2020, 1, 2, 3, 4, 5))
             shown = frame.draft_image == TEST_IMG
             date = frame.date_label.GetLabel()
-
-            dialogs.answer_confirm(False)
             click(frame, photo)
-            kept = (
+            removed = (
+                frame.image_drop_space.IsShown(),
+                frame.draft_image,
+                frame.undo_bar.IsShown(),
+            )
+            frame.controller.undo_discard()
+            back = (
                 frame.toolbar.GetToolState(photo.Id),
                 frame.image_drop_space.IsShown(),
                 frame.draft_image,
             )
-            dialogs.answer_confirm(True)
-            click(frame, photo)
-            discarded = (frame.image_drop_space.IsShown(), frame.draft_image)
         assert shown and "2.1.2020" in date
-        assert kept == (True, True, TEST_IMG)
-        assert discarded == (False, None)
+        assert removed == (False, None, True)
+        assert back == (True, True, TEST_IMG)
+        assert not dialogs.confirms
+
+    def test_remove_image_button(self):
+        with main_window() as (frame, _):
+            hidden = not frame.remove_image_button.IsShown()
+            click(frame, frame.photo_tool)
+            no_image = not frame.remove_image_button.IsShown()
+            frame.input_text_field.SetValue("Kept text")
+            frame.controller.load_image(TEST_IMG)
+            shown = frame.remove_image_button.IsShown()
+            frame.remove_image_button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+            removed = (
+                frame.draft_image,
+                frame.remove_image_button.IsShown(),
+                frame.image_drop_space.IsShown(),
+                frame.input_text_field.GetValue(),
+                frame.undo_bar.IsShown(),
+            )
+        assert hidden and no_image and shown
+        assert removed == (None, False, True, "Kept text", True)
+
+    def test_discard_button_and_undo_bar(self):
+        with main_window() as (frame, dialogs):
+            frame.discard_button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+            nothing = not frame.undo_bar.IsShown()
+            frame.input_text_field.SetValue("My draft")
+            frame.discard_button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+            discarded = (frame.input_text_field.GetValue(), frame.undo_bar.IsShown())
+            timer_runs = frame.undo_timer.IsRunning()
+            # Typing again ends the undo
+            frame.input_text_field.AppendText("New")
+            typed = frame.undo_bar.IsShown()
+        assert nothing and discarded == ("", True) and timer_runs and not typed
+        assert not dialogs.confirms
+
+    def test_undo_button(self):
+        with main_window() as (frame, _):
+            frame.input_text_field.SetValue("My draft")
+            press(frame, wx.WXK_ESCAPE)
+            gone = frame.input_text_field.GetValue() == ""
+            frame.undo_button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+            back = (frame.input_text_field.GetValue(), frame.undo_bar.IsShown())
+        assert gone and back == ("My draft", False)
+
+    def test_the_undo_bar_goes_away_by_itself(self):
+        short = mock.patch("story_time.user_interface.UNDO_SECONDS", 0.05)
+        with short, main_window() as (frame, _):
+            frame.input_text_field.SetValue("My draft")
+            frame.controller.discard_draft()
+            shown = frame.undo_bar.IsShown()
+            end = time.time() + 3
+            while frame.undo_bar.IsShown() and time.time() < end:
+                wx.GetApp().Yield()
+                time.sleep(0.01)
+            hidden = not frame.undo_bar.IsShown()
+            undone = frame.controller.undo_discard()
+        assert shown and hidden and not undone
 
     def test_save_tool(self):
         with main_window() as (frame, dialogs):
@@ -384,7 +447,6 @@ class TestTools(TestCase):
             event = wx.MouseEvent(wx.wxEVT_LEFT_DOWN)
             frame.image_drop_space.GetEventHandler().ProcessEvent(event)
 
-            dialogs.answer_confirm(True)  # The loaded image is lost
             frame.entry_list.select_entry(find(frame, "Logo"), notify=True)
             event = wx.MouseEvent(wx.wxEVT_LEFT_DOWN)
             frame.prev_img_space.GetEventHandler().ProcessEvent(event)
