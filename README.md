@@ -25,6 +25,17 @@ the command line:
 $ story-time
 ```
 
+## Data format
+
+The entries are stored in one SQLite database, `story_time.sqlite`, in the data
+folder; the photos are in its `Img` folder. Every entry gets a stable id and
+every change is written atomically, so a crash cannot corrupt the diary.
+
+Diaries of older versions (one XML file per year in the `XML` folder) are taken
+over once, automatically, when the folder is opened: either all entries are
+imported or none. The XML files are left untouched as a backup. To get XML
+files back, use `story_time.storage.export_xml`.
+
 ## Settings
 
 The chosen data folder is stored in `settings.json` in the config folder of the
@@ -81,7 +92,9 @@ The logic is kept apart from the GUI, so most of it can be tested without one:
 | --- | --- | --- |
 | `controller.py` | `DiaryController`: what happens when the user writes, reads, searches, saves... | no |
 | `dates.py`, `images.py`, `folders.py`, `settings.py`, `shortcuts.py`, `texts.py` | Helpers for dates, image files, folders, settings, keys and texts | no |
-| `xml_storage.py` | Reading and writing of the XML files with the entries | no |
+| `entries.py` | The `Entry` type, filtering and grouping of entries | no |
+| `sqlite_storage.py`, `storage.py` | The SQLite database with the entries, take-over and export of the old XML files | no |
+| `xml_storage.py` | Reading and writing of the legacy XML files | no |
 | `user_interface.py` | The main window, which shows what the controller says and passes on what the user does | yes |
 | `dialogs.py`, `util.py` | The dialogs, colors, fonts and image helpers | yes |
 

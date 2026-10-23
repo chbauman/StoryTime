@@ -24,6 +24,7 @@ class TestDataFolder(TestCase):
         assert folder.path == self.base
         assert folder.img_folder == os.path.join(self.base, "Img")
         assert folder.xml_folder == os.path.join(self.base, "XML")
+        assert folder.db_file == os.path.join(self.base, "story_time.sqlite")
 
     def test_folders_are_independent(self):
         # There is no global state, each folder knows its paths
@@ -35,7 +36,8 @@ class TestDataFolder(TestCase):
         folder.create()
         folder.create()  # Is fine if they exist
         assert os.path.isdir(folder.img_folder)
-        assert os.path.isdir(folder.xml_folder)
+        # The folder of the XML files is only there for diaries of older versions
+        assert not os.path.exists(folder.xml_folder)
 
     def test_data_folder_from_settings(self):
         settings.set_data_dir(self.base)
@@ -44,7 +46,7 @@ class TestDataFolder(TestCase):
             raise AssertionError("must not ask")
 
         assert get_data_folder(ask) == DataFolder(self.base)
-        assert os.path.isdir(os.path.join(self.base, "XML"))
+        assert os.path.isdir(os.path.join(self.base, "Img"))
 
     def test_data_folder_is_asked_for(self):
         settings.save_settings({})
@@ -63,7 +65,7 @@ class TestDataFolder(TestCase):
         assert get_data_folder(lambda: None) is None
         assert get_data_folder(lambda: "") is None
         # Nothing is created in the current folder
-        assert not os.path.exists("XML") and not os.path.exists("Img")
+        assert not os.path.exists("Img") and not os.path.exists("story_time.sqlite")
 
     def test_save_data_folder(self):
         save_data_folder(DataFolder(self.base))

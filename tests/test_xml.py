@@ -4,10 +4,7 @@ from datetime import datetime
 from unittest import TestCase
 
 from story_time.xml_storage import (
-    Entry,
-    EntryStore,
-    filter_entries,
-    group_by_month,
+    XmlEntryStore,
     init_xml,
     insert_photo_entry,
     insert_text_entry,
@@ -16,7 +13,7 @@ from story_time.xml_storage import (
 from tests.helpers import DATA_DIR, create_test_dirs
 
 XML_DIR = os.path.join(DATA_DIR, "XML")
-STORE = EntryStore(XML_DIR)
+STORE = XmlEntryStore(XML_DIR)
 
 
 class TestXML(TestCase):
@@ -140,33 +137,4 @@ class TestEntries(TestCase):
         assert [e.text for e in entries] == ["Valid"]
 
     def test_without_xml_folder(self):
-        assert EntryStore(os.path.join(DATA_DIR, "does_not_exist")).load_all() == []
-
-    def test_filter_entries(self):
-        e1 = Entry(datetime(2020, 1, 1), "text", "Walk by the Lake")
-        e2 = Entry(datetime(2020, 1, 2), "photo", "Logo sketch", "a.jpg")
-        entries = [e1, e2]
-        assert filter_entries(entries, "") == entries
-        assert filter_entries(entries, "   ") == entries
-        assert filter_entries(entries, "lake") == [e1]
-        assert filter_entries(entries, "SKETCH logo") == [e2]
-        assert filter_entries(entries, "lake logo") == []
-
-    def test_group_by_month(self):
-        entries = [
-            Entry(datetime(2020, 3, 5), "text", "a"),
-            Entry(datetime(2020, 3, 1), "text", "b"),
-            Entry(datetime(2020, 1, 9), "text", "c"),
-            Entry(datetime(2019, 3, 9), "text", "d"),
-        ]
-        groups = group_by_month(entries)
-        assert [k for k, _ in groups] == [(2020, 3), (2020, 1), (2019, 3)]
-        assert [[e.text for e in g] for _, g in groups] == [["a", "b"], ["c"], ["d"]]
-        assert group_by_month([]) == []
-
-    def test_first_line(self):
-        assert (
-            Entry(datetime(2020, 1, 1), "text", "\n\n  Hello \nWorld").first_line
-            == "Hello"
-        )
-        assert Entry(datetime(2020, 1, 1), "text", "").first_line == ""
+        assert XmlEntryStore(os.path.join(DATA_DIR, "does_not_exist")).load_all() == []

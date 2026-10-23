@@ -17,19 +17,18 @@ from story_time.main import main
 from story_time.shortcuts import KEY_LEFT, KEY_RIGHT
 from story_time.texts import tr
 from story_time.user_interface import StoryTimeAppUI, month_label
-from story_time.xml_storage import EntryStore
 from tests.fakes import FakeDialogs
 from tests.helpers import (
     DATA_DIR,
     SAMPLE_IMG_DIR,
+    LazyStore,
     create_test_dirs,
     img_dir,
     use_data_dir,
-    xml_dir,
 )
 
 TEST_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
-STORE = EntryStore(xml_dir)
+STORE = LazyStore()
 
 
 def seed_entries():

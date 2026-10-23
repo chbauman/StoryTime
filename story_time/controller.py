@@ -13,10 +13,11 @@ from datetime import datetime
 from typing import Callable, Optional, Protocol
 
 from story_time.dates import date_of_image_file, img_name_from_time
+from story_time.entries import Entry, EntryStore, filter_entries
 from story_time.folders import DataFolder, TempFolder, get_data_folder, save_data_folder
 from story_time.images import copy_img_file_to_imgs, is_supported_image
+from story_time.storage import open_store
 from story_time.texts import tr
-from story_time.xml_storage import Entry, EntryStore, filter_entries
 
 
 class NoWebcamError(RuntimeError):
@@ -440,7 +441,7 @@ class DiaryController:
     def _use_folder(self, folder: DataFolder) -> None:
         """Takes the folder to read and write the entries and shows it."""
         self._folder = folder
-        self._store = EntryStore(folder.xml_folder)
+        self._store = open_store(folder)
         self.view.show_folder(folder.path)
 
     def _show_entries(self) -> None:

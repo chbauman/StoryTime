@@ -9,10 +9,13 @@ ROOT = str(Path(__file__).resolve().parent.parent)
 PURE_MODULES = [
     "story_time.controller",
     "story_time.dates",
+    "story_time.entries",
     "story_time.folders",
     "story_time.images",
     "story_time.settings",
     "story_time.shortcuts",
+    "story_time.sqlite_storage",
+    "story_time.storage",
     "story_time.texts",
     "story_time.xml_storage",
 ]

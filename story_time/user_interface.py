@@ -11,6 +11,7 @@ import wx
 
 from story_time.controller import Dialogs, DiaryController
 from story_time.dialogs import WxDialogs
+from story_time.entries import Entry, group_by_month
 from story_time.shortcuts import shortcut_for
 from story_time.texts import tr
 from story_time.util import (
@@ -28,7 +29,6 @@ from story_time.util import (
     scale_bitmap,
     text_bg_col,
 )
-from story_time.xml_storage import Entry, group_by_month
 
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 SIDEBAR_WIDTH = 340  #: Initial width of the list of the entries.
