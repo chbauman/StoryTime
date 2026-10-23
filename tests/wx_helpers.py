@@ -31,8 +31,12 @@ def create_app():
     app = wx.App()
     frame = wx.Frame()
     frame.Create(None)
-    yield frame
-    app.Destroy()
+    try:
+        yield frame
+    finally:
+        frame.Destroy()
+        app.Yield()  # Only then is the window gone, see test_ui.main_window
+        app.Destroy()
 
 
 def run_diag(dlg, fun, destroy: bool = True):

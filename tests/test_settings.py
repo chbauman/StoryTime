@@ -58,9 +58,9 @@ class TestSettings(TestCase):
 
     def test_failed_save_keeps_old_file(self):
         settings.set_data_dir(self.data_dir)
-        with patch("story_time.settings.json.dump", side_effect=RuntimeError):
-            with self.assertRaises(RuntimeError):
-                settings.save_settings({"data_dir": "other"})
+        failing_dump = patch("story_time.settings.json.dump", side_effect=RuntimeError)
+        with failing_dump, self.assertRaises(RuntimeError):
+            settings.save_settings({"data_dir": "other"})
         assert settings.get_data_dir() == self.data_dir
         assert os.listdir(settings.config_dir()) == [settings.SETTINGS_FILE_NAME]
 

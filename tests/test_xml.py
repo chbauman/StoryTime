@@ -1,27 +1,27 @@
 import os
-import xml.etree.ElementTree as elTree
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from unittest import TestCase
 
-from story_time.XML_write import (
+from story_time.xml_storage import (
     Entry,
+    EntryStore,
     filter_entries,
     group_by_month,
-    init_XML,
+    init_xml,
     insert_photo_entry,
     insert_text_entry,
-    load_all_entries,
-    load_XML,
-    save_entry,
+    load_xml,
 )
-from tests.helpers import DATA_DIR, create_test_dirs, use_data_dir
+from tests.helpers import DATA_DIR, create_test_dirs
 
 XML_DIR = os.path.join(DATA_DIR, "XML")
+STORE = EntryStore(XML_DIR)
 
 
 class TestXML(TestCase):
-    def test_init_XML(self):
-        el_tree = init_XML("Test", 2020)
+    def test_init_xml(self):
+        el_tree = init_xml("Test", 2020)
         root = el_tree.getroot()
         doc = root.find("doc")
         assert doc is not None
@@ -37,53 +37,54 @@ class TestXML(TestCase):
 
     def test_text_entry(self):
         dt = datetime(2020, 12, 2, 5, 31)
-        root = elTree.Element("root")
+        root = ET.Element("root")
         insert_text_entry(root, dt, "hoi")
-        entry = elTree.ElementTree(root).find("entry")
+        entry = ET.ElementTree(root).find("entry")
         assert entry.text == "hoi"
         assert entry.get("date_time") == "2020-12-02T05:31:00"
         assert entry.get("type") == "text"
 
     def test_photo_entry(self):
         dt = datetime(2020, 12, 2, 5, 31)
-        root = elTree.Element("root")
+        root = ET.Element("root")
         insert_photo_entry(root, dt, "file.test", "hoi")
-        entry = elTree.ElementTree(root).find("entry")
+        entry = ET.ElementTree(root).find("entry")
         assert entry.find("text").text == "hoi"
         assert entry.find("photo").text == "file.test"
         assert entry.get("type") == "photo"
         assert entry.get("date_time") == "2020-12-02T05:31:00"
 
     def test_get_xml(self):
-        with use_data_dir(DATA_DIR):
-            tree, f = load_XML(2020)
+        _tree, f = load_xml(XML_DIR, 2020)
         assert f == os.path.join(XML_DIR, "2020.xml")
 
     def test_entry_saving(self):
-        with use_data_dir(DATA_DIR), create_test_dirs():
+        with create_test_dirs():
             y = 2020
             dt = datetime(y, 12, 2, 5, 31)
 
-            save_entry("Test", dt, "text")
-            save_entry("Test", dt, "photo", "test_photo.jpg")
+            STORE.save_entry("Test", dt, "text")
+            STORE.save_entry("Test", dt, "photo", "test_photo.jpg")
             with self.assertRaises(ValueError):
-                save_entry("Test", dt, "blah", "test_photo.jpg")
+                STORE.save_entry("Test", dt, "blah", "test_photo.jpg")
             with self.assertRaises(AssertionError):
-                save_entry("Test", dt, "photo")
+                STORE.save_entry("Test", dt, "photo")
 
-            tree, f = load_XML(y)
+            _tree, f = load_xml(XML_DIR, y)
             assert os.path.isfile(f)
             # Same time, so the order of saving is kept
-            assert [e.type for e in load_all_entries()] == ["text", "photo"]
+            assert [e.type for e in STORE.load_all()] == ["text", "photo"]
             os.remove(f)
 
             with self.assertRaises(FileNotFoundError):
-                load_XML(100000000, create=False)
+                load_xml(XML_DIR, 100000000, create=False)
 
     def test_photo_path_is_reduced_to_the_file_name(self):
-        with use_data_dir(DATA_DIR), create_test_dirs():
-            save_entry("Text", datetime(2020, 1, 2, 3), "photo", "/some/where/a.jpg")
-            (entry,) = load_all_entries()
+        with create_test_dirs():
+            STORE.save_entry(
+                "Text", datetime(2020, 1, 2, 3), "photo", "/some/where/a.jpg"
+            )
+            (entry,) = STORE.load_all()
         assert entry.photo == "a.jpg"
 
 
@@ -91,20 +92,20 @@ class TestEntries(TestCase):
     @staticmethod
     def save(text, dt, photo=None):
         if photo is None:
-            save_entry(text, dt)
+            STORE.save_entry(text, dt)
         else:
-            save_entry(text, dt, "photo", photo)
+            STORE.save_entry(text, dt, "photo", photo)
 
     def test_load_all_entries(self):
-        with use_data_dir(DATA_DIR), create_test_dirs():
-            assert load_all_entries() == []
+        with create_test_dirs():
+            assert STORE.load_all() == []
 
             self.save("Old\nsecond line", datetime(2019, 1, 5, 8, 15, 30))
             self.save("Middle", datetime(2020, 6, 2, 10))
             self.save("Photo text", datetime(2020, 6, 3, 9), "IMG_1.jpg")
             self.save("New", datetime(2021, 2, 1, 23, 59, 59))
 
-            entries = load_all_entries()
+            entries = STORE.load_all()
 
         # Newest first, over several years
         assert [e.text for e in entries] == [
@@ -122,8 +123,8 @@ class TestEntries(TestCase):
         assert photo[0].photo == "IMG_1.jpg" and photo[0].text == "Photo text"
 
     def test_invalid_files_and_entries_are_skipped(self):
-        with use_data_dir(DATA_DIR), create_test_dirs():
-            save_entry("Valid", datetime(2020, 6, 2, 10))
+        with create_test_dirs():
+            STORE.save_entry("Valid", datetime(2020, 6, 2, 10))
             with open(os.path.join(XML_DIR, "2020.xml")) as f:
                 xml = f.read()
             xml = xml.replace(
@@ -135,12 +136,11 @@ class TestEntries(TestCase):
                 f.write("not xml")
             with open(os.path.join(XML_DIR, "notes.txt"), "w") as f:
                 f.write("ignored")
-            entries = load_all_entries()
+            entries = STORE.load_all()
         assert [e.text for e in entries] == ["Valid"]
 
     def test_without_xml_folder(self):
-        with use_data_dir(os.path.join(DATA_DIR, "does_not_exist")):
-            assert load_all_entries() == []
+        assert EntryStore(os.path.join(DATA_DIR, "does_not_exist")).load_all() == []
 
     def test_filter_entries(self):
         e1 = Entry(datetime(2020, 1, 1), "text", "Walk by the Lake")

@@ -12,11 +12,11 @@ import os
 from datetime import datetime
 from typing import Callable, Optional, Protocol
 
-from story_time import folders
 from story_time.dates import date_of_image_file, img_name_from_time
+from story_time.folders import DataFolder, TempFolder, get_data_folder, save_data_folder
 from story_time.images import copy_img_file_to_imgs, is_supported_image
 from story_time.texts import tr
-from story_time.XML_write import Entry, filter_entries, load_all_entries, save_entry
+from story_time.xml_storage import Entry, EntryStore, filter_entries
 
 
 class NoWebcamError(RuntimeError):
@@ -35,8 +35,10 @@ class Dialogs(Protocol):
     def info(self, text: str, title: str) -> None:
         """Shows a message."""
 
-    def choose_image(self, files: list[str]) -> Optional[int]:
+    def choose_image(self, img_folder: str, files: list[str]) -> Optional[int]:
         """Asks which one of the images with the same date to use for the entry.
+
+        The images are the files with the given names in the image folder.
 
         Returns the index of the chosen image, `images.NEW_IMAGE` to add the new
         image anyway and `None` if there is no decision.
@@ -127,6 +129,11 @@ class DiaryController:
         #: The date of the entry that is written.
         self.draft_date = now()
 
+        self._folder: Optional[DataFolder] = None
+        self._store: Optional[EntryStore] = None
+        #: The folder for the pictures taken with the webcam until they are saved.
+        self.temp = TempFolder()
+
         self.entries: list[Entry] = []
         self.query = ""
         #: The entry that is shown on the page to read.
@@ -134,16 +141,27 @@ class DiaryController:
 
     # ----------------------------------------------------------------- start / end
 
+    @property
+    def folder(self) -> DataFolder:
+        """The folder with the data, which is there after `start`."""
+        assert self._folder is not None, "The controller was not started."
+        return self._folder
+
+    @property
+    def store(self) -> EntryStore:
+        """The entries in the data folder, which are there after `start`."""
+        assert self._store is not None, "The controller was not started."
+        return self._store
+
     def start(self) -> bool:
         """Gets the data folder and shows everything.
 
         Returns False if there is no data folder, as the app cannot run then.
         """
-        folder = folders.get_data_folder(self.dialogs.ask_folder)
+        folder = get_data_folder(self.dialogs.ask_folder)
         if folder is None:
             return False
-        folders.update_folder(folder)
-        self.view.show_folder(folder)
+        self._use_folder(folder)
         self.reload_entries()
         self._show_all()
         return True
@@ -154,8 +172,9 @@ class DiaryController:
 
     def finish(self) -> None:
         """To be called when the app is closed."""
-        folders.save_data_folder()
-        folders.remove_temp_folder()
+        if self._folder is not None:
+            save_data_folder(self._folder)
+        self.temp.remove()
 
     # --------------------------------------------------------------- entries / list
 
@@ -166,7 +185,7 @@ class DiaryController:
 
     def reload_entries(self) -> None:
         """Loads all entries and shows them in the list."""
-        self.entries = load_all_entries()
+        self.entries = self.store.load_all()
         if self.selected not in self.entries:
             self.selected = None
         self._show_entries()
@@ -272,9 +291,7 @@ class DiaryController:
             return
         self.set_photo_mode(True)
         now = self._now()
-        path = os.path.join(
-            folders.get_temp_folder(), img_name_from_time(now) + "_Self.png"
-        )
+        path = os.path.join(self.temp.path, img_name_from_time(now) + "_Self.png")
         try:
             taken = self.dialogs.take_selfie(path)
         except NoWebcamError:
@@ -304,11 +321,11 @@ class DiaryController:
         path = self.dialogs.ask_folder()
         if not path:
             return
-        folders.update_folder(path)
-        folders.create_xml_and_img_folder(path)
+        folder = DataFolder(path)
+        folder.create()
+        self._use_folder(folder)
         self.draft_date = self._now()
         self.selected = None
-        self.view.show_folder(path)
         self.view.show_draft_date(self.draft_date)
         self.view.select_entry(None)
         self.reload_entries()
@@ -334,17 +351,18 @@ class DiaryController:
                     tr("message.no_image.text"), tr("message.no_image.title")
                 )
                 return False
+            img_folder = self.folder.img_folder
             copied = copy_img_file_to_imgs(
                 self.draft_image,
-                folders.img_folder,
+                img_folder,
                 self.draft_date,
-                self.dialogs.choose_image,
+                lambda files: self.dialogs.choose_image(img_folder, files),
             )
             if copied is None:
                 return False  # There is no decision, so keep the draft
-            save_entry(text, self.draft_date, "photo", copied)
+            self.store.save_entry(text, self.draft_date, "photo", copied)
         else:
-            save_entry(text, self.draft_date)
+            self.store.save_entry(text, self.draft_date)
 
         # Start the next entry, in the same mode
         self.draft_image = None
@@ -416,8 +434,14 @@ class DiaryController:
         """The path of the image of an entry, None if it has none or it is missing."""
         if entry is None or not entry.photo:
             return None
-        path = os.path.join(folders.img_folder, entry.photo)
+        path = os.path.join(self.folder.img_folder, entry.photo)
         return path if os.path.isfile(path) else None
+
+    def _use_folder(self, folder: DataFolder) -> None:
+        """Takes the folder to read and write the entries and shows it."""
+        self._folder = folder
+        self._store = EntryStore(folder.xml_folder)
+        self.view.show_folder(folder.path)
 
     def _show_entries(self) -> None:
         shown = self.shown

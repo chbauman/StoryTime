@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from story_time.images import NEW_IMAGE
-from story_time.XML_write import Entry
+from story_time.xml_storage import Entry
 
 
 class FakeView:
@@ -75,7 +75,7 @@ class FakeDialogs:
         self.folder: Optional[str] = None
         self.folder_asked = 0
         self.image_choice: Optional[int] = NEW_IMAGE
-        self.image_choices: list[list[str]] = []
+        self.image_choices: list[tuple[str, list[str]]] = []
         self.date: Optional[datetime] = None
         self.date_starts: list[datetime] = []
         #: The picture the "webcam" takes, None if the user cancels.
@@ -100,8 +100,8 @@ class FakeDialogs:
     def info(self, text: str, title: str) -> None:
         self.infos.append((text, title))
 
-    def choose_image(self, files: list[str]) -> Optional[int]:
-        self.image_choices.append(files)
+    def choose_image(self, img_folder: str, files: list[str]) -> Optional[int]:
+        self.image_choices.append((img_folder, files))
         return self.image_choice
 
     def pick_date(self, start: datetime) -> Optional[datetime]:

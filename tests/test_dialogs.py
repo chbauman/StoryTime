@@ -6,7 +6,7 @@ from unittest.mock import patch
 import cv2
 import wx
 
-from story_time import dialogs, folders
+from story_time import dialogs
 from story_time.controller import NoWebcamError
 from story_time.dialogs import (
     AcceptPhoto,
@@ -23,45 +23,44 @@ from story_time.images import NEW_IMAGE
 from tests.helpers import SAMPLE_IMG_DIR
 from tests.wx_helpers import HAS_WEBCAM, NoFrameCapture, create_app, run_diag
 
-IMG_LIST = [
-    os.path.join(SAMPLE_IMG_DIR, f) for f in ["Entwurf.jpg", "calendar_icon.png"]
-]
+IMG_NAMES = ["Entwurf.jpg", "calendar_icon.png"]
+IMG_LIST = [os.path.join(SAMPLE_IMG_DIR, f) for f in IMG_NAMES]
 
 
 class TestDialogs(TestCase):
     def test_message_dlg(self):
         with create_app() as f:
             md = CustomMessageDialog("Message", "title", f)
-            wx.CallAfter(md.OnClose, None)
+            wx.CallAfter(md.on_close, None)
             assert md.ShowModal() == wx.ID_CANCEL
             assert not md.okay
 
             md = CustomMessageDialog("Message", "title", f)
-            wx.CallAfter(md.OnOK, None)
+            wx.CallAfter(md.on_ok, None)
             md.ShowModal()
             assert md.okay
 
             md = CustomMessageDialog("Message", "title", f, cancel_only=True)
-            wx.CallAfter(md.OnOK, None)
+            wx.CallAfter(md.on_ok, None)
             assert md.ShowModal() == wx.ID_CANCEL
 
     def test_dialog_base(self):
         with create_app():
             d = TwoButtonDialogBase()
-            d.OnTakePic(None)
-            d.OnClose(None)
+            d.on_take_pic(None)
+            d.on_close(None)
 
     def test_change_date_dialog(self):
         with create_app() as f:
             dlg = ChangeDateDialog(f, start=wx.DateTime(3, 2, 2021, 5, 6, 7))
             assert dlg.picked is None
-            run_diag(dlg, lambda: dlg.OnOK(None), destroy=False)
+            run_diag(dlg, lambda: dlg.on_ok(None), destroy=False)
             assert dlg.picked.IsEqualTo(wx.DateTime(3, 2, 2021, 5, 6, 7))
             dlg.Destroy()
 
             # Canceling picks nothing
             dlg = ChangeDateDialog(f)
-            run_diag(dlg, lambda: dlg.OnClose(None), destroy=False)
+            run_diag(dlg, lambda: dlg.on_close(None), destroy=False)
             assert dlg.picked is None
             dlg.Destroy()
 
@@ -75,28 +74,27 @@ class TestDialogs(TestCase):
     def test_photo_exists_dialog(self):
         with create_app():
             # A destroyed dialog cannot be shown again, so create a new one each time.
-            photo_dlg = PhotoWithSameDateExistsDialog(IMG_LIST)
+            photo_dlg = PhotoWithSameDateExistsDialog(SAMPLE_IMG_DIR, IMG_NAMES)
 
             def test_1():
-                photo_dlg.OnNext(None)
-                photo_dlg.OnPrev(None)
-                photo_dlg.OnSelect(None)
+                photo_dlg.on_next(None)
+                photo_dlg.on_prev(None)
+                photo_dlg.on_select(None)
 
             run_diag(photo_dlg, test_1)
-            assert photo_dlg.chosenImgInd == 0
+            assert photo_dlg.chosen_img_ind == 0
 
-            photo_dlg = PhotoWithSameDateExistsDialog(IMG_LIST)
-            run_diag(photo_dlg, lambda: photo_dlg.OnClose(None))
-            assert photo_dlg.chosenImgInd is None
+            photo_dlg = PhotoWithSameDateExistsDialog(SAMPLE_IMG_DIR, IMG_NAMES)
+            run_diag(photo_dlg, lambda: photo_dlg.on_close(None))
+            assert photo_dlg.chosen_img_ind is None
 
-            photo_dlg = PhotoWithSameDateExistsDialog(IMG_LIST)
-            run_diag(photo_dlg, lambda: photo_dlg.OnNew(None))
-            assert photo_dlg.chosenImgInd == -1
+            photo_dlg = PhotoWithSameDateExistsDialog(SAMPLE_IMG_DIR, IMG_NAMES)
+            run_diag(photo_dlg, lambda: photo_dlg.on_new(None))
+            assert photo_dlg.chosen_img_ind == -1
 
     def test_no_webcam_error(self):
-        with create_app():
-            with self.assertRaises(NoWebcamError):
-                ShowCapture(None, NoFrameCapture())
+        with create_app(), self.assertRaises(NoWebcamError):
+            ShowCapture(None, NoFrameCapture())
 
     @skipUnless(HAS_WEBCAM, "No webcam available.")
     def test_selfie_dialog(self):
@@ -104,9 +102,9 @@ class TestDialogs(TestCase):
             photo_dlg = SelfieDialog()
 
             def take():
-                # The dialog to accept the photo is shown by `OnTakePic`
-                wx.CallAfter(photo_dlg.accept_diag.OnTakePic, None)
-                photo_dlg.OnTakePic(None)
+                # The dialog to accept the photo is shown by `on_take_pic`
+                wx.CallAfter(photo_dlg.accept_diag.on_take_pic, None)
+                photo_dlg.on_take_pic(None)
 
             run_diag(photo_dlg, take)
             assert photo_dlg.taken_img is not None
@@ -114,9 +112,9 @@ class TestDialogs(TestCase):
             photo_dlg = SelfieDialog()
 
             def take_and_throw():
-                wx.CallAfter(photo_dlg.accept_diag.OnClose, None)
-                photo_dlg.OnTakePic(None)
-                photo_dlg.OnClose(None)
+                wx.CallAfter(photo_dlg.accept_diag.on_close, None)
+                photo_dlg.on_take_pic(None)
+                photo_dlg.on_close(None)
 
             run_diag(photo_dlg, take_and_throw)
             assert photo_dlg.taken_img is None
@@ -149,21 +147,18 @@ class TestWxDialogs(TestCase):
         self.app = wx.App()
         self.addCleanup(self.app.Destroy)
         self.dialogs = WxDialogs()
-        old_img_folder = folders.img_folder
-        folders.img_folder = SAMPLE_IMG_DIR
-        self.addCleanup(setattr, folders, "img_folder", old_img_folder)
 
     def test_confirm(self):
         seen = []
 
         def click_ok(dlg):
             seen.append((dlg.GetTitle(), dlg.GetSize()))
-            dlg.OnOK(None)
+            dlg.on_ok(None)
 
         with answer(CustomMessageDialog, click_ok):
             assert self.dialogs.confirm("Sure?", "Title", "Yes", "No") is True
         assert seen[0][0] == "Title"
-        with answer(CustomMessageDialog, lambda d: d.OnClose(None)):
+        with answer(CustomMessageDialog, lambda d: d.on_close(None)):
             assert self.dialogs.confirm("Sure?", "Title", "Yes", "No") is False
 
     def test_info(self):
@@ -173,18 +168,20 @@ class TestWxDialogs(TestCase):
         assert shown == ["Info title"]
 
     def test_choose_image(self):
-        with answer(PhotoWithSameDateExistsDialog, lambda d: d.OnSelect(None)):
-            assert self.dialogs.choose_image(["Entwurf.jpg"]) == 0
-        with answer(PhotoWithSameDateExistsDialog, lambda d: d.OnNew(None)):
-            assert self.dialogs.choose_image(["Entwurf.jpg"]) == NEW_IMAGE
-        with answer(PhotoWithSameDateExistsDialog, lambda d: d.OnClose(None)):
-            assert self.dialogs.choose_image(["Entwurf.jpg"]) is None
+        with answer(PhotoWithSameDateExistsDialog, lambda d: d.on_select(None)):
+            assert self.dialogs.choose_image(SAMPLE_IMG_DIR, ["Entwurf.jpg"]) == 0
+        with answer(PhotoWithSameDateExistsDialog, lambda d: d.on_new(None)):
+            assert (
+                self.dialogs.choose_image(SAMPLE_IMG_DIR, ["Entwurf.jpg"]) == NEW_IMAGE
+            )
+        with answer(PhotoWithSameDateExistsDialog, lambda d: d.on_close(None)):
+            assert self.dialogs.choose_image(SAMPLE_IMG_DIR, ["Entwurf.jpg"]) is None
 
     def test_pick_date(self):
         start = datetime(2021, 3, 4, 5, 6, 7)
-        with answer(ChangeDateDialog, lambda d: d.OnOK(None)):
+        with answer(ChangeDateDialog, lambda d: d.on_ok(None)):
             assert self.dialogs.pick_date(start) == start
-        with answer(ChangeDateDialog, lambda d: d.OnClose(None)):
+        with answer(ChangeDateDialog, lambda d: d.on_close(None)):
             assert self.dialogs.pick_date(start) is None
         with answer(ChangeDateDialog, lambda d: d.set_now_and_close(None)):
             picked = self.dialogs.pick_date(start)
@@ -218,10 +215,10 @@ class TestWxDialogs(TestCase):
             def __init__(self, taken_img=None):
                 self.taken_img = taken_img
 
-            def ShowModal(self):
+            def ShowModal(self):  # noqa: N802
                 return wx.ID_OK
 
-            def Destroy(self):
+            def Destroy(self):  # noqa: N802
                 pass
 
         with tempfile.TemporaryDirectory() as folder:

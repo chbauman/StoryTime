@@ -14,7 +14,7 @@ PURE_MODULES = [
     "story_time.settings",
     "story_time.shortcuts",
     "story_time.texts",
-    "story_time.XML_write",
+    "story_time.xml_storage",
 ]
 
 

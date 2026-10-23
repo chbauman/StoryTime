@@ -1,51 +1,42 @@
-"""The folders of the diary and the folder for temporary files.
+"""The folder of the diary and the folder for temporary files.
 
-This module keeps the data folder of the running app. It does not depend on
-the GUI, the user is asked for a folder by a function that is passed in.
+There is no state in this module: the folders are objects that are passed to
+whoever needs them. This module does not depend on the GUI, the user is asked for
+a folder by a function that is passed in.
 """
 
 import os
 import shutil
 import tempfile
+from dataclasses import dataclass
 from typing import Callable, Optional
 
 from story_time import settings
 
-# The state of the running app, set with `update_folder`. Initialized values
-# should never be used.
-data_path = ""  #: The folder containing the image and the xml folder.
-img_folder = "if/you/see/this/its/a/bug"  #: The folder where the images are stored.
-xml_folder = (
-    "if/you/see/this/its/a/bug"  #: The folder where the xml documents are stored.
-)
 
-_temp_folder: Optional[str] = None
+@dataclass(frozen=True)
+class DataFolder:
+    """The folder with the data of the diary: the XML files and the images."""
 
+    path: str
 
-def update_folder(new_data_path: str) -> None:
-    """Update global path variables if data folder is changed."""
-    global data_path
-    global img_folder
-    global xml_folder
+    @property
+    def img_folder(self) -> str:
+        """The folder where the images are stored."""
+        return os.path.join(self.path, "Img")
 
-    data_path = new_data_path
-    img_folder = os.path.join(new_data_path, "Img")
-    xml_folder = os.path.join(new_data_path, "XML")
+    @property
+    def xml_folder(self) -> str:
+        """The folder where the XML documents are stored."""
+        return os.path.join(self.path, "XML")
 
-
-def create_dir(dir_name: str) -> None:
-    """Creates the given directory recursively."""
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+    def create(self) -> None:
+        """Creates the folders for the images and the XML files if they are missing."""
+        os.makedirs(self.img_folder, exist_ok=True)
+        os.makedirs(self.xml_folder, exist_ok=True)
 
 
-def create_xml_and_img_folder(base_folder: str) -> None:
-    """Create a folder for the XML and the image files in `base_folder`."""
-    os.makedirs(os.path.join(base_folder, "XML"), exist_ok=True)
-    os.makedirs(os.path.join(base_folder, "Img"), exist_ok=True)
-
-
-def get_data_folder(ask_folder: Callable[[], Optional[str]]) -> Optional[str]:
+def get_data_folder(ask_folder: Callable[[], Optional[str]]) -> Optional[DataFolder]:
     """Gets the folder with the diary data from the settings.
 
     Asks for a folder if there is none yet and creates the sub-folders if they
@@ -56,36 +47,41 @@ def get_data_folder(ask_folder: Callable[[], Optional[str]]) -> Optional[str]:
             empty string if the user does not choose one.
 
     Returns:
-        The path of the data folder, `None` if the user did not choose one.
+        The data folder, `None` if the user did not choose one.
     """
-    fol_path = settings.get_data_dir()
-    if fol_path is None:
-        fol_path = ask_folder()
-        if not fol_path:
+    path = settings.get_data_dir()
+    if path is None:
+        path = ask_folder()
+        if not path:
             return None
-    create_xml_and_img_folder(fol_path)
-    return fol_path
+    folder = DataFolder(path)
+    folder.create()
+    return folder
 
 
-def save_data_folder() -> None:
-    """Stores the current data folder in the settings."""
-    settings.set_data_dir(data_path)
+def save_data_folder(folder: DataFolder) -> None:
+    """Stores the data folder in the settings."""
+    settings.set_data_dir(folder.path)
 
 
-def get_temp_folder() -> str:
-    """Returns the folder for temporary files, e.g. taken photos.
+class TempFolder:
+    """A folder for temporary files, e.g. taken photos.
 
-    It is created on first use and is removed by `remove_temp_folder`.
+    It is created when it is first needed and only this folder is removed again.
     """
-    global _temp_folder
-    if _temp_folder is None or not os.path.isdir(_temp_folder):
-        _temp_folder = tempfile.mkdtemp(prefix="story_time_")
-    return _temp_folder
 
+    def __init__(self) -> None:
+        self._path: Optional[str] = None
 
-def remove_temp_folder() -> None:
-    """Removes the folder returned by `get_temp_folder`, but nothing else."""
-    global _temp_folder
-    if _temp_folder is not None and os.path.isdir(_temp_folder):
-        shutil.rmtree(_temp_folder)
-    _temp_folder = None
+    @property
+    def path(self) -> str:
+        """The path of the folder, which is created if it does not exist."""
+        if self._path is None or not os.path.isdir(self._path):
+            self._path = tempfile.mkdtemp(prefix="story_time_")
+        return self._path
+
+    def remove(self) -> None:
+        """Removes the folder with its content, if it was created."""
+        if self._path is not None and os.path.isdir(self._path):
+            shutil.rmtree(self._path)
+        self._path = None

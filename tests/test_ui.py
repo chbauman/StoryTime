@@ -12,25 +12,35 @@ from unittest import TestCase
 
 import wx
 
-from story_time import folders, settings
+from story_time import settings
 from story_time.main import main
 from story_time.shortcuts import KEY_LEFT, KEY_RIGHT
 from story_time.texts import tr
 from story_time.user_interface import StoryTimeAppUI, month_label
-from story_time.XML_write import load_all_entries, save_entry
+from story_time.xml_storage import EntryStore
 from tests.fakes import FakeDialogs
-from tests.helpers import DATA_DIR, SAMPLE_IMG_DIR, create_test_dirs, use_data_dir
+from tests.helpers import (
+    DATA_DIR,
+    SAMPLE_IMG_DIR,
+    create_test_dirs,
+    img_dir,
+    use_data_dir,
+    xml_dir,
+)
 
 TEST_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
+STORE = EntryStore(xml_dir)
 
 
 def seed_entries():
     """Puts entries of two months, a photo and a missing photo into the folder."""
-    shutil.copy(TEST_IMG, os.path.join(folders.img_folder, "IMG_1.jpg"))
-    save_entry("Walk by the lake\n\nsecond line", datetime(2020, 10, 22, 21, 32))
-    save_entry("Logo sketch", datetime(2020, 10, 20, 18, 15), "photo", "IMG_1.jpg")
-    save_entry("Lost photo", datetime(2020, 10, 19, 10), "photo", "missing.jpg")
-    save_entry("Spring", datetime(2020, 3, 3, 7, 30))
+    shutil.copy(TEST_IMG, os.path.join(img_dir, "IMG_1.jpg"))
+    STORE.save_entry("Walk by the lake\n\nsecond line", datetime(2020, 10, 22, 21, 32))
+    STORE.save_entry(
+        "Logo sketch", datetime(2020, 10, 20, 18, 15), "photo", "IMG_1.jpg"
+    )
+    STORE.save_entry("Lost photo", datetime(2020, 10, 19, 10), "photo", "missing.jpg")
+    STORE.save_entry("Spring", datetime(2020, 3, 3, 7, 30))
 
 
 @contextmanager
@@ -45,18 +55,21 @@ def main_window(seed=seed_entries, dialogs=None):
 
         # Windows are only deleted later by the event loop, so note the cleanup
         frame.closed = False
-        cleanup = frame.Cleanup
+        cleanup = frame.cleanup
 
         def tracked_cleanup():
             frame.closed = True
             cleanup()
 
-        frame.Cleanup = tracked_cleanup
+        frame.cleanup = tracked_cleanup
         try:
             yield frame, dialogs
         finally:
             if not frame.closed:
-                frame.Cleanup()
+                frame.cleanup()
+            # A destroyed window is only removed from the top-level windows when
+            # the event loop is idle. Do that, so the next test starts clean.
+            app.Yield()
             app.Destroy()
 
 
@@ -106,13 +119,13 @@ class TestStart(TestCase):
         with main_window() as (frame, dialogs):
             assert frame.book.GetSelection() == frame.EDIT_PAGE
             assert tool_state(frame) == (True, [True] * 4)
-            assert frame.toolbar.GetToolState(frame.photoTool.Id) is False
+            assert frame.toolbar.GetToolState(frame.photo_tool.Id) is False
             assert not frame.image_drop_space.IsShown()
             assert frame.input_text_field.GetValue() == ""
             assert not dialogs.confirms and dialogs.folder_asked == 0
             assert frame.GetTitle() == tr("app.title")
             # The date is shown
-            assert frame.dateLabel.GetLabel().startswith("Date: ")
+            assert frame.date_label.GetLabel().startswith("Date: ")
             # The data folder is in the tooltip of the folder tool
             tip = frame.toolbar.GetToolShortHelp(frame.folder_tool.Id)
             assert DATA_DIR in tip and "Ctrl+O" in tip
@@ -129,7 +142,8 @@ class TestStart(TestCase):
 
     def test_main_function(self):
         with use_data_dir(DATA_DIR), create_test_dirs():
-            main(lambda frame: frame.Close())
+            # The main loop ends with the last window. Make sure it ends anyway.
+            main(lambda frame: (frame.Close(), wx.CallAfter(wx.GetApp().ExitMainLoop)))
 
     def test_key_codes_are_the_ones_of_wx(self):
         assert KEY_LEFT == wx.WXK_LEFT and KEY_RIGHT == wx.WXK_RIGHT
@@ -233,7 +247,7 @@ class TestTools(TestCase):
     def tools(frame):
         toolbar_tools = {t.Id: t for t in frame.edit_tools}
         save, photo, date, selfie = frame.edit_tools
-        assert photo is frame.photoTool and len(toolbar_tools) == 4
+        assert photo is frame.photo_tool and len(toolbar_tools) == 4
         return save, photo, date, selfie
 
     def test_new_tool_switches_between_writing_and_reading(self):
@@ -287,7 +301,7 @@ class TestTools(TestCase):
             click(frame, photo)
             assert frame.controller.load_image(TEST_IMG, datetime(2020, 1, 2, 3, 4, 5))
             shown = frame.draft_image == TEST_IMG
-            date = frame.dateLabel.GetLabel()
+            date = frame.date_label.GetLabel()
 
             dialogs.answer_confirm(False)
             click(frame, photo)
@@ -312,7 +326,7 @@ class TestTools(TestCase):
             click(frame, save)
             text = frame.input_text_field.GetValue()
             rows = [e.first_line for e, _ in frame.entry_list.shown]
-            entries = load_all_entries()
+            entries = STORE.load_all()
         assert dialogs.infos == [
             (tr("message.no_text.text"), tr("message.no_text.title"))
         ]
@@ -323,7 +337,7 @@ class TestTools(TestCase):
         with main_window() as (frame, dialogs):
             dialogs.date = datetime(2021, 3, 4, 5, 6, 7)
             click(frame, frame.edit_tools[2])
-            label = frame.dateLabel.GetLabel()
+            label = frame.date_label.GetLabel()
         assert "4.3.2021" in label and "05:06:07" in label
 
     def test_selfie_tool(self):
@@ -331,7 +345,7 @@ class TestTools(TestCase):
             dialogs.selfie_source = TEST_IMG
             click(frame, frame.edit_tools[3])
             result = (
-                frame.toolbar.GetToolState(frame.photoTool.Id),
+                frame.toolbar.GetToolState(frame.photo_tool.Id),
                 frame.image_drop_space.IsShown(),
                 os.path.basename(frame.draft_image or ""),
             )
@@ -346,28 +360,27 @@ class TestTools(TestCase):
     def test_folder_tool(self):
         import tempfile
 
-        with tempfile.TemporaryDirectory() as other:
-            with main_window() as (frame, dialogs):
-                dialogs.folder = other
-                click(frame, frame.folder_tool)
-                rows = tree_texts(frame.entry_list.tree)
-                info = frame.entry_list.info.GetLabel()
-                tip = frame.toolbar.GetToolShortHelp(frame.folder_tool.Id)
+        with tempfile.TemporaryDirectory() as other, main_window() as (frame, dialogs):
+            dialogs.folder = other
+            click(frame, frame.folder_tool)
+            rows = tree_texts(frame.entry_list.tree)
+            info = frame.entry_list.info.GetLabel()
+            tip = frame.toolbar.GetToolShortHelp(frame.folder_tool.Id)
         assert rows == [] and info == "No entries yet." and other in tip
 
     def test_dropping_an_image(self):
         with main_window() as (frame, _):
-            drop = frame.text_edit_panel.fileDrop
+            drop = frame.text_edit_panel.file_drop
             # The image area is not there before the photo mode
             assert not drop.OnDropFiles(0, 0, [TEST_IMG])
-            click(frame, frame.photoTool)
+            click(frame, frame.photo_tool)
             assert drop.OnDropFiles(0, 0, [TEST_IMG])
             assert frame.draft_image == TEST_IMG
             assert not drop.OnDropFiles(0, 0, ["notes.txt"])
 
     def test_clicking_an_image_shows_it_large(self):
         with main_window() as (frame, dialogs):
-            click(frame, frame.photoTool)
+            click(frame, frame.photo_tool)
             frame.controller.load_image(TEST_IMG)
             event = wx.MouseEvent(wx.wxEVT_LEFT_DOWN)
             frame.image_drop_space.GetEventHandler().ProcessEvent(event)
@@ -378,7 +391,7 @@ class TestTools(TestCase):
             frame.prev_img_space.GetEventHandler().ProcessEvent(event)
         assert dialogs.photos == [
             TEST_IMG,
-            os.path.join(DATA_DIR, "Img", "IMG_1.jpg"),
+            os.path.join(img_dir, "IMG_1.jpg"),
         ]
 
 
@@ -469,7 +482,7 @@ class TestClosing(TestCase):
 
     def test_closing_saves_the_folder_and_cleans_up(self):
         with main_window() as (frame, _):
-            temp = folders.get_temp_folder()
+            temp = frame.controller.temp.path
             settings.save_settings({})
             frame.Close()
             assert not os.path.exists(temp)

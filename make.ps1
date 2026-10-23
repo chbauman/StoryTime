@@ -76,6 +76,8 @@ function publish_to_pypi {
     abort_failure
     ruff check .
     abort_failure
+    mypy
+    abort_failure
 
     # Run tests
     venv/Scripts/activate.ps1
@@ -100,7 +102,7 @@ function publish_to_pypi {
 
 # Run type checker
 function typecheck {
-    mypy story_time --ignore-missing-imports --disallow-untyped-defs
+    mypy
 }
 
 # Cleans up some files

@@ -5,7 +5,7 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 
 import os
 from datetime import datetime
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, ClassVar, NamedTuple, Optional, Union
 
 import wx
 
@@ -19,7 +19,7 @@ from story_time.util import (
     but_bg_col,
     datetime_to_wx_datetime,
     format_date_time,
-    getImageToShow,
+    get_image_to_show,
     header_col,
     header_f_info,
     header_text_col,
@@ -28,7 +28,7 @@ from story_time.util import (
     scale_bitmap,
     text_bg_col,
 )
-from story_time.XML_write import Entry, group_by_month
+from story_time.xml_storage import Entry, group_by_month
 
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 SIDEBAR_WIDTH = 340  #: Initial width of the list of the entries.
@@ -88,12 +88,12 @@ class TextAndImgPanel(wx.Panel):
         img_name = f"default_img{'_txt' if drop_tgt else ''}.png"
         self.default_img = resource_filename(f"Icons/{img_name}")
 
-        self.bmp_shown = getImageToShow(self.default_img)
+        self.bmp_shown = get_image_to_show(self.default_img)
         self.img = wx.StaticBitmap(self, -1, self.bmp_shown)
         if drop_tgt:
             self.img.Hide()
-            self.fileDrop = FileDrop(self.img, on_image or (lambda _: False))
-            self.img.SetDropTarget(self.fileDrop)
+            self.file_drop = FileDrop(self.img, on_image or (lambda _: False))
+            self.img.SetDropTarget(self.file_drop)
         self.img.Hide()
 
         # Text field
@@ -107,13 +107,13 @@ class TextAndImgPanel(wx.Panel):
             self.text_box = wx.TextCtrl(self, value=text_shown, **kws)
         self.text_box.SetBackgroundColour(bg_col)
 
-        EXP_ALL = wx.EXPAND | wx.ALL
+        exp_all = wx.EXPAND | wx.ALL
         h_box_3 = wx.BoxSizer(wx.HORIZONTAL)
 
         h_box_3.Add(self.img, proportion=1, flag=wx.ALL | wx.ALIGN_TOP, border=5)
-        h_box_3.Add(self.text_box, proportion=3, flag=EXP_ALL, border=5)
+        h_box_3.Add(self.text_box, proportion=3, flag=exp_all, border=5)
 
-        box.Add(h_box_3, 1, EXP_ALL, 5)
+        box.Add(h_box_3, 1, exp_all, 5)
         box.Fit(self)
         self.SetAutoLayout(True)
         self.SetSizer(box)
@@ -269,18 +269,26 @@ class EntryListPanel(wx.Panel):
             self.on_select(entry)
 
 
+class ToolSpec(NamedTuple):
+    """A tool of the toolbar."""
+
+    icon: str  #: The name of the icon file.
+    text_key: str  #: The key of the texts of the tool.
+    shortcut: str  #: The keyboard shortcut, only shown.
+    toggle: bool = False  #: Whether the tool can be toggled.
+
+
 class ToolbarPanel(wx.Panel):
-    #: Icon file, key of the texts, keyboard shortcut and whether it is a toggle tool.
-    tool_list = [
-        ("new_icon.png", "toolbar.new", "Ctrl+N", True),
-        ("save_icon.png", "toolbar.save", "Ctrl+S"),
-        ("photo_icon.png", "toolbar.photo", "Ctrl+P", True),
-        ("calendar_icon.png", "toolbar.date", "Ctrl+D"),
-        ("folder_icon.png", "toolbar.folder", "Ctrl+O"),
-        ("webcam_icon.png", "toolbar.selfie", "Ctrl+T"),
+    tool_list: ClassVar[list[ToolSpec]] = [
+        ToolSpec("new_icon.png", "toolbar.new", "Ctrl+N", toggle=True),
+        ToolSpec("save_icon.png", "toolbar.save", "Ctrl+S"),
+        ToolSpec("photo_icon.png", "toolbar.photo", "Ctrl+P", toggle=True),
+        ToolSpec("calendar_icon.png", "toolbar.date", "Ctrl+D"),
+        ToolSpec("folder_icon.png", "toolbar.folder", "Ctrl+O"),
+        ToolSpec("webcam_icon.png", "toolbar.selfie", "Ctrl+T"),
     ]
     tools: list[wx.ToolBarToolBase]
-    photoTool: Union[Any, wx.ToolBarToolBase]
+    photo_tool: Union[Any, wx.ToolBarToolBase]
     new_tool: wx.ToolBarToolBase
     folder_tool: wx.ToolBarToolBase
     #: The tools that are only needed to write an entry.
@@ -303,28 +311,28 @@ class ToolbarPanel(wx.Panel):
 
     def setup_toolbar(self) -> None:
         """Sets the toolbar up."""
-        iconSize = (50, 50)
+        icon_size = (50, 50)
 
-        self.toolbar.SetToolBitmapSize(iconSize)
+        self.toolbar.SetToolBitmapSize(icon_size)
 
-        for t in self.tool_list:
-            icon_name, text_key, shortcut, *rest = t
-            name = tr(f"{text_key}.name")
-            help_txt = self.tool_help(text_key, shortcut)
+        for spec in self.tool_list:
             tool_id = wx.Window.NewControlId()
-            img_path = resource_filename(f"Icons/{icon_name}")
-            icon = scale_bitmap(wx.Bitmap(img_path), *iconSize)
-            args = (tool_id, name, icon)
-            fun = (
-                self.toolbar.AddCheckTool
-                if rest is not None and rest
-                else self.toolbar.AddTool
+            icon = scale_bitmap(
+                wx.Bitmap(resource_filename(f"Icons/{spec.icon}")), *icon_size
             )
-            tool = fun(*args, shortHelp=help_txt)
+            add_tool = (
+                self.toolbar.AddCheckTool if spec.toggle else self.toolbar.AddTool
+            )
+            tool = add_tool(
+                tool_id,
+                tr(f"{spec.text_key}.name"),
+                icon,
+                shortHelp=self.tool_help(spec.text_key, spec.shortcut),
+            )
             self.tools.append(tool)
 
         self.new_tool = self.tools[0]
-        self.photoTool = self.tools[2]
+        self.photo_tool = self.tools[2]
         self.folder_tool = self.tools[4]
         self.edit_tools = [self.tools[i] for i in (1, 2, 3, 5)]
 
@@ -378,7 +386,7 @@ class StoryTimeAppUI(wx.Frame):
             wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY)
         )
         self.SetIcon(icon)
-        self.InitUI()
+        self.init_ui()
 
         self.controller = DiaryController(self, dialogs or WxDialogs(self))
         if not self.controller.start():  # There is no data folder
@@ -389,7 +397,7 @@ class StoryTimeAppUI(wx.Frame):
         self.SetTitle(tr("app.title"))
         self.Center()
 
-    def InitUI(self) -> None:
+    def init_ui(self) -> None:
         # Setup toolbar
         tool_panel = ToolbarPanel(self, bg_col=header_col)
         tool_panel.bind_tools(
@@ -399,14 +407,14 @@ class StoryTimeAppUI(wx.Frame):
                 ),
                 lambda _: self.controller.save(),
                 lambda _: self.controller.set_photo_mode(
-                    self.toolbar.GetToolState(self.photoTool.Id)
+                    self.toolbar.GetToolState(self.photo_tool.Id)
                 ),
                 lambda _: self.controller.change_date(),
                 lambda _: self.controller.change_folder(),
                 lambda _: self.controller.take_selfie(),
             ]
         )
-        self.photoTool = tool_panel.photoTool
+        self.photo_tool = tool_panel.photo_tool
         self.new_tool = tool_panel.new_tool
         self.folder_tool = tool_panel.folder_tool
         self.edit_tools = tool_panel.edit_tools
@@ -455,7 +463,7 @@ class StoryTimeAppUI(wx.Frame):
             bg_col=but_bg_col,
             text_col=bar_text_col,
         )
-        self.dateLabel = time_text.stat_text
+        self.date_label = time_text.stat_text
         text_edit = TextAndImgPanel(
             edit_page,
             editable=True,
@@ -493,25 +501,25 @@ class StoryTimeAppUI(wx.Frame):
         box.Fit(self)
         self.SetSizer(box)
 
-        self.Bind(wx.EVT_CLOSE, self.OnX)
+        self.Bind(wx.EVT_CLOSE, self.on_close)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_key)
         self.Bind(wx.EVT_SIZE, self.on_resize)
-        self.Bind(wx.EVT_IDLE, self.OnIdle)
+        self.Bind(wx.EVT_IDLE, self.on_idle)
 
         self.SetMinSize((700, 500))
 
     # ------------------------------------------------- what the user does
 
-    def OnX(self, _: Any) -> None:
+    def on_close(self, _: Any) -> None:
         """Called when the X is clicked to close, also by `Close`.
 
         The window is only closed if there is nothing unsaved or the user agrees.
         """
         if self.controller.request_close():
-            self.Cleanup()
+            self.cleanup()
 
-    def Cleanup(self) -> None:
-        """Cleanup, should always be called when app is closed."""
+    def cleanup(self) -> None:
+        """cleanup, should always be called when app is closed."""
         self.controller.finish()
         self.Destroy()
 
@@ -543,7 +551,7 @@ class StoryTimeAppUI(wx.Frame):
         self.book.ChangeSelection(self.EDIT_PAGE if editing else self.VIEW_PAGE)
         self.Layout()
         self.toolbar.ToggleTool(self.new_tool.Id, editing)
-        self.toolbar.ToggleTool(self.photoTool.Id, photo_mode)
+        self.toolbar.ToggleTool(self.photo_tool.Id, photo_mode)
         # Only the tools to write are needed to write
         for tool in self.edit_tools:
             self.toolbar.EnableTool(tool.Id, editing)
@@ -555,12 +563,12 @@ class StoryTimeAppUI(wx.Frame):
     def show_draft_image(self, path: Optional[str]) -> None:
         self.draft_image = path
         self.image_drop_space.SetBitmap(
-            getImageToShow(self.default_img_drop if path is None else path)
+            get_image_to_show(self.default_img_drop if path is None else path)
         )
         self.resized_layout()
 
     def show_draft_date(self, date_time: datetime) -> None:
-        self.dateLabel.SetLabelText(
+        self.date_label.SetLabelText(
             tr("main.date_line", date=format_date_time(date_time))
         )
         self.Layout()
@@ -606,7 +614,7 @@ class StoryTimeAppUI(wx.Frame):
     def set_prev_img(self, name: str) -> None:
         """Sets an image in the panel to read an entry."""
         self.prev_img_name = name
-        self.prev_img_space.SetBitmap(getImageToShow(name))
+        self.prev_img_space.SetBitmap(get_image_to_show(name))
         self.prev_img_space.Show()
         self.resized_layout()
 
@@ -639,7 +647,7 @@ class StoryTimeAppUI(wx.Frame):
         size = min(area[1], area[0] // 3, MAX_IMAGE_SIZE) - 30
         return size if size > 0 else 0
 
-    def OnIdle(self, _: Any) -> None:
+    def on_idle(self, _: Any) -> None:
         if self.resized:
             img_size = self.image_size(self.input_text_sizer.Size)
             if img_size > 0:
@@ -648,13 +656,13 @@ class StoryTimeAppUI(wx.Frame):
                     if self.draft_image is None
                     else self.draft_image
                 )
-                self.image_drop_space.SetBitmap(getImageToShow(set_img, img_size))
+                self.image_drop_space.SetBitmap(get_image_to_show(set_img, img_size))
 
             if self.prev_img_name is not None:
                 img_size = self.image_size(self.text_prev_sizer.Size)
                 if img_size > 0:
                     self.prev_img_space.SetBitmap(
-                        getImageToShow(self.prev_img_name, img_size)
+                        get_image_to_show(self.prev_img_name, img_size)
                     )
 
             self.layout_all()
@@ -662,4 +670,4 @@ class StoryTimeAppUI(wx.Frame):
 
     def resized_layout(self) -> None:
         self.on_resize(None)
-        self.OnIdle(None)
+        self.on_idle(None)

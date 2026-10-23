@@ -1,5 +1,7 @@
 # StoryTime
 
+[![CI](https://github.com/chbauman/StoryTime/actions/workflows/ci.yml/badge.svg)](https://github.com/chbauman/StoryTime/actions/workflows/ci.yml)
+
 Digital diary written in python using wxPython.
 Works completely offline, so there are no privacy issues.
 On the other hand side, there is no backup included. 
@@ -68,6 +70,7 @@ $ pip install -e ".[dev]"
 $ pytest tests
 $ ruff check .
 $ black --check .
+$ mypy
 ```
 
 ### Code structure
@@ -78,7 +81,7 @@ The logic is kept apart from the GUI, so most of it can be tested without one:
 | --- | --- | --- |
 | `controller.py` | `DiaryController`: what happens when the user writes, reads, searches, saves... | no |
 | `dates.py`, `images.py`, `folders.py`, `settings.py`, `shortcuts.py`, `texts.py` | Helpers for dates, image files, folders, settings, keys and texts | no |
-| `XML_write.py` | Reading and writing of the XML files with the entries | no |
+| `xml_storage.py` | Reading and writing of the XML files with the entries | no |
 | `user_interface.py` | The main window, which shows what the controller says and passes on what the user does | yes |
 | `dialogs.py`, `util.py` | The dialogs, colors, fonts and image helpers | yes |
 

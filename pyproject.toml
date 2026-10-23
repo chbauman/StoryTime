@@ -49,12 +49,33 @@ story_time = ["Icons/*", "locales/*.json"]
 version = { file = ["version.txt"] }
 
 [tool.ruff]
-line-length = 90
+line-length = 88  # The same as black
 target-version = "py39"
 extend-exclude = ["docs/sphinx"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B"]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # import order
+    "UP",   # modern Python syntax
+    "B",    # likely bugs
+    "N",    # PEP 8 names
+    "C4",   # comprehensions
+    "SIM",  # simplifications
+    "RUF",  # ruff specific
+]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["wx.Colour"]
+
+[tool.mypy]
+files = ["story_time"]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+warn_unused_ignores = true
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]
