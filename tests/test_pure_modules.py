@@ -7,10 +7,12 @@ ROOT = str(Path(__file__).resolve().parent.parent)
 
 #: The modules with the logic of the app, which must work without the GUI.
 PURE_MODULES = [
+    "story_time.controller",
     "story_time.dates",
     "story_time.folders",
     "story_time.images",
     "story_time.settings",
+    "story_time.shortcuts",
     "story_time.texts",
     "story_time.XML_write",
 ]

@@ -62,17 +62,19 @@ class TestDates(TestCase):
     def test_modified_time(self):
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "test_file.png")
-            before = datetime.now().replace(microsecond=0)
             with open(path, "w") as f:
                 f.write("test")
-            after = datetime.now()
 
+            # Set the time, as the one of a new file can be off by a few
+            # milliseconds. Fractions of seconds are not part of the result.
+            expected = datetime(2020, 5, 6, 7, 8, 9)
+            timestamp = expected.timestamp() + 0.75
+            os.utime(path, (timestamp, timestamp))
             modified = file_modified_time(path)
-            assert before <= modified <= after
-            assert modified.microsecond == 0
+            assert modified == expected and modified.microsecond == 0
 
             # Without a date in the name the modified time is used
-            assert date_of_image_file(path) == modified
+            assert date_of_image_file(path) == expected
 
             # A date in the name wins
             dated = os.path.join(folder, "IMG_20201202_053100.png")
