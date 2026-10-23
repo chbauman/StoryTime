@@ -5,15 +5,19 @@ All the text is stored in an XML file and the images are referenced
 in the file.
 """
 
+from __future__ import (
+    annotations,
+)  # `ET.ElementTree[...]` only exists for type checkers
+
 import os
 import re
-import xml.etree.ElementTree as elTree
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Any
 
 
-def init_XML(comm: str, year: int) -> elTree.ElementTree:
+def init_xml(comm: str, year: int) -> ET.ElementTree[Any]:
     """Initializes an XML document for a new year.
 
     Args:
@@ -23,15 +27,15 @@ def init_XML(comm: str, year: int) -> elTree.ElementTree:
     Returns:
         XML element tree.
     """
-    root = elTree.Element("root")
-    head = elTree.SubElement(root, "head")
-    elTree.SubElement(head, "year").text = str(year)
-    elTree.SubElement(head, "text").text = comm
-    elTree.SubElement(root, "doc")
-    return elTree.ElementTree(root)
+    root = ET.Element("root")
+    head = ET.SubElement(root, "head")
+    ET.SubElement(head, "year").text = str(year)
+    ET.SubElement(head, "text").text = comm
+    ET.SubElement(root, "doc")
+    return ET.ElementTree(root)
 
 
-def insert_text_entry(doc: elTree.Element, date_time: datetime, text: str) -> None:
+def insert_text_entry(doc: ET.Element, date_time: datetime, text: str) -> None:
     """Inserts a text entry into the XML element tree.
 
     Args:
@@ -40,13 +44,13 @@ def insert_text_entry(doc: elTree.Element, date_time: datetime, text: str) -> No
         text: The text of the entry.
     """
     dt = date_time.isoformat(timespec="seconds")
-    elTree.SubElement(doc, "entry", date_time=dt, type="text").text = text
+    ET.SubElement(doc, "entry", date_time=dt, type="text").text = text
 
 
 def insert_photo_entry(
-    doc: elTree.Element, date_time: datetime, img_filename: str, text: str
+    doc: ET.Element, date_time: datetime, img_filename: str, text: str
 ) -> None:
-    """Inserts a photo entry element as a child of the elTree doc.
+    """Inserts a photo entry element as a child of the ET doc.
 
     Args:
         doc: The doc element. Entry will be inserted as child.
@@ -55,16 +59,16 @@ def insert_photo_entry(
         text: The text of the entry.
     """
     # TODO: Check if file exists?
-    ent = elTree.SubElement(
+    ent = ET.SubElement(
         doc, "entry", date_time=date_time.isoformat(timespec="seconds"), type="photo"
     )
-    elTree.SubElement(ent, "text").text = text
-    elTree.SubElement(ent, "photo").text = img_filename
+    ET.SubElement(ent, "text").text = text
+    ET.SubElement(ent, "photo").text = img_filename
 
 
-def load_XML(
+def load_xml(
     xml_folder: str, year: int, create: bool = True
-) -> tuple[elTree.ElementTree, str]:
+) -> tuple[ET.ElementTree[Any], str]:
     """Loads an existing XML file and returns the Element tree.
 
     If it does not exist, a new element tree is initializes.
@@ -77,12 +81,12 @@ def load_XML(
     Returns:
         The element tree and the filename.
     """
-    yearStr = str(year)
-    xml_file = os.path.join(xml_folder, f"{yearStr}.xml")
+    year_str = str(year)
+    xml_file = os.path.join(xml_folder, f"{year_str}.xml")
     if os.path.exists(xml_file):
-        tree = elTree.parse(xml_file)
+        tree = ET.parse(xml_file)
     elif create:
-        tree = init_XML("Das isch es Johr " + yearStr + ".", year)
+        tree = init_xml("Das isch es Johr " + year_str + ".", year)
     else:
         raise FileNotFoundError("File not found and create == False")
     return tree, xml_file
@@ -95,7 +99,7 @@ class Entry:
     date_time: datetime
     type: str  #: Either "text" or "photo".
     text: str
-    photo: Optional[str] = None  #: For photo entries the file name in the Img folder.
+    photo: str | None = None  #: For photo entries the file name in the Img folder.
 
     @property
     def first_line(self) -> str:
@@ -106,7 +110,7 @@ class Entry:
         return ""
 
 
-def _entry_from_element(element: elTree.Element) -> Optional[Entry]:
+def _entry_from_element(element: ET.Element) -> Entry | None:
     """Converts an entry element, returns None if it is not valid."""
     try:
         date_time = datetime.fromisoformat(element.get("date_time", ""))
@@ -129,7 +133,7 @@ class EntryStore:
         comm: str,
         date_time: datetime,
         entry_type: str = "text",
-        img_filename: Optional[str] = None,
+        img_filename: str | None = None,
     ) -> None:
         """Reads the XML file and adds an entry element with the specified content.
 
@@ -142,9 +146,10 @@ class EntryStore:
             img_filename: For a photo the image file, only its name is stored.
         """
         year = date_time.year
-        tree, xml_file = load_XML(self.xml_folder, year)
+        tree, xml_file = load_xml(self.xml_folder, year)
 
-        doc = tree.getroot().find("doc")
+        root = tree.getroot()
+        doc = None if root is None else root.find("doc")
         assert doc is not None, f"No doc found in XML of year {year}."
         if entry_type == "text":
             insert_text_entry(doc, date_time, comm)
@@ -167,8 +172,8 @@ class EntryStore:
             if not re.fullmatch(r"\d+\.xml", name):
                 continue
             try:
-                tree = elTree.parse(os.path.join(self.xml_folder, name))
-            except (elTree.ParseError, OSError):
+                tree = ET.parse(os.path.join(self.xml_folder, name))
+            except (ET.ParseError, OSError):
                 continue
             doc = tree.getroot().find("doc")
             if doc is None:

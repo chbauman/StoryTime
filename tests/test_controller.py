@@ -9,7 +9,7 @@ from story_time.controller import DiaryController
 from story_time.folders import DataFolder
 from story_time.images import NEW_IMAGE
 from story_time.texts import tr
-from story_time.XML_write import EntryStore
+from story_time.xml_storage import EntryStore
 from tests.fakes import FakeDialogs, FakeView
 from tests.helpers import (
     DATA_DIR,

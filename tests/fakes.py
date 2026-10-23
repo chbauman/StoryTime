@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from story_time.images import NEW_IMAGE
-from story_time.XML_write import Entry
+from story_time.xml_storage import Entry
 
 
 class FakeView:

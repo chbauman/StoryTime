@@ -16,7 +16,7 @@ from story_time.dates import date_of_image_file, img_name_from_time
 from story_time.folders import DataFolder, TempFolder, get_data_folder, save_data_folder
 from story_time.images import copy_img_file_to_imgs, is_supported_image
 from story_time.texts import tr
-from story_time.XML_write import Entry, EntryStore, filter_entries
+from story_time.xml_storage import Entry, EntryStore, filter_entries
 
 
 class NoWebcamError(RuntimeError):

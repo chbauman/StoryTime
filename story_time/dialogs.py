@@ -20,7 +20,7 @@ from story_time.util import (
     button_f_info,
     datetime_to_wx_datetime,
     dialog_f_info,
-    getImageToShow,
+    get_image_to_show,
     text_bg_col,
     wx_datetime_to_datetime,
 )
@@ -49,27 +49,27 @@ class PhotoShow(wx.Dialog):
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         self.f_name = f_name
-        b = getImageToShow(f_name)
-        self.imageCtrl = wx.StaticBitmap(self, wx.ID_ANY, b)
-        self.v_box.Add(self.imageCtrl, 0, wx.ALL | wx.EXPAND, 0)
+        b = get_image_to_show(f_name)
+        self.image_ctrl = wx.StaticBitmap(self, wx.ID_ANY, b)
+        self.v_box.Add(self.image_ctrl, 0, wx.ALL | wx.EXPAND, 0)
 
         self.SetSizer(self.v_box)
 
         self.SetBackgroundColour(text_bg_col)
         self.Size = wx.Size(500, 500)
 
-        self.Bind(wx.EVT_SIZE, self.OnSize)
-        self.Bind(wx.EVT_IDLE, self.OnIdle)
+        self.Bind(wx.EVT_SIZE, self.on_size)
+        self.Bind(wx.EVT_IDLE, self.on_idle)
 
-    def OnSize(self, _: Any) -> None:
+    def on_size(self, _: Any) -> None:
         self.resized = True  # set dirty
 
-    def OnIdle(self, _: Any) -> None:
+    def on_idle(self, _: Any) -> None:
         if self.resized:
             # take action if the dirty flag is set
             self.Layout()
             s = self.v_box.Size
-            self.imageCtrl.SetBitmap(getImageToShow(self.f_name, s[1], width=s[0]))
+            self.image_ctrl.SetBitmap(get_image_to_show(self.f_name, s[1], width=s[0]))
             self.resized = False  # reset the flag
 
 
@@ -98,35 +98,35 @@ class TwoButtonDialogBase(ButtonDialogBase):
         pnl: wx.Panel,
         shoot_label: str,
         cancel_label: str,
-        shoot_fun: Callable = None,
-        cancel_fun: Callable = None,
+        shoot_fun: Optional[Callable] = None,
+        cancel_fun: Optional[Callable] = None,
     ) -> None:
-        """Layout setup, to be called in self.InitUI."""
+        """Layout setup, to be called in self.init_ui."""
         if shoot_fun is None:
-            shoot_fun = self.OnTakePic
+            shoot_fun = self.on_take_pic
         if cancel_fun is None:
-            cancel_fun = self.OnClose
+            cancel_fun = self.on_close
 
         # Buttons
-        shootButton = wx.Button(self, label=shoot_label)
-        # shootButton.SetBackgroundColour(but_bg_col)
-        shootButton.Bind(wx.EVT_BUTTON, shoot_fun)
-        cancelButton = wx.Button(self, label=cancel_label)
-        cancelButton.Bind(wx.EVT_BUTTON, cancel_fun)
-        # cancelButton.SetBackgroundColour(but_bg_col)
-        shootButton.SetFont(wx.Font(button_f_info))
-        cancelButton.SetFont(wx.Font(button_f_info))
+        shoot_button = wx.Button(self, label=shoot_label)
+        # shoot_button.SetBackgroundColour(but_bg_col)
+        shoot_button.Bind(wx.EVT_BUTTON, shoot_fun)
+        cancel_button = wx.Button(self, label=cancel_label)
+        cancel_button.Bind(wx.EVT_BUTTON, cancel_fun)
+        # cancel_button.SetBackgroundColour(but_bg_col)
+        shoot_button.SetFont(wx.Font(button_f_info))
+        cancel_button.SetFont(wx.Font(button_f_info))
 
         # Layout
         h_box = wx.BoxSizer(wx.HORIZONTAL)
-        h_box.Add(shootButton)
+        h_box.Add(shoot_button)
 
-        self.setup_v_box(h_box, cancelButton, pnl)
+        self.setup_v_box(h_box, cancel_button, pnl)
 
-    def OnTakePic(self, e: Any) -> None:
+    def on_take_pic(self, e: Any) -> None:
         pass
 
-    def OnClose(self, e: Any) -> None:
+    def on_close(self, e: Any) -> None:
         pass
 
 
@@ -135,12 +135,12 @@ class CustomMessageDialog(TwoButtonDialogBase):
 
     def __init__(
         self,
-        message: str = None,
-        title: str = None,
+        message: Optional[str] = None,
+        title: Optional[str] = None,
         *args: Any,
         cancel_only: bool = False,
-        ok_label: str = None,
-        cancel_label: str = None,
+        ok_label: Optional[str] = None,
+        cancel_label: Optional[str] = None,
         **kw: Any,
     ) -> None:
         super().__init__(*args, **kw)
@@ -152,27 +152,27 @@ class CustomMessageDialog(TwoButtonDialogBase):
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         if message is not None:
-            stMsg = wx.StaticText(self, -1, message)
-            stMsg.SetFont(wx.Font(dialog_f_info))
-            # stMsg.SetBackgroundColour(green)
-            self.v_box.Add(stMsg, 1, wx.ALL | wx.EXPAND, 5)
+            st_msg = wx.StaticText(self, -1, message)
+            st_msg.SetFont(wx.Font(dialog_f_info))
+            # st_msg.SetBackgroundColour(green)
+            self.v_box.Add(st_msg, 1, wx.ALL | wx.EXPAND, 5)
 
         self.SetSizer(self.v_box)
 
         if cancel_only:
             h_box = wx.BoxSizer(wx.HORIZONTAL)
             cancel_butt = wx.Button(self, label=cancel_label)
-            cancel_butt.Bind(wx.EVT_BUTTON, self.OnOK)
+            cancel_butt.Bind(wx.EVT_BUTTON, self.on_ok)
             cancel_butt.SetFont(wx.Font(button_f_info))
             self.setup_v_box(h_box, cancel_butt, pnl)
         else:
-            self.setup(pnl, ok_label, cancel_label, self.OnOK, self.OnClose)
+            self.setup(pnl, ok_label, cancel_label, self.on_ok, self.on_close)
 
-    def OnOK(self, _: Any) -> None:
+    def on_ok(self, _: Any) -> None:
         self.okay = True
         self.Close()
 
-    def OnClose(self, _: Any) -> None:
+    def on_close(self, _: Any) -> None:
         self.Close()
 
 
@@ -182,7 +182,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
     start_dt: wx.DateTime
     dt: wx.DateTime
     cal: wx.adv.CalendarCtrl
-    timePicker: wx.adv.TimePickerCtrl
+    time_picker: wx.adv.TimePickerCtrl
 
     #: The date picked with Ok or Now, None if the dialog was canceled.
     picked: Optional[wx.DateTime] = None
@@ -195,13 +195,13 @@ class ChangeDateDialog(TwoButtonDialogBase):
         self.set_time_now()
         if start is not None:
             self.dt = start
-        self.InitUI()
+        self.init_ui()
         self.cal.SetDate(self.dt)
 
         self.SetSize((400, 400))
         self.SetTitle(tr("dialog.change_date.title"))
 
-    def InitUI(self) -> None:
+    def init_ui(self) -> None:
         pnl = wx.Panel(self)
 
         # Define UI elements
@@ -209,7 +209,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
         top_text.SetFont(wx.Font(dialog_f_info))
         self.cal = wx.adv.CalendarCtrl(self)
         time_txt = wx.StaticText(self, label=tr("dialog.change_date.time") + " ")
-        self.timePicker = wx.adv.TimePickerCtrl(self, dt=self.dt)
+        self.time_picker = wx.adv.TimePickerCtrl(self, dt=self.dt)
 
         # Define extra button
         now_button = wx.Button(self, label=tr("dialog.change_date.now"))
@@ -219,7 +219,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
         # Define sizer for time
         sbs = wx.BoxSizer(wx.HORIZONTAL)
         sbs.Add(time_txt, flag=wx.ALIGN_CENTER_VERTICAL | wx.ALL, border=5)
-        sbs.Add(self.timePicker, flag=wx.ALL, border=5)
+        sbs.Add(self.time_picker, flag=wx.ALL, border=5)
 
         # Define top-level sizer
         self.v_box = wx.BoxSizer(wx.VERTICAL)
@@ -228,7 +228,7 @@ class ChangeDateDialog(TwoButtonDialogBase):
         self.v_box.Add(self.cal, flag=wx.ALIGN_CENTER | wx.ALL, border=5)
         self.v_box.Add(now_button, flag=wx.ALIGN_CENTER | wx.ALL, border=5)
 
-        self.setup(pnl, tr("common.ok"), tr("common.cancel"), self.OnOK, self.OnClose)
+        self.setup(pnl, tr("common.ok"), tr("common.cancel"), self.on_ok, self.on_close)
 
     def set_time_now(self) -> None:
         """Sets the time to now."""
@@ -237,20 +237,20 @@ class ChangeDateDialog(TwoButtonDialogBase):
     def set_now_and_close(self, _: Any) -> None:
         self.set_time_now()
         self.picked = self.dt
-        self.OnClose(None)
+        self.on_close(None)
 
     def get_time(self) -> wx.DateTime:
-        timeTuple = self.timePicker.GetTime()
+        time_tuple = self.time_picker.GetTime()
         dt = self.cal.GetDate()
-        dt.SetHour(timeTuple[0])
-        dt.SetMinute(timeTuple[1])
-        dt.SetSecond(timeTuple[2])
+        dt.SetHour(time_tuple[0])
+        dt.SetMinute(time_tuple[1])
+        dt.SetSecond(time_tuple[2])
         return dt
 
-    def OnClose(self, e: Any) -> None:
+    def on_close(self, e: Any) -> None:
         self.Close()
 
-    def OnOK(self, _: Any) -> None:
+    def on_ok(self, _: Any) -> None:
         """Sets `self.dt` to the current time."""
         self.dt = self.get_time()
         self.picked = self.dt
@@ -271,8 +271,8 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         self,
         img_folder: str,
         file_list: Sequence,
-        parent: wx.Frame = None,
-        title: str = None,
+        parent: Optional[wx.Frame] = None,
+        title: Optional[str] = None,
     ) -> None:
         """
         Args:
@@ -286,14 +286,14 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
 
         self.img_folder = img_folder
         self.file_list = file_list
-        self.chosenImgInd: Optional[int] = None
-        self.shownImgInd = 0
+        self.chosen_img_ind: Optional[int] = None
+        self.shown_img_ind = 0
         self.n_files = len(file_list)
-        self.InitUI()
+        self.init_ui()
         self.SetSize((400, 300))
         self.SetTitle(title)
 
-    def InitUI(self) -> None:
+    def init_ui(self) -> None:
 
         pnl = wx.Panel(self)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
@@ -306,10 +306,10 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
 
         # Buttons
         h_box = wx.BoxSizer(wx.HORIZONTAL)
-        selectButton = wx.Button(self, label=tr("dialog.same_date.select"))
-        newButton = wx.Button(self, label=tr("dialog.same_date.new"))
+        select_button = wx.Button(self, label=tr("dialog.same_date.select"))
+        new_button = wx.Button(self, label=tr("dialog.same_date.new"))
 
-        h_box.Add(selectButton)
+        h_box.Add(select_button)
 
         if self.n_files > 1:  # No next / previous if there is only one
             self.next_button = wx.Button(self, label=tr("common.next"))
@@ -317,48 +317,48 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
             self.prev_button.Disable()
             h_box.Add(self.prev_button)
             h_box.Add(self.next_button)
-            self.next_button.Bind(wx.EVT_BUTTON, self.OnNext)
-            self.prev_button.Bind(wx.EVT_BUTTON, self.OnPrev)
+            self.next_button.Bind(wx.EVT_BUTTON, self.on_next)
+            self.prev_button.Bind(wx.EVT_BUTTON, self.on_prev)
 
-        self.setup_v_box(h_box, newButton, pnl)
-        selectButton.Bind(wx.EVT_BUTTON, self.OnSelect)
+        self.setup_v_box(h_box, new_button, pnl)
+        select_button.Bind(wx.EVT_BUTTON, self.on_select)
 
-        newButton.Bind(wx.EVT_BUTTON, self.OnNew)
+        new_button.Bind(wx.EVT_BUTTON, self.on_new)
 
     def get_img_at_ind(self, ind: int) -> wx.Bitmap:
         pth = os.path.join(self.img_folder, self.file_list[ind])
-        return getImageToShow(pth, 100, border=5)
+        return get_image_to_show(pth, 100, border=5)
 
-    def updateImg(self) -> None:
-        ind = self.shownImgInd
+    def update_img(self) -> None:
+        ind = self.shown_img_ind
         img_to_show = self.get_img_at_ind(ind)
         self.img.SetBitmap(img_to_show)
 
-    def OnNext(self, _: Any) -> None:
-        self.shownImgInd += 1
-        if self.shownImgInd == self.n_files - 1:
+    def on_next(self, _: Any) -> None:
+        self.shown_img_ind += 1
+        if self.shown_img_ind == self.n_files - 1:
             self.next_button.Disable()
-        if self.shownImgInd == 1:
+        if self.shown_img_ind == 1:
             self.prev_button.Enable()
-        self.updateImg()
+        self.update_img()
 
-    def OnPrev(self, _: Any) -> None:
-        self.shownImgInd -= 1
-        if self.shownImgInd == 0:
+    def on_prev(self, _: Any) -> None:
+        self.shown_img_ind -= 1
+        if self.shown_img_ind == 0:
             self.prev_button.Disable()
-        if self.shownImgInd == self.n_files - 2:
+        if self.shown_img_ind == self.n_files - 2:
             self.next_button.Enable()
-        self.updateImg()
+        self.update_img()
 
-    def OnSelect(self, _: Any) -> None:
-        self.chosenImgInd = self.shownImgInd
+    def on_select(self, _: Any) -> None:
+        self.chosen_img_ind = self.shown_img_ind
         self.Close()
 
-    def OnClose(self, _: Any) -> None:
+    def on_close(self, _: Any) -> None:
         self.Close()
 
-    def OnNew(self, _: Any) -> None:
-        self.chosenImgInd = -1  # This means new
+    def on_new(self, _: Any) -> None:
+        self.chosen_img_ind = -1  # This means new
         self.Close()
 
 
@@ -374,7 +374,7 @@ class ShowCapture(wx.Panel):
             raise NoWebcamError("Could not read from the webcam.")
         height, width = frame.shape[:2]
         self.h_by_w = height / width
-        self.win_size = (300, int(round(self.h_by_w * 300)))
+        self.win_size = (300, round(self.h_by_w * 300))
 
         wx.Panel.__init__(self, parent, wx.ID_ANY, (0, 0), self.win_size)
         parent.SetSize(self.win_size)
@@ -384,21 +384,21 @@ class ShowCapture(wx.Panel):
         self.bmp = wx.Bitmap.FromBuffer(self.h, self.w, frame)
 
         self.timer = wx.Timer(self)
-        self.timer.Start(int(round(1000.0 / fps)))
+        self.timer.Start(round(1000.0 / fps))
 
-        self.Bind(wx.EVT_PAINT, self.OnPaint)
-        self.Bind(wx.EVT_TIMER, self.NextFrame)
+        self.Bind(wx.EVT_PAINT, self.on_paint)
+        self.Bind(wx.EVT_TIMER, self.next_frame)
 
-    def getCurrFrame(self) -> Any:
+    def get_curr_frame(self) -> Any:
         ret, frame = self.capture.read()
         if ret:
             return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    def OnPaint(self, _: Any) -> None:
+    def on_paint(self, _: Any) -> None:
         dc = wx.BufferedPaintDC(self)
         dc.DrawBitmap(self.bmp, 0, 0)
 
-    def NextFrame(self, _: Any) -> None:
+    def next_frame(self, _: Any) -> None:
         ret, frame = self.capture.read()
         if ret:
             frame = cv2.cvtColor(cv2.resize(frame, self.win_size), cv2.COLOR_BGR2RGB)
@@ -415,7 +415,10 @@ class AcceptPhoto(TwoButtonDialogBase):
     orig_img = None
 
     def __init__(
-        self, parent: wx.Frame = None, img: str = None, title: str = None
+        self,
+        parent: Optional[wx.Frame] = None,
+        img: Optional[Any] = None,
+        title: Optional[str] = None,
     ) -> None:
         title = tr("dialog.accept_photo.title") if title is None else title
         super().__init__(parent, title=title)
@@ -426,13 +429,13 @@ class AcceptPhoto(TwoButtonDialogBase):
         self.SetTitle(title)
         self.accepted = False
 
-    def InitUI(self) -> None:
+    def init_ui(self) -> None:
         pnl = wx.Panel(self)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
         # Current Image
         assert self.taken_img is not None
-        height, width, c = self.taken_img.shape
+        height, width, _channels = self.taken_img.shape
         self.orig_img = self.taken_img
         height, width = (300, int(height / width * 300))
         new_size = height, width
@@ -449,13 +452,13 @@ class AcceptPhoto(TwoButtonDialogBase):
 
     def set_img(self, img: str) -> None:
         self.taken_img = img
-        self.InitUI()
+        self.init_ui()
 
-    def OnTakePic(self, e: Any) -> None:
+    def on_take_pic(self, e: Any) -> None:
         self.accepted = True
         self.Close()
 
-    def OnClose(self, e: Any) -> None:
+    def on_close(self, e: Any) -> None:
         self.Close()
 
 
@@ -470,12 +473,12 @@ class SelfieDialog(TwoButtonDialogBase):
 
     accept_diag: AcceptPhoto
 
-    def __init__(self, parent: Any = None, title: str = None) -> None:
+    def __init__(self, parent: Any = None, title: Optional[str] = None) -> None:
         title = tr("dialog.selfie.title") if title is None else title
         super().__init__(parent, title=title)
 
         try:
-            self.InitUI()
+            self.init_ui()
         except NoWebcamError:
             self.Destroy()
             raise
@@ -484,7 +487,7 @@ class SelfieDialog(TwoButtonDialogBase):
 
         self.accept_diag = AcceptPhoto(None, img=None)
 
-    def InitUI(self) -> None:
+    def init_ui(self) -> None:
         pnl = wx.Panel(self)
         self.v_box = wx.BoxSizer(wx.VERTICAL)
 
@@ -506,14 +509,14 @@ class SelfieDialog(TwoButtonDialogBase):
         self._img_cap.Show()
         self.setup(pnl, tr("dialog.selfie.shoot"), tr("common.cancel"))
 
-    def OnTakePic(self, e: Any) -> None:
+    def on_take_pic(self, e: Any) -> None:
         """Takes a picture with the webcam.
 
         Captures the current frame and
         shows the Dialog that lets the user accept the photo or decide
         to take another one.
         """
-        curr_f: Any = self._img_cap.getCurrFrame()
+        curr_f: Any = self._img_cap.get_curr_frame()
         self.accept_diag.set_img(curr_f)
         self.accept_diag.ShowModal()
         if self.accept_diag.accepted:
@@ -526,7 +529,7 @@ class SelfieDialog(TwoButtonDialogBase):
         self.accept_diag.Destroy()
         self.Close()
 
-    def OnClose(self, e: Any) -> None:
+    def on_close(self, e: Any) -> None:
         self.release_cap()
 
 
@@ -559,7 +562,7 @@ class WxDialogs:
         dialog = PhotoWithSameDateExistsDialog(img_folder, files)
         dialog.ShowModal()
         dialog.Destroy()
-        return dialog.chosenImgInd
+        return dialog.chosen_img_ind
 
     def pick_date(self, start: datetime) -> Optional[datetime]:
         dialog = ChangeDateDialog(self.parent, start=datetime_to_wx_datetime(start))

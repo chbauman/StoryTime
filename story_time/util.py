@@ -5,7 +5,7 @@ conversion of dates from and to `wx.DateTime`.
 
 import os
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import wx
 
@@ -93,7 +93,7 @@ class FileDrop(wx.FileDropTarget):
         self.window = window
         self.on_image = on_image
 
-    def OnDropFiles(self, x: Any, y: Any, filenames: list) -> bool:
+    def OnDropFiles(self, x: Any, y: Any, filenames: list) -> bool:  # noqa: N802
         """Handle the dropped files, only the first one is used.
 
         Checks if the extension is supported.
@@ -108,8 +108,8 @@ class FileDrop(wx.FileDropTarget):
         return self.on_image(curr_file)
 
 
-def getImageToShow(
-    filename: str, height: int = 180, border: int = 5, width: int = None
+def get_image_to_show(
+    filename: str, height: int = 180, border: int = 5, width: Optional[int] = None
 ) -> wx.Bitmap:
     """Converts the specified image to a bitmap of according size.
 
@@ -128,8 +128,8 @@ def getImageToShow(
     border_col = teal
 
     # Load from file and convert to image
-    wxBmp = wx.Bitmap(filename)
-    image = wxBmp.ConvertToImage()
+    wx_bmp = wx.Bitmap(filename)
+    image = wx_bmp.ConvertToImage()
 
     # Handle sizes
     if width is None:
@@ -139,15 +139,13 @@ def getImageToShow(
     height -= bor_2
     width -= bor_2
 
-    imgSize = image.GetSize()
-    img_w, img_h = imgSize
+    img_size = image.GetSize()
+    img_w, img_h = img_size
     too_high = img_h / img_w > height / width
     fac = height / img_h if too_high else width / img_w
 
     # Rescale image
-    image.Rescale(
-        int(round(fac * img_w)), int(round(fac * img_h)), wx.IMAGE_QUALITY_HIGH
-    )
+    image.Rescale(round(fac * img_w), round(fac * img_h), wx.IMAGE_QUALITY_HIGH)
     new_img_w, new_img_h = image.GetSize()
 
     # Pad image

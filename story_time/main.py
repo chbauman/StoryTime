@@ -22,14 +22,14 @@ TODO:
     - Run type checking!
 """
 
-from typing import Callable
+from typing import Callable, Optional
 
 import wx
 
 from story_time.user_interface import StoryTimeAppUI
 
 
-def main(_after_fun: Callable = None) -> None:
+def main(_after_fun: Optional[Callable] = None) -> None:
     """Run the app."""
     app = wx.App()
     ex = StoryTimeAppUI(None)

@@ -1,17 +1,17 @@
 import os
-import xml.etree.ElementTree as elTree
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from unittest import TestCase
 
-from story_time.XML_write import (
+from story_time.xml_storage import (
     Entry,
     EntryStore,
     filter_entries,
     group_by_month,
-    init_XML,
+    init_xml,
     insert_photo_entry,
     insert_text_entry,
-    load_XML,
+    load_xml,
 )
 from tests.helpers import DATA_DIR, create_test_dirs
 
@@ -20,8 +20,8 @@ STORE = EntryStore(XML_DIR)
 
 
 class TestXML(TestCase):
-    def test_init_XML(self):
-        el_tree = init_XML("Test", 2020)
+    def test_init_xml(self):
+        el_tree = init_xml("Test", 2020)
         root = el_tree.getroot()
         doc = root.find("doc")
         assert doc is not None
@@ -37,25 +37,25 @@ class TestXML(TestCase):
 
     def test_text_entry(self):
         dt = datetime(2020, 12, 2, 5, 31)
-        root = elTree.Element("root")
+        root = ET.Element("root")
         insert_text_entry(root, dt, "hoi")
-        entry = elTree.ElementTree(root).find("entry")
+        entry = ET.ElementTree(root).find("entry")
         assert entry.text == "hoi"
         assert entry.get("date_time") == "2020-12-02T05:31:00"
         assert entry.get("type") == "text"
 
     def test_photo_entry(self):
         dt = datetime(2020, 12, 2, 5, 31)
-        root = elTree.Element("root")
+        root = ET.Element("root")
         insert_photo_entry(root, dt, "file.test", "hoi")
-        entry = elTree.ElementTree(root).find("entry")
+        entry = ET.ElementTree(root).find("entry")
         assert entry.find("text").text == "hoi"
         assert entry.find("photo").text == "file.test"
         assert entry.get("type") == "photo"
         assert entry.get("date_time") == "2020-12-02T05:31:00"
 
     def test_get_xml(self):
-        tree, f = load_XML(XML_DIR, 2020)
+        _tree, f = load_xml(XML_DIR, 2020)
         assert f == os.path.join(XML_DIR, "2020.xml")
 
     def test_entry_saving(self):
@@ -70,14 +70,14 @@ class TestXML(TestCase):
             with self.assertRaises(AssertionError):
                 STORE.save_entry("Test", dt, "photo")
 
-            tree, f = load_XML(XML_DIR, y)
+            _tree, f = load_xml(XML_DIR, y)
             assert os.path.isfile(f)
             # Same time, so the order of saving is kept
             assert [e.type for e in STORE.load_all()] == ["text", "photo"]
             os.remove(f)
 
             with self.assertRaises(FileNotFoundError):
-                load_XML(XML_DIR, 100000000, create=False)
+                load_xml(XML_DIR, 100000000, create=False)
 
     def test_photo_path_is_reduced_to_the_file_name(self):
         with create_test_dirs():
