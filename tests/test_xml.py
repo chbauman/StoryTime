@@ -3,15 +3,9 @@ import xml.etree.ElementTree as elTree
 from datetime import datetime
 from unittest import TestCase
 
-import wx
-
-import story_time
-import story_time.util
 from story_time.XML_write import (
     Entry,
     filter_entries,
-    find_closest_entry,
-    find_closest_entry_in_tree,
     group_by_month,
     init_XML,
     insert_photo_entry,
@@ -20,7 +14,7 @@ from story_time.XML_write import (
     load_XML,
     save_entry,
 )
-from tests.test_util import DATA_DIR, create_test_dirs, use_data_dir
+from tests.helpers import DATA_DIR, create_test_dirs, use_data_dir
 
 XML_DIR = os.path.join(DATA_DIR, "XML")
 
@@ -42,79 +36,55 @@ class TestXML(TestCase):
         assert t == "Test"
 
     def test_text_entry(self):
-        wx_dt = wx.DateTime(2, 11, 2020, 5, 31)
-        test_txt = "hoi"
+        dt = datetime(2020, 12, 2, 5, 31)
         root = elTree.Element("root")
-        insert_text_entry(root, wx_dt, test_txt)
-        assert elTree.ElementTree(root).find("entry").text == test_txt
+        insert_text_entry(root, dt, "hoi")
+        entry = elTree.ElementTree(root).find("entry")
+        assert entry.text == "hoi"
+        assert entry.get("date_time") == "2020-12-02T05:31:00"
+        assert entry.get("type") == "text"
 
     def test_photo_entry(self):
-        wx_dt = wx.DateTime(2, 11, 2020, 5, 31)
-        test_txt = "hoi"
+        dt = datetime(2020, 12, 2, 5, 31)
         root = elTree.Element("root")
-        insert_photo_entry(root, wx_dt, "file.test", test_txt)
+        insert_photo_entry(root, dt, "file.test", "hoi")
         entry = elTree.ElementTree(root).find("entry")
-        assert entry.find("text").text == test_txt
+        assert entry.find("text").text == "hoi"
+        assert entry.find("photo").text == "file.test"
         assert entry.get("type") == "photo"
+        assert entry.get("date_time") == "2020-12-02T05:31:00"
 
     def test_get_xml(self):
-        story_time.util.xml_folder = XML_DIR
-        y = 2020
-        tree, f = load_XML(y)
-        assert f == os.path.join(XML_DIR, f"{y}.xml")
+        with use_data_dir(DATA_DIR):
+            tree, f = load_XML(2020)
+        assert f == os.path.join(XML_DIR, "2020.xml")
 
     def test_entry_saving(self):
-        with create_test_dirs():
-            story_time.util.xml_folder = XML_DIR
+        with use_data_dir(DATA_DIR), create_test_dirs():
             y = 2020
-            wx_dt = wx.DateTime(2, 11, y, 5, 31)
+            dt = datetime(y, 12, 2, 5, 31)
 
-            save_entry("Test", wx_dt, "text")
-            save_entry("Test", wx_dt, "photo", "test_photo.jpg")
+            save_entry("Test", dt, "text")
+            save_entry("Test", dt, "photo", "test_photo.jpg")
             with self.assertRaises(ValueError):
-                save_entry("Test", wx_dt, "blah", "test_photo.jpg")
+                save_entry("Test", dt, "blah", "test_photo.jpg")
+            with self.assertRaises(AssertionError):
+                save_entry("Test", dt, "photo")
 
             tree, f = load_XML(y)
             assert os.path.isfile(f)
+            # Same time, so the order of saving is kept
+            assert [e.type for e in load_all_entries()] == ["text", "photo"]
             os.remove(f)
 
             with self.assertRaises(FileNotFoundError):
                 load_XML(100000000, create=False)
 
-    def test_find_latest(self):
-        el_tree = init_XML("Test", 2020)
-        wx_dt_find = wx.DateTime(2, 11, 2020, 6, 31)
-        doc = el_tree.getroot().find("doc")
-        assert find_closest_entry_in_tree(el_tree, wx_dt_find, newer=False) is None
-        n = 3
-        for k in range(n):
-            wx_dt = wx.DateTime(2, 11, 2020, k + 1, 31)
-            insert_text_entry(doc, wx_dt, f"Test_{k}")
-        wx_dt_found, t = find_closest_entry_in_tree(el_tree, wx_dt_find, newer=False)
-        assert wx.DateTime(2, 11, 2020, n, 31).IsEqualTo(wx_dt_found)
-
-    def test_get_last_entry(self):
-        with create_test_dirs():
-            story_time.util.xml_folder = XML_DIR
-            n = 3
-            for k in range(n):
-                wx_dt = wx.DateTime(2, 11, 2020 + k, 4, 31)
-                save_entry(f"Test{k}", wx_dt, "text")
-                wx_dt = wx.DateTime(2, 11, 2020 + k, 5, 31)
-                save_entry(f"Test{k}_photo", wx_dt, "photo", f"test_photo_{k}.jpg")
-
-            search_dt = wx.DateTime(2, 11, 2021, 5, 11)
-            dt, ch_txt = find_closest_entry(search_dt, True)
-            assert ch_txt.get("type") == "photo"
-            dt, ch_txt = find_closest_entry(search_dt, False)
-            assert ch_txt.text == "Test1"
-            dt, ch_txt = find_closest_entry(wx.DateTime(2, 11, 2021, 1, 11), False)
-            assert ch_txt.get("type") == "photo"
-            dt, ch_txt = find_closest_entry(wx.DateTime(2, 11, 2021, 8, 11), True)
-            assert ch_txt.get("type") == "text"
-            assert find_closest_entry(wx.DateTime(2, 11, 3000, 1, 11), True) is None
-
-    pass
+    def test_photo_path_is_reduced_to_the_file_name(self):
+        with use_data_dir(DATA_DIR), create_test_dirs():
+            save_entry("Text", datetime(2020, 1, 2, 3), "photo", "/some/where/a.jpg")
+            (entry,) = load_all_entries()
+        assert entry.photo == "a.jpg"
 
 
 class TestEntries(TestCase):
@@ -126,17 +96,15 @@ class TestEntries(TestCase):
             save_entry(text, dt, "photo", photo)
 
     def test_load_all_entries(self):
-        with use_data_dir(DATA_DIR):
-            with create_test_dirs():
-                story_time.util.update_folder(DATA_DIR)
-                assert load_all_entries() == []
+        with use_data_dir(DATA_DIR), create_test_dirs():
+            assert load_all_entries() == []
 
-                self.save("Old\nsecond line", wx.DateTime(5, 0, 2019, 8, 15, 30))
-                self.save("Middle", wx.DateTime(2, 5, 2020, 10))
-                self.save("Photo text", wx.DateTime(3, 5, 2020, 9), "IMG_1.jpg")
-                self.save("New", wx.DateTime(1, 1, 2021, 23, 59, 59))
+            self.save("Old\nsecond line", datetime(2019, 1, 5, 8, 15, 30))
+            self.save("Middle", datetime(2020, 6, 2, 10))
+            self.save("Photo text", datetime(2020, 6, 3, 9), "IMG_1.jpg")
+            self.save("New", datetime(2021, 2, 1, 23, 59, 59))
 
-                entries = load_all_entries()
+            entries = load_all_entries()
 
         # Newest first, over several years
         assert [e.text for e in entries] == [
@@ -154,23 +122,25 @@ class TestEntries(TestCase):
         assert photo[0].photo == "IMG_1.jpg" and photo[0].text == "Photo text"
 
     def test_invalid_files_and_entries_are_skipped(self):
-        with use_data_dir(DATA_DIR):
-            with create_test_dirs():
-                story_time.util.update_folder(DATA_DIR)
-                save_entry("Valid", wx.DateTime(2, 5, 2020, 10))
-                with open(os.path.join(XML_DIR, "2020.xml")) as f:
-                    xml = f.read()
-                xml = xml.replace(
-                    "</doc>", '<entry date_time="no date" type="text">x</entry></doc>'
-                )
-                with open(os.path.join(XML_DIR, "2020.xml"), "w") as f:
-                    f.write(xml)
-                with open(os.path.join(XML_DIR, "2019.xml"), "w") as f:
-                    f.write("not xml")
-                with open(os.path.join(XML_DIR, "notes.txt"), "w") as f:
-                    f.write("ignored")
-                entries = load_all_entries()
+        with use_data_dir(DATA_DIR), create_test_dirs():
+            save_entry("Valid", datetime(2020, 6, 2, 10))
+            with open(os.path.join(XML_DIR, "2020.xml")) as f:
+                xml = f.read()
+            xml = xml.replace(
+                "</doc>", '<entry date_time="no date" type="text">x</entry></doc>'
+            )
+            with open(os.path.join(XML_DIR, "2020.xml"), "w") as f:
+                f.write(xml)
+            with open(os.path.join(XML_DIR, "2019.xml"), "w") as f:
+                f.write("not xml")
+            with open(os.path.join(XML_DIR, "notes.txt"), "w") as f:
+                f.write("ignored")
+            entries = load_all_entries()
         assert [e.text for e in entries] == ["Valid"]
+
+    def test_without_xml_folder(self):
+        with use_data_dir(os.path.join(DATA_DIR, "does_not_exist")):
+            assert load_all_entries() == []
 
     def test_filter_entries(self):
         e1 = Entry(datetime(2020, 1, 1), "text", "Walk by the Lake")
@@ -193,3 +163,10 @@ class TestEntries(TestCase):
         assert [k for k, _ in groups] == [(2020, 3), (2020, 1), (2019, 3)]
         assert [[e.text for e in g] for _, g in groups] == [["a", "b"], ["c"], ["d"]]
         assert group_by_month([]) == []
+
+    def test_first_line(self):
+        assert (
+            Entry(datetime(2020, 1, 1), "text", "\n\n  Hello \nWorld").first_line
+            == "Hello"
+        )
+        assert Entry(datetime(2020, 1, 1), "text", "").first_line == ""

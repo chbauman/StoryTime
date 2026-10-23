@@ -1,14 +1,12 @@
 import os
-import shutil
 from contextlib import contextmanager
-from pathlib import Path
+from datetime import datetime
 from unittest import TestCase, skipUnless
 
 import cv2
 import wx
 
-import story_time
-from story_time import settings
+import story_time.util
 from story_time.util import (
     AcceptPhoto,
     ChangeDateDialog,
@@ -20,25 +18,11 @@ from story_time.util import (
     ShowCapture,
     TwoButtonDialogBase,
     ask_for_dir,
-    copy_img_file_to_imgs,
-    create_dir,
-    create_xml_and_img_folder,
-    extract_date_from_image_name,
-    find_all_imgs_with_same_date,
-    find_new_name,
+    datetime_to_wx_datetime,
     format_date_time,
-    get_data_folder,
-    get_file_modified_wx_dt,
-    get_img_name_from_time,
-    get_time_from_file,
-    pad_int_str,
-    update_folder,
+    wx_datetime_to_datetime,
 )
-
-DATA_DIR = os.path.join(Path(__file__).parent, "test_data")
-SAMPLE_IMG_DIR = os.path.join(DATA_DIR, "sample_imgs")
-img_dir = os.path.join(DATA_DIR, "Img")
-xml_dir = os.path.join(DATA_DIR, "XML")
+from tests.helpers import SAMPLE_IMG_DIR, img_dir, use_data_dir, xml_dir  # noqa: F401
 
 
 def _webcam_available() -> bool:
@@ -61,32 +45,12 @@ class _NoFrameCapture:
 
 
 @contextmanager
-def create_test_dirs():
-    """Creates and removes temporary folders for testing."""
-    create_dir(img_dir)
-    create_dir(xml_dir)
-    yield
-    shutil.rmtree(img_dir)
-    shutil.rmtree(xml_dir)
-
-
-@contextmanager
 def create_app():
     a = wx.App()
     f = wx.Frame()
     f.Create(None)
     yield f
     a.Destroy()
-
-
-@contextmanager
-def use_data_dir(dir_to_set):
-    """Sets the data folder in the settings and restores them afterwards."""
-    old_settings = settings.load_settings()
-    story_time.util.data_path = dir_to_set
-    story_time.util.save_data_folder()
-    yield
-    settings.save_settings(old_settings)
 
 
 @contextmanager
@@ -97,137 +61,19 @@ def replace_dir_ask(new_ask_fun):
     story_time.util.ask_for_dir = ask_fun
 
 
-class TestFileSystem(TestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not os.path.isdir(DATA_DIR):
-            os.mkdir(DATA_DIR)
-
-    def test_dir_creation(self):
-        try:
-            create_xml_and_img_folder(DATA_DIR)
-            create_xml_and_img_folder(DATA_DIR)
-        finally:
-            assert os.path.isdir(img_dir)
-            os.removedirs(img_dir)
-            assert os.path.isdir(xml_dir)
-            os.removedirs(xml_dir)
-        assert not os.path.isdir(img_dir)
-
-    def test_modified_time(self):
-        test_file = os.path.join(DATA_DIR, "test_file")
-        t_now = wx.DateTime.Now()
-        with open(test_file, "w") as f:
-            f.write("test")
-        t_after = wx.DateTime.Now()
-        t_meas_1 = get_file_modified_wx_dt(test_file)
-        t_meas = get_time_from_file(test_file)
-        try:
-            assert t_meas.IsEqualTo(t_meas_1)
-            assert t_meas.IsEqualTo(t_now) or t_meas.IsEqualTo(t_after)
-        finally:
-            os.remove(test_file)
-
-    def test_data_folder(self):
-        with use_data_dir(DATA_DIR):
-            assert settings.get_data_dir() == DATA_DIR
-            assert get_data_folder(False) == DATA_DIR
-
-            # Without a folder in the settings the user is asked
-            settings.save_settings({})
-
-            def new_ask(_=None):
-                return DATA_DIR
-
-            with replace_dir_ask(new_ask):
-                assert get_data_folder(True) == DATA_DIR
-
-        if os.path.isdir(img_dir):
-            os.removedirs(img_dir)
-        if os.path.isdir(xml_dir):
-            os.removedirs(xml_dir)
-
-    def test_img_finding(self):
-        f_img = "Entwurf.jpg"
-        r = find_all_imgs_with_same_date(SAMPLE_IMG_DIR, f_img)
-        assert r[0] == f_img
-
-    def test_img_copying(self):
-        update_folder(DATA_DIR)
-        create_dir(story_time.util.img_folder)
-        create_dir(story_time.util.xml_folder)
-        img_path = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
-        copy_img_file_to_imgs(img_path)
-        with create_app():
-
-            def fun(dlg):
-                dlg.OnNew(None)
-
-            copy_img_file_to_imgs(img_path, None, fun)
-
-            def fun2(dlg):
-                dlg.OnNext(None)
-                dlg.OnClose(None)
-
-            copy_img_file_to_imgs(img_path, None, fun2)
-
-            def fun3(dlg):
-                dlg.OnSelect(None)
-
-            copy_img_file_to_imgs(img_path, None, fun3)
-
-            shutil.rmtree(story_time.util.img_folder)
-            os.removedirs(story_time.util.xml_folder)
-
-    pass
-
-
 class TestUtil(TestCase):
-    def test_string_pad(self):
-        inp = 4
-        exp_out = "0004"
-        out = pad_int_str(inp, 4)
-        self.assertEqual(exp_out, out)
-
-    def test_name_from_time(self):
-        wx_dt = wx.DateTime(2, 11, 2020, 5, 31)
-        exp_name = "IMG_20201202_053100"
-        name = get_img_name_from_time(wx_dt)
-        self.assertEqual(name, exp_name)
-
-    def test_date_extraction(self):
-        f_path = "test/IMG_20201202_053100.jpg"
-        wx_dt = extract_date_from_image_name(f_path)
-        assert wx_dt.IsEqualTo(wx.DateTime(2, 11, 2020, 5, 31))
-
-    def test_invalid_date_extraction(self):
-        f_path = "test/IMG_00001202_053100.jpg"
-        wx_dt = extract_date_from_image_name(f_path)
-        assert wx_dt is None
-        f_path = "test/IMG_20003202_053100.jpg"
-        wx_dt = extract_date_from_image_name(f_path)
-        assert wx_dt is None
-
-    def test_update_folder(self):
-        update_folder(DATA_DIR)
-        assert story_time.util.data_path == DATA_DIR
+    def test_wx_datetime_conversion(self):
+        dt = datetime(2020, 12, 2, 5, 31, 7)
+        wx_dt = datetime_to_wx_datetime(dt)
+        assert (wx_dt.GetDay(), wx_dt.GetMonth(), wx_dt.GetYear()) == (2, 11, 2020)
+        assert wx_dt.IsEqualTo(wx.DateTime(2, 11, 2020, 5, 31, 7))
+        assert wx_datetime_to_datetime(wx_dt) == dt
 
     def test_format_dt(self):
-        wx_dt = wx.DateTime(2, 11, 2020, 5, 31)
-        exp_str = " 2.12.2020, Time: 05:31:00"
-        res = format_date_time(wx_dt)
-        assert ",".join(res.split(",")[1:]) == exp_str
-
-    def test_new_name(self):
-        img_name = "test_img"
-        ext = ".jpg"
-        img_list = [f"{img_name}_{k}{ext}" for k in range(5)]
-        new_name = find_new_name(img_name, img_list[:-1], ext)
-        assert new_name + ext == img_list[-1]
-        with self.assertRaises(ValueError):
-            find_new_name(img_name, img_list, ext, max_n_imgs=3)
-
-    pass
+        res = format_date_time(datetime(2020, 12, 2, 5, 31))
+        assert ",".join(res.split(",")[1:]) == " 2.12.2020, Time: 05:31:00"
+        # The weekday comes from wx
+        assert res.split(",")[0] == wx.DateTime.GetWeekDayName(wx.DateTime.Wed)
 
 
 def init_app():

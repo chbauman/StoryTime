@@ -4,13 +4,15 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 """
 
 import os
+from datetime import datetime
 from typing import Any, Callable, Optional, Union
 
 import cv2
 import wx
 
-import story_time
-from story_time import util
+from story_time import folders, util
+from story_time.dates import img_name_from_time
+from story_time.images import copy_img_file_to_imgs
 from story_time.texts import tr
 from story_time.util import (
     ChangeDateDialog,
@@ -18,27 +20,21 @@ from story_time.util import (
     FileDrop,
     NoWebcamError,
     PhotoShow,
+    PhotoWithSameDateExistsDialog,
     SelfieDialog,
     bar_text_col,
     but_bg_col,
-    copy_img_file_to_imgs,
-    create_xml_and_img_folder,
     datetime_to_wx_datetime,
     format_date_time,
-    get_data_folder,
-    get_img_name_from_time,
-    get_temp_folder,
     getImageToShow,
     header_col,
     header_f_info,
     header_text_col,
     icon_path,
-    remove_temp_folder,
     resource_filename,
-    save_data_folder,
     scale_bitmap,
     text_bg_col,
-    update_folder,
+    wx_datetime_to_datetime,
 )
 from story_time.XML_write import (
     Entry,
@@ -467,11 +463,11 @@ class StoryTimeApp(wx.Frame):
 
     @staticmethod
     def date_txt(dt: wx.DateTime) -> str:
-        return tr("main.date_line", date=format_date_time(dt))
+        return tr("main.date_line", date=format_date_time(wx_datetime_to_datetime(dt)))
 
     @staticmethod
     def working_dir_txt() -> str:
-        return tr("main.working_dir", path=story_time.util.data_path)
+        return tr("main.working_dir", path=folders.data_path)
 
     def set_date_txt(self, dt: wx.DateTime = None) -> None:
         """Sets the text in the date textbox."""
@@ -586,12 +582,12 @@ class StoryTimeApp(wx.Frame):
 
         # Save the image and show it in the preview
         if img is not None:
-            curr_dt = wx.DateTime.Now()
-            f_name = get_img_name_from_time(curr_dt) + "_Self.png"
-            f_path = os.path.join(get_temp_folder(), f_name)
+            curr_dt = datetime.now().replace(microsecond=0)
+            f_name = img_name_from_time(curr_dt) + "_Self.png"
+            f_path = os.path.join(folders.get_temp_folder(), f_name)
             cv2.imwrite(f_path, cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             self.fileDrop.loadedFile = f_path
-            self.set_img_with_date(f_path, curr_dt)
+            self.set_img_with_date(f_path, datetime_to_wx_datetime(curr_dt))
 
     @staticmethod
     def toggle_prev_img(_: Any) -> None:
@@ -708,16 +704,32 @@ class StoryTimeApp(wx.Frame):
                 return
 
             # Save image entry
-            curr_dat = self.cdDialog.dt
-            copied_file_name = copy_img_file_to_imgs(lf, curr_dat)
+            curr_dat = wx_datetime_to_datetime(self.cdDialog.dt)
+            copied_file_name = copy_img_file_to_imgs(
+                lf, folders.img_folder, curr_dat, self.choose_existing_image
+            )
+            if copied_file_name is None:
+                return  # The user did not decide, so keep the draft
             save_entry(textStr, curr_dat, "photo", copied_file_name)
         else:
-            save_entry(textStr, self.cdDialog.dt)
+            save_entry(textStr, wx_datetime_to_datetime(self.cdDialog.dt))
 
         # Clear the contents
         self.removeImg()
         self.remove_written_text()
         self.reload_entries()
+
+    @staticmethod
+    def choose_existing_image(files: list[str]) -> Optional[int]:
+        """Asks which one of the images with the same date to use for the entry.
+
+        Returns the index of the chosen image, `NEW_IMAGE` for a new one and None
+        if there is no decision.
+        """
+        dialog = PhotoWithSameDateExistsDialog(files)
+        dialog.ShowModal()
+        dialog.Destroy()
+        return dialog.chosenImgInd
 
     def remove_written_text(self) -> None:
         """Clear text field and update date and time to now."""
@@ -746,9 +758,9 @@ class StoryTimeApp(wx.Frame):
             return
 
         # Update and create data directories if not existing
-        update_folder(files_path)
+        folders.update_folder(files_path)
         self.set_folder_txt()
-        create_xml_and_img_folder(files_path)
+        folders.create_xml_and_img_folder(files_path)
         self.set_date_to_now()
         self.reload_entries()
         self.entry_list.clear_selection()
@@ -765,8 +777,8 @@ class StoryTimeApp(wx.Frame):
     def Cleanup(self, _: Any) -> None:
         """Cleanup, should always be called when app is closed."""
         self.cdDialog.Destroy()
-        save_data_folder()
-        remove_temp_folder()
+        folders.save_data_folder()
+        folders.remove_temp_folder()
         self.Destroy()
 
     def set_date_to_now(self) -> None:
@@ -791,14 +803,10 @@ class StoryTimeApp(wx.Frame):
             self.fix_text_box.SetValue("")
             self.rem_prev_img()
         else:
-            self.view_label.SetLabel(
-                format_date_time(datetime_to_wx_datetime(entry.date_time))
-            )
+            self.view_label.SetLabel(format_date_time(entry.date_time))
             self.fix_text_box.SetValue(entry.text)
             img_path = (
-                os.path.join(story_time.util.img_folder, entry.photo)
-                if entry.photo
-                else None
+                os.path.join(folders.img_folder, entry.photo) if entry.photo else None
             )
             if img_path is not None and os.path.isfile(img_path):
                 self.prev_img_name = img_path
@@ -887,9 +895,12 @@ class StoryTimeAppUI(StoryTimeApp):
             wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY)
         )
         self.SetIcon(icon)
-        files_path = get_data_folder()
-        update_folder(files_path)
-        print("util.img_folder", util.img_folder)
+        files_path = folders.get_data_folder(util.ask_for_dir)
+        if files_path is None:  # The user did not choose a folder
+            self.Destroy()
+            raise SystemExit(0)
+        folders.update_folder(files_path)
+        print("img folder:", folders.img_folder)
         self.imgLoaded = False
         self.InitUI()
         self.SetSize((1000, 720))

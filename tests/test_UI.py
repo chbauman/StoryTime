@@ -1,21 +1,17 @@
 import os
 import shutil
 import tempfile
+from datetime import datetime
 from unittest import TestCase
 
 import wx
 
-from story_time import util
+from story_time import folders
 from story_time.main import main
 from story_time.user_interface import StoryTimeAppUI, month_label, shortcut_for
 from story_time.XML_write import save_entry
-from tests.test_util import (
-    DATA_DIR,
-    SAMPLE_IMG_DIR,
-    create_test_dirs,
-    replace_dir_ask,
-    use_data_dir,
-)
+from tests.helpers import DATA_DIR, SAMPLE_IMG_DIR, create_test_dirs, use_data_dir
+from tests.test_util import replace_dir_ask
 
 TEST_IMG = os.path.join(SAMPLE_IMG_DIR, "Entwurf.jpg")
 
@@ -157,7 +153,7 @@ class TestMain2(TestCase):
                 return None
 
             def other_ask_fun():
-                return util.data_path
+                return folders.data_path
 
             with replace_dir_ask(new_ask_fun):
                 ex.OnChangeDir(None)
@@ -426,12 +422,12 @@ def tree_texts(tree: wx.TreeCtrl, item=None) -> list:
 
 def seed_entries():
     """Puts entries of two months, a photo and a missing photo into the folder."""
-    util.update_folder(DATA_DIR)
+    folders.update_folder(DATA_DIR)
     shutil.copy(TEST_IMG, os.path.join(DATA_DIR, "Img", "IMG_1.jpg"))
-    save_entry("Walk by the lake\n\nsecond line", wx.DateTime(22, 9, 2020, 21, 32))
-    save_entry("Logo sketch", wx.DateTime(20, 9, 2020, 18, 15), "photo", "IMG_1.jpg")
-    save_entry("Lost photo", wx.DateTime(19, 9, 2020, 10), "photo", "missing.jpg")
-    save_entry("Spring", wx.DateTime(3, 2, 2020, 7, 30))
+    save_entry("Walk by the lake\n\nsecond line", datetime(2020, 10, 22, 21, 32))
+    save_entry("Logo sketch", datetime(2020, 10, 20, 18, 15), "photo", "IMG_1.jpg")
+    save_entry("Lost photo", datetime(2020, 10, 19, 10), "photo", "missing.jpg")
+    save_entry("Spring", datetime(2020, 3, 3, 7, 30))
 
 
 class TestLayout(TestCase):
@@ -651,10 +647,10 @@ class TestLayout(TestCase):
         res = {}
         other = tempfile.mkdtemp(prefix="story_time_test_other_")
         try:
-            util.update_folder(other)
-            util.create_xml_and_img_folder(other)
-            save_entry("Somewhere else", wx.DateTime(1, 0, 2019, 9))
-            util.update_folder(DATA_DIR)
+            folders.update_folder(other)
+            folders.create_xml_and_img_folder(other)
+            save_entry("Somewhere else", datetime(2019, 1, 1, 9))
+            folders.update_folder(DATA_DIR)
 
             def fun(ex):
                 ex.toggle_new_entry()

@@ -6,21 +6,18 @@ datetime conversions...
 """
 
 import os
-import re
-import shutil
 import sys
-import tempfile
 from collections.abc import Sequence
 from datetime import datetime
-from shutil import copy2
 from typing import Any, Callable, Optional
 
 import cv2
 import wx
 import wx.adv
 
-import story_time
-from story_time import settings
+from story_time import dates, folders
+from story_time.dates import date_of_image_file
+from story_time.images import is_supported_image
 from story_time.texts import tr
 
 
@@ -30,18 +27,6 @@ def resource_filename(rel_path: str) -> str:
 
 
 icon_path = resource_filename("Icons")
-
-_temp_folder: Optional[str] = None
-
-# Path to data (global variables)
-# Initialized values should never be used
-# Also they should not be imported from the module since they change
-# when initializing the app.
-data_path = ""  #: The folder containing the image and the xml folder.
-img_folder = "if/you/see/this/its/a/bug"  #: The folder where the images are stored.
-xml_folder = (
-    "if/you/see/this/its/a/bug"  #: The folder where the xml documents are stored.
-)
 
 # Set colors
 teal = wx.Colour(15, 118, 110)  #: Accent color.
@@ -62,39 +47,6 @@ button_f_info = wx.FontInfo(12).Family(wx.FONTFAMILY_SWISS).Bold()
 dialog_f_info = wx.FontInfo(17).Family(wx.FONTFAMILY_SWISS).Bold()
 
 
-def update_folder(new_data_path: str) -> None:
-    """Update global path variables if data folder is changed."""
-    global data_path
-    global img_folder
-    global xml_folder
-
-    data_path = new_data_path
-    img_folder = os.path.join(new_data_path, "Img")
-    xml_folder = os.path.join(new_data_path, "XML")
-
-
-def create_xml_and_img_folder(base_folder: str) -> None:
-    """Create a folder for the XML and the image files in `base_folder`."""
-    xml_pth = os.path.join(base_folder, "XML")
-    if not os.path.isdir(xml_pth):
-        os.mkdir(xml_pth)
-    img_pth = os.path.join(base_folder, "Img")
-    if not os.path.isdir(img_pth):
-        os.mkdir(img_pth)
-    return
-
-
-def check_date_time(
-    y: int, mon: int, d: int, h: int = 0, minute: int = 0, sec: int = 0
-) -> bool:
-    """Checks if the provided date and time is valid."""
-    try:
-        datetime(y, mon, d, h, minute, sec)
-    except ValueError:
-        return False
-    return True
-
-
 def ask_for_dir(_fun: Callable = None, show: bool = True) -> str:
     """Ask the user to select a directory."""
     dial_text = tr("dialog.choose_dir")
@@ -104,51 +56,6 @@ def ask_for_dir(_fun: Callable = None, show: bool = True) -> str:
         _fun(cdDiag)
     cdDiag.ShowModal() if show else None
     return cdDiag.GetPath()
-
-
-def get_data_folder(ask: bool = True, _fun: Callable = None) -> str:
-    """Gets the folder with the diary data from the settings.
-
-    Asks the user for a folder if there is none yet.
-    Also creates the sub-folders if they do not exist.
-
-    Args:
-        ask: Whether to ask for a folder if there is none.
-        _fun: Function to call when dialog pops up. For testing.
-
-    Returns:
-        The path of the data folder.
-    """
-    fol_path = settings.get_data_dir()
-    if fol_path is None:
-        assert ask
-        fol_path = story_time.util.ask_for_dir(_fun)
-    create_xml_and_img_folder(fol_path)
-    return fol_path
-
-
-def save_data_folder() -> None:
-    """Stores the current data folder in the settings."""
-    settings.set_data_dir(data_path)
-
-
-def get_temp_folder() -> str:
-    """Returns the folder for temporary files, e.g. taken photos.
-
-    It is created on first use and is removed by `remove_temp_folder`.
-    """
-    global _temp_folder
-    if _temp_folder is None or not os.path.isdir(_temp_folder):
-        _temp_folder = tempfile.mkdtemp(prefix="story_time_")
-    return _temp_folder
-
-
-def remove_temp_folder() -> None:
-    """Removes the folder returned by `get_temp_folder`, but nothing else."""
-    global _temp_folder
-    if _temp_folder is not None and os.path.isdir(_temp_folder):
-        shutil.rmtree(_temp_folder)
-    _temp_folder = None
 
 
 def scale_bitmap(bitmap: wx.Bitmap, width: int, height: int) -> wx.Bitmap:
@@ -433,7 +340,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         newButton.Bind(wx.EVT_BUTTON, self.OnNew)
 
     def get_img_at_ind(self, ind: int) -> wx.Bitmap:
-        pth = os.path.join(img_folder, self.file_list[ind])
+        pth = os.path.join(folders.img_folder, self.file_list[ind])
         return getImageToShow(pth, 100, border=5)
 
     def updateImg(self) -> None:
@@ -469,6 +376,26 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         self.Close()
 
 
+def wx_datetime_to_datetime(date: wx.DateTime) -> datetime:
+    """Converts a wx.DateTime to a python datetime."""
+    return datetime(
+        date.GetYear(),
+        date.GetMonth() + 1,
+        date.GetDay(),
+        date.GetHour(),
+        date.GetMinute(),
+        date.GetSecond(),
+    )
+
+
+def format_date_time(date_time: datetime) -> str:
+    """Formats the given datetime for display, with the name of the weekday."""
+    weekday = wx.DateTime.GetWeekDayName(
+        datetime_to_wx_datetime(date_time).GetWeekDay()
+    )
+    return dates.format_date_time(date_time, weekday)
+
+
 def datetime_to_wx_datetime(date: datetime) -> wx.DateTime:
     """Converts a python datetime to a wx.DateTime."""
     year = date.year
@@ -476,180 +403,6 @@ def datetime_to_wx_datetime(date: datetime) -> wx.DateTime:
     day = date.day
     hour = date.hour
     return wx.DateTime(day, month - 1, year, hour, date.minute, date.second)
-
-
-def get_file_modified_wx_dt(curr_file: str) -> wx.DateTime:
-    """Read the date modified time of a file, convert it to wx.DateTime
-    and return it.
-    """
-    modify_time = os.path.getmtime(curr_file)
-    return datetime_to_wx_datetime(datetime.fromtimestamp(modify_time))
-
-
-def pad_int_str(int_to_pad: int, n: int = 2) -> str:
-    """Converts an integer to a string, padding with leading zeros
-    to get n characters. Intended for date and time formatting.
-    """
-    base = str(int_to_pad)
-    for k in range(n - 1):
-        if int_to_pad < 10 ** (k + 1):
-            base = "0" + base
-    return base
-
-
-def get_img_name_from_time(wx_dt: wx.DateTime) -> str:
-    """Gives the image basename from the wx.DateTime."""
-    name = (
-        "IMG_"
-        + pad_int_str(wx_dt.GetYear(), 4)
-        + pad_int_str(wx_dt.GetMonth() + 1)
-        + pad_int_str(wx_dt.GetDay())
-    )
-    name = (
-        f"{name}_"
-        + pad_int_str(wx_dt.GetHour())
-        + pad_int_str(wx_dt.GetMinute())
-        + pad_int_str(wx_dt.GetSecond())
-    )
-    return name
-
-
-def extract_date_from_image_name(img_file: str) -> Optional[wx.DateTime]:
-    """Extracts the date information from the image name.
-
-    Tries to extract the date and optionally the time.
-    If extracted date is not valid or there is no date
-    contained in the name, returns None.
-    """
-    p, filename = os.path.split(img_file)
-    # Extract all numbers from string
-    nums = re.findall(r"\d+", filename)
-    num_nums = len(nums)
-    if num_nums < 1:
-        return None
-    date = int(nums[0])
-    # Year must be greater than 1
-    if date < 10000:
-        return None
-    year = date // 10000
-    rem = date - year * 10000
-    month = rem // 100
-    day = rem - month * 100
-    hour = mins = sec = 0
-
-    # Extract time
-    if len(nums) > 1:
-        num_curr = int(nums[1])
-        len_num = len(nums[1])
-        if len_num == 6:
-            sec = num_curr % 100
-            num_curr = num_curr // 100
-        if len_num == 4 or len_num == 6:
-            mins = num_curr % 100
-            hour = num_curr // 100
-
-    if not check_date_time(year, month, day, hour, mins, sec):
-        return None
-
-    # Check if date is valid
-    wx_dt = wx.DateTime(day, month - 1, year, hour, mins, sec)
-    return wx_dt if wx_dt.IsValid() else None
-
-
-def get_time_from_file(img_file: str) -> wx.DateTime:
-    """Tries to extract the date from a filename.
-
-    If there is none, returns the modified time
-    of the file as wx.DateTime.
-    """
-    name_date = extract_date_from_image_name(img_file)
-    if name_date is None:
-        name_date = get_file_modified_wx_dt(img_file)
-    return name_date
-
-
-def find_all_imgs_with_same_date(imgs_folder: str, img_name: str) -> list[str]:
-    """Finds all files starting with string "img_name"
-    in folder "img_folder".
-    """
-    res = []
-    for f in os.listdir(imgs_folder):
-        if f.startswith(img_name):
-            res.append(f)
-    return res
-
-
-def find_new_name(
-    img_name: str, same_date_file_list: list[str], ext: str, max_n_imgs: int = 10000
-) -> str:
-    """Chooses a new filename that is not in the list and
-    contains the img_name in the beginning by appending an
-    int to the filename separated by an underscore.
-    """
-    for k in range(max_n_imgs):
-        new_name = img_name + "_" + str(k) + ext
-        try:
-            same_date_file_list.index(new_name)
-        except ValueError:
-            return img_name + "_" + str(k)
-
-    # If there are already more than `max_n_imgs` images, gives up.
-    raise ValueError("ERROR: Way too many fucking images.")
-
-
-def copy_img_file_to_imgs(
-    lf: str, img_date: wx.DateTime = None, photo_diag_fun: Callable = None
-) -> Optional[str]:
-    """Copy an image to the Img folder.
-
-    If there exists one with
-    the same date and time, a dialog pops up
-    to let the user select if he wants to add
-    text to an existing image or save the image
-    If he doesn't decide, returns None
-    """
-    # Get date of image and find all images with same date
-    imgDate = get_time_from_file(lf) if img_date is None else img_date
-    imgName = get_img_name_from_time(imgDate)
-    sameDateFileList = find_all_imgs_with_same_date(img_folder, imgName)
-
-    # Get image type
-    _, file_extension = os.path.splitext(lf)
-
-    # Check if file with same datetime already exists
-    if len(sameDateFileList) > 0:
-        # Let the user look at the images and decide if he wants
-        # to add the text to an already existing one instead of
-        # adding the image in preview to the images.
-        phDiag = PhotoWithSameDateExistsDialog(sameDateFileList)
-        if photo_diag_fun is not None:
-            wx.CallAfter(photo_diag_fun, phDiag)
-        phDiag.ShowModal()
-        phDiag.Destroy()
-        ind = phDiag.chosenImgInd
-        if ind is None:
-            # No decision, abort
-            return None
-        if ind == -1:
-            # Add image in preview
-            imgName = find_new_name(imgName, sameDateFileList, file_extension)
-        else:
-            # Add text to existing image
-            imgName = sameDateFileList[ind]
-            return os.path.join(img_folder, imgName)
-
-    # Add file extension and copy image to project
-    imgName = imgName + file_extension
-    copied_file_name = os.path.join(img_folder, imgName)
-    copy2(lf, copied_file_name)
-    return copied_file_name
-
-
-def create_dir(dir_name: str) -> None:
-    """Creates the given directory recursively."""
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    return
 
 
 class FileDrop(wx.FileDropTarget):
@@ -675,37 +428,17 @@ class FileDrop(wx.FileDropTarget):
         if len(filenames) > 1:
             print("Can only process one file at a time.")
         curr_file = filenames[0]
-        _, ext = os.path.splitext(curr_file)
-        ext = ext[1:].lower()
-        if ext not in ["jpg", "jpeg", "png", "bmp"]:
-            print(f"ERROR: Unsupported file type: {ext}")
+        if not is_supported_image(curr_file):
+            _, ext = os.path.splitext(curr_file)
+            print(f"ERROR: Unsupported file type: {ext[1:].lower()}")
             return False
 
         # Get date and set image
-        self.origImgDate = get_time_from_file(curr_file)
+        self.origImgDate = datetime_to_wx_datetime(date_of_image_file(curr_file))
         self.frame.set_img_with_date(curr_file, self.origImgDate)
         self.loadedFile = curr_file
 
         return True
-
-
-def format_date_time(date_time: wx.DateTime) -> str:
-    """Format the given datetime in a string."""
-    dt: wx.DateTime = date_time
-    d, mon, y = dt.GetDay(), dt.GetMonth() + 1, dt.GetYear()
-    h, m = pad_int_str(dt.GetHour()), pad_int_str(dt.GetMinute())
-    s = pad_int_str(dt.GetSecond())
-
-    return tr(
-        "main.datetime",
-        weekday=wx.DateTime.GetWeekDayName(dt.GetWeekDay()),
-        day=d,
-        month=mon,
-        year=y,
-        hour=h,
-        minute=m,
-        second=s,
-    )
 
 
 def getImageToShow(
