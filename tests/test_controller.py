@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from collections import deque
 from contextlib import ExitStack
 from datetime import datetime
 from unittest import TestCase
@@ -676,6 +677,366 @@ class TestDiscard(ControllerTestCase):
         self.ctrl.discard_draft()
         self.ctrl.set_writing(False)
         assert not self.ctrl.undo_discard()
+
+
+class TestEditing(ControllerTestCase):
+    def test_edit_shows_the_entry_in_the_writing_page(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        view = self.view
+        assert self.ctrl.editing and self.ctrl.editing_entry == self.entry("Walk")
+        assert view.editing and view.editing_existing
+        assert view.text == "Walk by the lake\n\nsecond line"
+        assert view.draft_date == datetime(2020, 10, 22, 21, 32)
+        assert (view.photo_mode, view.draft_image) == (False, None)
+        # The entry stays selected
+        assert self.ctrl.selected == self.entry("Walk")
+
+    def test_edit_photo_entry(self):
+        self.read("Logo")
+        self.ctrl.edit_selected()
+        image = os.path.join(img_dir, "IMG_1.jpg")
+        assert self.view.photo_mode and self.view.draft_image == image
+        assert self.ctrl.draft_image == image
+
+    def test_nothing_to_edit(self):
+        self.ctrl.edit_selected()  # writing
+        assert self.ctrl.editing_entry is None and not self.view.editing_existing
+        self.ctrl.set_writing(False)
+        self.ctrl.edit_selected()  # nothing selected
+        assert not self.ctrl.editing
+
+    def test_save_changes_the_entry(self):
+        self.read("Walk")
+        walk_id = self.entry("Walk").id
+        self.ctrl.edit_selected()
+        self.view.text = "Changed text"
+        self.dialogs.date = datetime(2020, 11, 1, 9)
+        self.ctrl.change_date()
+        assert self.ctrl.save()
+
+        # Back to reading it, in the new place of the list
+        assert not self.ctrl.editing and not self.view.editing
+        assert self.ctrl.editing_entry is None and not self.view.editing_existing
+        assert self.view.text == "" and self.view.draft_date == NOW
+        assert self.view.entry.text == "Changed text"
+        assert self.view.entry.id == walk_id
+        assert self.view.selected.id == walk_id
+        assert self.texts()[0] == "Changed text" and len(self.view.shown) == 4
+        assert next(e.text for e in STORE.load_all()) == "Changed text"
+
+    def test_save_without_text_is_refused(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        self.view.text = ""
+        assert not self.ctrl.save()
+        assert self.ctrl.editing_entry is not None
+        assert self.dialogs.infos[0][0] == tr("message.no_text.text")
+
+    def test_add_an_image_to_a_text_entry(self):
+        self.read("Spring")
+        self.ctrl.edit_selected()
+        self.ctrl.set_photo_mode(True)
+        self.ctrl.load_image(SAMPLE_IMG, datetime(2020, 3, 3, 7, 30))
+        assert self.ctrl.save()
+        entry = self.view.entry
+        assert entry.type == "photo" and entry.photo is not None
+        assert self.view.entry_image == os.path.join(img_dir, entry.photo)
+        assert os.path.isfile(self.view.entry_image)
+
+    def test_the_same_image_is_not_copied_again(self):
+        self.read("Logo")
+        before = sorted(os.listdir(img_dir))
+        self.ctrl.edit_selected()
+        self.view.text = "Logo sketch, better"
+        assert self.ctrl.save()
+        assert self.view.entry.photo == "IMG_1.jpg"
+        assert sorted(os.listdir(img_dir)) == before
+        assert not self.dialogs.image_choices
+
+    def test_replace_the_image(self):
+        self.read("Logo")
+        self.ctrl.edit_selected()
+        self.ctrl.load_image(SAMPLE_IMG, datetime(2021, 2, 3, 4, 5, 6))
+        assert self.ctrl.save()
+        entry = self.view.entry
+        assert entry.photo != "IMG_1.jpg" and entry.date_time.year == 2021
+        assert os.path.isfile(os.path.join(img_dir, entry.photo))
+        # The old image is not deleted
+        assert os.path.isfile(os.path.join(img_dir, "IMG_1.jpg"))
+
+    def test_remove_the_image_makes_a_text_entry(self):
+        self.read("Logo")
+        self.ctrl.edit_selected()
+        self.ctrl.set_photo_mode(False)
+        assert self.ctrl.save()
+        assert self.view.entry.type == "text" and self.view.entry.photo is None
+        assert self.view.entry_image is None
+
+    def test_photo_entry_without_a_new_image_is_refused(self):
+        self.read("Lost")  # The image file is missing
+        self.ctrl.edit_selected()
+        assert self.view.photo_mode and self.view.draft_image is None
+        assert not self.ctrl.save()
+        assert self.dialogs.infos[0][0] == tr("message.no_image.text")
+
+    def test_cancel_without_changes(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        assert self.ctrl.cancel_edit()
+        assert not self.dialogs.confirms and not self.ctrl.editing
+        assert self.view.entry == self.entry("Walk") and self.view.text == ""
+        assert not self.view.editing_existing
+
+    def test_cancel_with_changes_asks(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        self.view.text = "Changed"
+        self.dialogs.answer_confirm(False, True)
+        assert not self.ctrl.cancel_edit()
+        assert self.ctrl.editing and self.view.text == "Changed"
+        assert self.dialogs.confirms[0][0] == tr("message.discard_changes.text")
+        assert self.ctrl.cancel_edit()
+        assert not self.ctrl.editing and self.view.entry.text.startswith("Walk")
+        assert self.entry("Walk").text.startswith("Walk")  # not changed
+
+    def test_discard_cancels_the_edit(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        assert self.ctrl.discard_draft()
+        assert not self.ctrl.editing and not self.view.undo
+
+    def test_leaving_to_other_pages_asks_about_changes(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        self.view.text = "Changed"
+        self.dialogs.answer_confirm(False, False, False, True)
+        self.ctrl.select_entry(self.entry("Spring"))  # keep editing
+        assert self.ctrl.editing and self.view.selected == self.entry("Walk")
+        self.ctrl.set_writing(False)
+        assert self.ctrl.editing and self.view.editing
+        self.ctrl.set_writing(True)
+        assert self.ctrl.editing_entry is not None and self.view.editing_existing
+        # Now throw the changes away and go to the other entry
+        self.ctrl.select_entry(self.entry("Spring"))
+        assert not self.ctrl.editing and self.view.entry == self.entry("Spring")
+        assert self.dialogs.confirm_answers == deque()
+
+    def test_new_entry_while_changing(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        self.ctrl.set_writing(True)  # nothing changed, so no question
+        assert self.ctrl.editing and self.ctrl.editing_entry is None
+        assert not self.view.editing_existing and self.view.text == ""
+        assert self.ctrl.selected is None
+
+    def test_unchanged_edit_can_be_closed(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        assert self.ctrl.request_close() and not self.dialogs.confirms
+        self.view.text = "x"
+        self.dialogs.answer_confirm(False)
+        assert not self.ctrl.request_close()
+
+    def test_change_folder_stops_editing(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        with tempfile.TemporaryDirectory() as other:
+            self.dialogs.folder = other
+            self.ctrl.change_folder()
+        assert not self.ctrl.editing and self.ctrl.editing_entry is None
+        assert not self.view.editing_existing
+
+    def test_shortcut(self):
+        self.ctrl.set_writing(False)
+        self.ctrl.run_shortcut("edit")  # nothing selected
+        assert not self.ctrl.editing
+        self.read("Walk")
+        self.ctrl.run_shortcut("edit")
+        assert self.ctrl.editing_entry is not None
+
+
+class TestDeleting(ControllerTestCase):
+    def test_delete_moves_to_the_trash(self):
+        self.read("Spring")
+        assert self.ctrl.delete_selected()
+        assert "Spring" not in self.texts() and self.view.total == 3
+        assert self.ctrl.selected is None and self.view.entry is None
+        assert self.view.undo == tr("undo.entry_deleted")
+        assert self.view.trash_count == 1 and not self.dialogs.confirms
+        assert [e.text for e in STORE.load_trash()] == ["Spring"]
+
+    def test_undo(self):
+        self.read("Spring")
+        self.ctrl.delete_selected()
+        assert self.ctrl.undo_discard()
+        assert "Spring" in self.texts() and self.view.trash_count == 0
+        assert self.view.entry.text == "Spring" and self.view.selected.text == "Spring"
+        assert self.view.undo is None
+
+    def test_undo_does_not_leave_the_writing_page(self):
+        self.read("Spring")
+        self.ctrl.delete_selected()
+        self.ctrl.set_writing(True)
+        self.view.text = "Draft"
+        self.ctrl.draft_edited()
+        assert self.ctrl.can_undo  # Writing does not end it
+        assert self.ctrl.undo_discard()
+        assert self.ctrl.editing and self.view.text == "Draft"
+        assert "Spring" in self.texts() and self.view.entry is None
+
+    def test_nothing_to_delete(self):
+        assert not self.ctrl.delete_selected()  # writing
+        self.ctrl.set_writing(False)
+        assert not self.ctrl.delete_selected()  # nothing selected
+        assert self.view.total == 4
+
+    def test_the_image_stays_with_the_entry_in_the_trash(self):
+        self.read("Logo")
+        self.ctrl.delete_selected()
+        assert os.path.isfile(os.path.join(img_dir, "IMG_1.jpg"))
+        self.ctrl.set_trash_view(True)
+        self.ctrl.select_entry(self.ctrl.trash[0])
+        assert self.view.entry_image == os.path.join(img_dir, "IMG_1.jpg")
+
+    def test_change_folder_ends_the_undo(self):
+        self.read("Spring")
+        self.ctrl.delete_selected()
+        with tempfile.TemporaryDirectory() as other:
+            self.dialogs.folder = other
+            self.ctrl.change_folder()
+        assert not self.ctrl.can_undo and self.view.undo is None
+
+
+class TestTrash(ControllerTestCase):
+    def delete(self, *texts):
+        for text in texts:
+            self.read(text)
+            self.ctrl.delete_selected()
+
+    def test_trash_view_lists_the_deleted_entries(self):
+        self.delete("Spring", "Walk")
+        self.ctrl.set_trash_view(True)
+        assert self.view.trash_view and self.ctrl.show_trash
+        assert self.texts() == ["Walk by the lake", "Spring"]  # the last deleted first
+        assert self.view.total == 2 and self.view.undo is None
+        self.ctrl.set_query("nothing like it")
+        assert self.view.shown == [] and self.view.total == 2
+        self.ctrl.set_query("")
+        self.ctrl.set_trash_view(False)
+        assert not self.view.trash_view
+        assert self.texts() == ["Logo sketch", "Lost photo"]
+
+    def test_search_in_the_trash(self):
+        self.delete("Spring", "Walk")
+        self.ctrl.set_trash_view(True)
+        self.ctrl.set_query("spring")
+        assert self.texts() == ["Spring"]
+
+    def test_restore(self):
+        self.delete("Spring")
+        self.ctrl.set_trash_view(True)
+        self.ctrl.select_entry(self.ctrl.trash[0])
+        assert self.ctrl.restore_selected()
+        assert self.view.shown == [] and self.view.trash_count == 0
+        assert self.view.entry is None
+        self.ctrl.set_trash_view(False)
+        assert "Spring" in self.texts()
+
+    def test_restore_only_in_the_trash(self):
+        self.read("Walk")
+        assert not self.ctrl.restore_selected()
+        assert not self.ctrl.delete_selected_forever()
+
+    def test_delete_forever_asks(self):
+        self.delete("Spring")
+        self.ctrl.set_trash_view(True)
+        self.ctrl.select_entry(self.ctrl.trash[0])
+        self.dialogs.answer_confirm(False, True)
+        assert not self.ctrl.delete_selected_forever()
+        assert len(self.ctrl.trash) == 1
+        assert self.ctrl.delete_selected_forever()
+        assert self.ctrl.trash == [] and STORE.load_trash() == []
+        assert self.dialogs.confirms[0][0] == tr("message.delete_forever.text")
+        assert self.view.entry is None and self.view.trash_count == 0
+
+    def test_delete_forever_removes_the_image(self):
+        self.delete("Logo")
+        path = os.path.join(img_dir, "IMG_1.jpg")
+        self.ctrl.set_trash_view(True)
+        self.ctrl.select_entry(self.ctrl.trash[0])
+        self.dialogs.answer_confirm(True)
+        self.ctrl.delete_selected_forever()
+        assert not os.path.exists(path)
+
+    def test_an_image_used_by_another_entry_is_kept(self):
+        STORE.save_entry(
+            "Same image", datetime(2020, 10, 20, 18, 15), "photo", "IMG_1.jpg"
+        )
+        self.ctrl.reload_entries()
+        self.delete("Logo")
+        self.ctrl.set_trash_view(True)
+        self.ctrl.select_entry(self.ctrl.trash[0])
+        self.dialogs.answer_confirm(True)
+        self.ctrl.delete_selected_forever()
+        assert os.path.exists(os.path.join(img_dir, "IMG_1.jpg"))
+
+    def test_a_missing_image_is_no_problem(self):
+        self.delete("Lost")
+        self.ctrl.set_trash_view(True)
+        self.ctrl.select_entry(self.ctrl.trash[0])
+        self.dialogs.answer_confirm(True)
+        assert self.ctrl.delete_selected_forever()
+
+    def test_empty_trash(self):
+        assert not self.ctrl.empty_trash()  # nothing in it
+        self.delete("Spring", "Logo")
+        self.dialogs.answer_confirm(False, True)
+        assert not self.ctrl.empty_trash()
+        assert len(self.ctrl.trash) == 2
+        assert self.ctrl.empty_trash()
+        assert self.ctrl.trash == [] and self.view.trash_count == 0
+        assert not os.path.exists(os.path.join(img_dir, "IMG_1.jpg"))
+        assert self.dialogs.confirms[0][0] == tr("message.empty_trash.text", count=2)
+        assert self.view.total == 2  # the entries are not touched
+
+    def test_writing_leaves_the_trash(self):
+        self.delete("Spring")
+        self.ctrl.set_trash_view(True)
+        self.ctrl.set_writing(True)
+        assert not self.ctrl.show_trash and not self.view.trash_view
+        assert "Spring" not in self.texts() and len(self.view.shown) == 3
+
+    def test_no_editing_in_the_trash(self):
+        self.delete("Spring")
+        self.ctrl.set_trash_view(True)
+        self.ctrl.set_writing(False)
+        self.ctrl.select_entry(self.ctrl.trash[0])
+        self.ctrl.edit_selected()
+        assert not self.ctrl.editing
+        assert not self.ctrl.delete_selected()
+
+    def test_trash_view_with_a_draft_leaves_writing(self):
+        self.view.text = "Draft"
+        self.ctrl.set_trash_view(True)
+        assert not self.ctrl.editing and self.view.trash_view
+        assert self.view.text == ""
+
+    def test_trash_view_with_changes_asks(self):
+        self.read("Walk")
+        self.ctrl.edit_selected()
+        self.view.text = "Changed"
+        self.dialogs.answer_confirm(False)
+        self.ctrl.set_trash_view(True)
+        assert self.ctrl.editing and not self.ctrl.show_trash
+        assert not self.view.trash_view
+
+    def test_the_trash_stays_after_a_restart(self):
+        self.delete("Spring")
+        other = DiaryController(FakeView(), FakeDialogs(), now=lambda: NOW)
+        assert other.start()
+        assert [e.text for e in other.trash] == ["Spring"]
+        other.temp.remove()
 
 
 class TestClosing(ControllerTestCase):

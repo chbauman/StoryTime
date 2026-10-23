@@ -165,3 +165,115 @@ class TestSqliteEntryStore(TestCase):
         for k in range(3):
             self.store.save_entry(f"Entry {k}", datetime(2020, 1, 2, 3))
         assert os.listdir(self.folder) == ["diary.sqlite"]
+
+
+class TestChangingEntries(TestCase):
+    def setUp(self):
+        self.folder = tempfile.mkdtemp(prefix="story_time_test_db_")
+        self.addCleanup(shutil.rmtree, self.folder, True)
+        self.db_file = os.path.join(self.folder, "story_time.sqlite")
+        self.store = SqliteEntryStore(self.db_file)
+        self.first = self.store.save_entry("First", datetime(2020, 1, 1, 8))
+        self.second = self.store.save_entry("Second", datetime(2020, 1, 2, 8))
+
+    def texts(self):
+        return [e.text for e in self.store.load_all()]
+
+    def test_update(self):
+        updated = self.store.update_entry(
+            self.first.id, "Changed", datetime(2020, 1, 5, 9), "photo", "IMG_1.jpg"
+        )
+        assert updated == Entry(
+            datetime(2020, 1, 5, 9), "photo", "Changed", "IMG_1.jpg", self.first.id
+        )
+        # It is where its new date puts it, and the other one did not change
+        assert self.store.load_all() == [updated, self.second]
+
+    def test_update_to_a_text_entry(self):
+        photo = self.store.save_entry("P", datetime(2020, 2, 2), "photo", "a.jpg")
+        updated = self.store.update_entry(photo.id, "P", photo.date_time)
+        assert updated.type == "text" and updated.photo is None
+
+    def test_update_checks_like_save(self):
+        with self.assertRaises(ValueError):
+            self.store.update_entry(self.first.id, "x", datetime(2020, 1, 1), "video")
+        with self.assertRaises(AssertionError):
+            self.store.update_entry(self.first.id, "x", datetime(2020, 1, 1), "photo")
+        assert self.texts() == ["Second", "First"]
+
+    def test_update_of_unknown_entry(self):
+        with self.assertRaises(KeyError):
+            self.store.update_entry(99, "x", datetime(2020, 1, 1))
+
+    def test_same_time_entries_are_told_apart(self):
+        same = datetime(2021, 5, 5, 5)
+        one = self.store.save_entry("One", same)
+        two = self.store.save_entry("Two", same)
+        self.store.update_entry(two.id, "Two!", same)
+        assert [(e.id, e.text) for e in self.store.load_all()[:2]] == [
+            (one.id, "One"),
+            (two.id, "Two!"),
+        ]
+
+    def test_trash_and_restore(self):
+        self.store.trash_entry(self.first.id, datetime(2021, 1, 1))
+        assert self.texts() == ["Second"]
+        trash = self.store.load_trash()
+        assert [e.text for e in trash] == ["First"]
+        assert trash[0].deleted_at == datetime(2021, 1, 1)
+        assert trash[0].id == self.first.id
+
+        self.store.restore_entry(self.first.id)
+        assert self.texts() == ["Second", "First"]
+        assert self.store.load_trash() == []
+        assert self.store.load_all()[1].deleted_at is None
+
+    def test_the_last_deleted_is_first_in_the_trash(self):
+        self.store.trash_entry(self.second.id, datetime(2021, 1, 1))
+        self.store.trash_entry(self.first.id, datetime(2021, 1, 2))
+        assert [e.text for e in self.store.load_trash()] == ["First", "Second"]
+
+    def test_trash_and_restore_of_wrong_entries(self):
+        with self.assertRaises(KeyError):
+            self.store.trash_entry(99, datetime(2021, 1, 1))
+        with self.assertRaises(KeyError):
+            self.store.restore_entry(self.first.id)  # not in the trash
+        self.store.trash_entry(self.first.id, datetime(2021, 1, 1))
+        with self.assertRaises(KeyError):
+            self.store.trash_entry(self.first.id, datetime(2021, 1, 2))
+        assert self.store.load_trash()[0].deleted_at == datetime(2021, 1, 1)
+
+    def test_delete_forever_only_takes_trashed_entries(self):
+        self.store.trash_entry(self.first.id, datetime(2021, 1, 1))
+        self.store.delete_forever([self.first.id, self.second.id, 99])
+        assert self.store.load_trash() == []
+        assert self.texts() == ["Second"]
+        # Ids are not used again
+        assert self.store.save_entry("Third", datetime(2020, 1, 3)).id > self.second.id
+
+    def test_trash_is_kept_when_reopened(self):
+        self.store.trash_entry(self.first.id, datetime(2021, 1, 1))
+        again = SqliteEntryStore(self.db_file)
+        assert [e.text for e in again.load_trash()] == ["First"]
+
+    def test_database_of_the_first_version_is_migrated(self):
+        old = os.path.join(self.folder, "old.sqlite")
+        with closing(sqlite3.connect(old)) as conn:
+            conn.executescript("""
+                CREATE TABLE entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date_time TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK (type IN ('text', 'photo')),
+                    text TEXT NOT NULL,
+                    photo TEXT
+                );
+                INSERT INTO entries (date_time, type, text)
+                    VALUES ('2019-01-02T03:04:05', 'text', 'From before');
+                PRAGMA user_version = 1;
+                """)
+        store = SqliteEntryStore(old)
+        assert [e.text for e in store.load_all()] == ["From before"]
+        store.trash_entry(1, datetime(2021, 1, 1))
+        assert store.load_all() == [] and len(store.load_trash()) == 1
+        with closing(sqlite3.connect(old)) as conn:
+            assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION

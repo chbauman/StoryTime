@@ -8,6 +8,7 @@ shows goes through a `View` and all questions to the user are asked through
 use fake ones.
 """
 
+import contextlib
 import os
 from dataclasses import dataclass
 from datetime import datetime
@@ -92,6 +93,12 @@ class View(Protocol):
     def select_entry(self, entry: Optional[Entry]) -> None:
         """Selects an entry in the list, deselects if it is None."""
 
+    def show_trash_view(self, active: bool, count: int) -> None:
+        """Shows whether the list is the trash and how many entries are in it."""
+
+    def show_editing_existing(self, existing: bool) -> None:
+        """Shows whether a saved entry is changed instead of writing a new one."""
+
     def show_undo(self, message: Optional[str]) -> None:
         """Offers to undo the last discard with the message, hides it if None."""
 
@@ -101,6 +108,9 @@ class View(Protocol):
     def close(self) -> None:
         """Closes the window."""
 
+
+#: The text, date, image and photo mode of an entry before it is changed.
+_Origin = tuple[str, datetime, Optional[str], bool]
 
 #: The actions of the shortcuts that only make sense while writing.
 WRITING_ONLY = {"save", "photo", "date", "selfie", "discard"}
@@ -156,8 +166,18 @@ class DiaryController:
         self.query = ""
         #: The entry that is shown on the page to read.
         self.selected: Optional[Entry] = None
-        #: What the last discard threw away, while the user can still undo it.
-        self._discarded: Optional[_Discarded] = None
+        #: Takes back the last discard or deletion while the user can undo it,
+        #: returns whether it did.
+        self._undo: Optional[Callable[[], bool]] = None
+        #: Whether `_undo` is about the draft, which changes end.
+        self._undo_of_draft = False
+        #: The entries in the trash.
+        self.trash: list[Entry] = []
+        #: Whether the list shows the trash instead of the entries.
+        self.show_trash = False
+        #: The saved entry that is changed, None while a new one is written.
+        self.editing_entry: Optional[Entry] = None
+        self._edit_origin: Optional[_Origin] = None
 
     # ----------------------------------------------------------------- start / end
 
@@ -190,16 +210,7 @@ class DiaryController:
         """Asks if there is something unsaved. Returns whether to close."""
         if not self._has_unsaved():
             return True
-        return self.dialogs.confirm(
-            (
-                tr("message.discard_text_image.text")
-                if self.draft_image is not None
-                else tr("message.discard_text.text")
-            ),
-            tr("common.warning"),
-            tr("common.discard"),
-            tr("common.keep"),
-        )
+        return self._confirm_discard()
 
     def finish(self) -> None:
         """To be called when the app is closed."""
@@ -211,14 +222,21 @@ class DiaryController:
 
     @property
     def shown(self) -> list[Entry]:
-        """The entries matching the search, newest first."""
-        return filter_entries(self.entries, self.query)
+        """The entries of the list matching the search, newest first."""
+        return filter_entries(
+            self.trash if self.show_trash else self.entries, self.query
+        )
 
     def reload_entries(self) -> None:
         """Loads all entries and shows them in the list."""
         self.entries = self.store.load_all()
-        if self.selected not in self.entries:
-            self.selected = None
+        self.trash = self.store.load_trash()
+        # The selected entry may have been changed
+        shown = self.trash if self.show_trash else self.entries
+        self.selected = next(
+            (e for e in shown if self.selected and e.id == self.selected.id), None
+        )
+        self.view.show_trash_view(self.show_trash, len(self.trash))
         self._show_entries()
 
     def set_query(self, query: str) -> None:
@@ -229,7 +247,12 @@ class DiaryController:
     def select_entry(self, entry: Entry) -> None:
         """The user selected an entry in the list, to read it."""
         if self.editing:
-            self._leave_writing()
+            if self.editing_entry is not None:
+                if not self.cancel_edit():
+                    self.view.select_entry(self.selected)  # Keep editing
+                    return
+            else:
+                self._leave_writing()
         self.selected = entry
         self.view.show_mode(self.editing, self.photo_mode)
         self.view.show_entry(entry, self._image_of(entry))
@@ -262,16 +285,25 @@ class DiaryController:
     def set_writing(self, writing: bool) -> None:
         """Switches to writing a new entry, or back to reading.
 
-        Going back throws the draft away, which can be undone.
+        Going back throws a new draft away, which can be undone. Stopping to
+        change a saved entry asks first if there are changes.
         """
         if writing:
-            self.dismiss_undo()
+            if self.editing_entry is not None and not self.cancel_edit():
+                self.view.show_mode(self.editing, self.photo_mode)
+                return
+            self._dismiss_draft_undo()
+            if self._set_trash_view(False):
+                self._show_entries()
             self.editing = True
             self.selected = None
             self.view.select_entry(None)
         elif self.editing:
-            self._leave_writing()
-            self.view.show_entry(self.selected, self._image_of(self.selected))
+            if self.editing_entry is not None:
+                self.cancel_edit()
+            else:
+                self._leave_writing()
+                self.view.show_entry(self.selected, self._image_of(self.selected))
         self.view.show_mode(self.editing, self.photo_mode)
 
     def set_photo_mode(self, photo_mode: bool) -> None:
@@ -298,7 +330,7 @@ class DiaryController:
         """
         if not (self.editing and self.photo_mode and is_supported_image(path)):
             return False
-        self.dismiss_undo()
+        self._dismiss_draft_undo()
         self.draft_date = date_of_image_file(path) if date_time is None else date_time
         self.draft_image = path
         self.view.show_draft_date(self.draft_date)
@@ -309,7 +341,7 @@ class DiaryController:
         """Takes a picture with the webcam for the entry that is written."""
         if not self.editing:
             return
-        self.dismiss_undo()
+        self._dismiss_draft_undo()
         self.set_photo_mode(True)
         now = self._now()
         path = os.path.join(self.temp.path, img_name_from_time(now) + "_Self.png")
@@ -334,7 +366,7 @@ class DiaryController:
             return
         date_time = self.dialogs.pick_date(self._now())
         if date_time is not None:
-            self.dismiss_undo()
+            self._dismiss_draft_undo()
             self.draft_date = date_time
             self.view.show_draft_date(date_time)
 
@@ -342,16 +374,19 @@ class DiaryController:
         """Throws away the text, the image and the chosen date of the draft.
 
         The user can undo it for a while. Returns whether there was something.
+        For a saved entry that is changed, it stops changing it instead.
         """
+        if self.editing_entry is not None:
+            return self.cancel_edit()
         if not (self.editing and self._has_unsaved()):
             return False
-        self._discarded = _Discarded(
+        discarded = _Discarded(
             self.draft_image, self.draft_date, self.photo_mode, self.view.get_text()
         )
         self._clear_draft()
-        self.photo_mode = self._discarded.photo_mode  # Keep adding an image
+        self.photo_mode = discarded.photo_mode  # Keep adding an image
         self.view.show_mode(self.editing, self.photo_mode)
-        self.view.show_undo(tr("undo.draft_discarded"))
+        self._offer_undo(tr("undo.draft_discarded"), lambda: self._restore(discarded))
         return True
 
     def remove_image(self, leave_photo_mode: bool = False) -> bool:
@@ -363,49 +398,149 @@ class DiaryController:
             if leave_photo_mode:
                 self.photo_mode = False
             return False
-        self._discarded = _Discarded(self.draft_image, self.draft_date, self.photo_mode)
+        discarded = _Discarded(self.draft_image, self.draft_date, self.photo_mode)
         self.draft_image = None
         self.draft_date = self._now()  # It was taken from the image
         self.photo_mode = self.photo_mode and not leave_photo_mode
         self.view.show_draft_image(None)
         self.view.show_draft_date(self.draft_date)
         self.view.show_mode(self.editing, self.photo_mode)
-        self.view.show_undo(tr("undo.image_removed"))
+        self._offer_undo(tr("undo.image_removed"), lambda: self._restore(discarded))
         return True
 
     @property
     def can_undo(self) -> bool:
-        """Whether a discard can be undone."""
-        return self._discarded is not None
+        """Whether a discard or deletion can be undone."""
+        return self._undo is not None
 
     def undo_discard(self) -> bool:
-        """Brings back what the last discard threw away. Returns whether it did."""
-        discarded = self._discarded
-        if discarded is None:
+        """Takes back the last discard or deletion. Returns whether it did."""
+        undo = self._undo
+        if undo is None:
             return False
-        self._discarded = None
+        self._undo = None
         self.view.show_undo(None)
-        if discarded.left_writing:
-            self.editing = True
-            self.selected = None
-            self.view.select_entry(None)
-        elif not self.editing:
-            return False
-        if discarded.text is not None:
-            self.view.set_text(discarded.text)
-        self.draft_image = discarded.image
-        self.draft_date = discarded.date
-        self.photo_mode = discarded.photo_mode
-        self.view.show_draft_image(self.draft_image)
-        self.view.show_draft_date(self.draft_date)
-        self.view.show_mode(self.editing, self.photo_mode)
-        return True
+        return undo()
 
     def dismiss_undo(self) -> None:
         """The user can not undo the last discard any more, e.g. after a while."""
-        if self._discarded is not None:
-            self._discarded = None
+        if self._undo is not None:
+            self._undo = None
             self.view.show_undo(None)
+
+    def draft_edited(self) -> None:
+        """The user changed the draft, so a discard of it can not be undone."""
+        self._dismiss_draft_undo()
+
+    # ------------------------------------------------- change / delete saved entries
+
+    def edit_selected(self) -> None:
+        """Starts to change the entry that is read."""
+        entry = self.selected
+        if self.editing or self.show_trash or entry is None:
+            return
+        self._dismiss_draft_undo()
+        image = self._image_of(entry)
+        self.editing_entry = entry
+        self.editing = True
+        self.photo_mode = entry.type == "photo"
+        self.draft_image = image
+        self.draft_date = entry.date_time
+        self._edit_origin = (entry.text, entry.date_time, image, self.photo_mode)
+        self.view.set_text(entry.text)
+        self.view.show_draft_image(image)
+        self.view.show_draft_date(entry.date_time)
+        self.view.show_editing_existing(True)
+        self.view.show_mode(self.editing, self.photo_mode)
+
+    def cancel_edit(self) -> bool:
+        """Stops changing a saved entry, asks first if something was changed.
+
+        Returns whether the changes were thrown away, so the entry is read again.
+        """
+        if self.editing_entry is None:
+            return False
+        if self._has_unsaved() and not self._confirm_discard():
+            return False
+        self._finish_editing()
+        self.view.show_mode(self.editing, self.photo_mode)
+        self.view.show_entry(self.selected, self._image_of(self.selected))
+        return True
+
+    def delete_selected(self) -> bool:
+        """Moves the entry that is read to the trash, which can be undone.
+
+        Returns whether an entry was moved.
+        """
+        entry = self.selected
+        if self.editing or self.show_trash or entry is None or entry.id is None:
+            return False
+        self.store.trash_entry(entry.id, self._now())
+        self.selected = None
+        self.reload_entries()
+        self.view.show_entry(None, None)
+        self._offer_undo(
+            tr("undo.entry_deleted"), lambda: self._take_out(entry), draft=False
+        )
+        return True
+
+    def set_trash_view(self, active: bool) -> None:
+        """Shows the list of the entries in the trash, or the entries again."""
+        if active != self.show_trash:
+            if active and self.editing:
+                if self.editing_entry is not None:
+                    if not self.cancel_edit():
+                        self.view.show_trash_view(self.show_trash, len(self.trash))
+                        return
+                else:
+                    self._leave_writing()
+                self.view.show_mode(self.editing, self.photo_mode)
+            self._set_trash_view(active)
+            self.dismiss_undo()
+            self.selected = None
+            self.view.select_entry(None)
+            self.reload_entries()
+            self.view.show_entry(None, None)
+
+    def restore_selected(self) -> bool:
+        """Takes the entry that is read out of the trash. Returns whether it did."""
+        entry = self.selected
+        if not self.show_trash or entry is None or entry.id is None:
+            return False
+        self.store.restore_entry(entry.id)
+        self.selected = None
+        self.reload_entries()
+        self.view.show_entry(None, None)
+        return True
+
+    def delete_selected_forever(self) -> bool:
+        """Removes the entry that is read from the trash for good, after asking."""
+        entry = self.selected
+        if not self.show_trash or entry is None or entry.id is None:
+            return False
+        if not self.dialogs.confirm(
+            tr("message.delete_forever.text"),
+            tr("common.warning"),
+            tr("common.delete"),
+            tr("common.keep"),
+        ):
+            return False
+        self._delete_forever([entry])
+        return True
+
+    def empty_trash(self) -> bool:
+        """Removes everything in the trash for good, after asking."""
+        if not self.trash:
+            return False
+        if not self.dialogs.confirm(
+            tr("message.empty_trash.text", count=len(self.trash)),
+            tr("common.warning"),
+            tr("common.delete"),
+            tr("common.keep"),
+        ):
+            return False
+        self._delete_forever(list(self.trash))
+        return True
 
     def change_folder(self) -> None:
         """Lets the user choose another data folder."""
@@ -414,6 +549,11 @@ class DiaryController:
             return
         folder = DataFolder(path)
         folder.create()
+        self.dismiss_undo()  # It is about the old folder
+        if self.editing_entry is not None:
+            self._finish_editing()
+            self.view.show_mode(self.editing, self.photo_mode)
+        self.show_trash = False
         self._use_folder(folder)
         self.draft_date = self._now()
         self.selected = None
@@ -431,30 +571,48 @@ class DiaryController:
         """
         if not self.editing:
             return False
-        self.dismiss_undo()
+        self._dismiss_draft_undo()
         text = self.view.get_text()
         if text == "":
             self.dialogs.info(tr("message.no_text.text"), tr("message.no_text.title"))
             return False
 
+        image_name: Optional[str] = None
         if self.photo_mode:
             if self.draft_image is None:
                 self.dialogs.info(
                     tr("message.no_image.text"), tr("message.no_image.title")
                 )
                 return False
-            img_folder = self.folder.img_folder
-            copied = copy_img_file_to_imgs(
-                self.draft_image,
-                img_folder,
-                self.draft_date,
-                lambda files: self.dialogs.choose_image(img_folder, files),
+            if (
+                self.editing_entry is not None
+                and self._edit_origin is not None
+                and self.draft_image == self._edit_origin[2]
+            ):
+                image_name = self.editing_entry.photo  # Not changed, already there
+            else:
+                img_folder = self.folder.img_folder
+                image_name = copy_img_file_to_imgs(
+                    self.draft_image,
+                    img_folder,
+                    self.draft_date,
+                    lambda files: self.dialogs.choose_image(img_folder, files),
+                )
+                if image_name is None:
+                    return False  # There is no decision, so keep the draft
+        entry_type = "text" if image_name is None else "photo"
+
+        if self.editing_entry is not None and self.editing_entry.id is not None:
+            saved = self.store.update_entry(
+                self.editing_entry.id, text, self.draft_date, entry_type, image_name
             )
-            if copied is None:
-                return False  # There is no decision, so keep the draft
-            self.store.save_entry(text, self.draft_date, "photo", copied)
-        else:
-            self.store.save_entry(text, self.draft_date)
+            self._finish_editing()
+            self.selected = saved
+            self.reload_entries()
+            self.view.show_mode(self.editing, self.photo_mode)
+            self.view.show_entry(self.selected, self._image_of(self.selected))
+            return True
+        self.store.save_entry(text, self.draft_date, entry_type, image_name)
 
         # Start the next entry, in the same mode
         self.draft_image = None
@@ -475,6 +633,7 @@ class DiaryController:
             "photo": lambda: self.set_photo_mode(not self.photo_mode),
             "date": self.change_date,
             "discard": self.discard_draft,
+            "edit": self.edit_selected,
             "folder": self.change_folder,
             "selfie": self.take_selfie,
             "quit": self.view.close,
@@ -487,24 +646,120 @@ class DiaryController:
     # ---------------------------------------------------------------------- helpers
 
     def _has_unsaved(self) -> bool:
-        """Whether the draft has a text or an image that would be lost."""
-        return self.editing and (
-            self.draft_image is not None or self.view.get_text() != ""
+        """Whether the draft has something that would be lost.
+
+        That is a text or an image of a new entry, or any change of an entry that
+        is changed.
+        """
+        if not self.editing:
+            return False
+        if self._edit_origin is not None:
+            return self._edit_origin != (
+                self.view.get_text(),
+                self.draft_date,
+                self.draft_image,
+                self.photo_mode,
+            )
+        return self.draft_image is not None or self.view.get_text() != ""
+
+    def _confirm_discard(self) -> bool:
+        """Asks if the unsaved draft or changes may be thrown away."""
+        if self.editing_entry is not None:
+            text = tr("message.discard_changes.text")
+        elif self.draft_image is not None:
+            text = tr("message.discard_text_image.text")
+        else:
+            text = tr("message.discard_text.text")
+        return self.dialogs.confirm(
+            text, tr("common.warning"), tr("common.discard"), tr("common.keep")
         )
+
+    def _offer_undo(
+        self, message: str, undo: Callable[[], bool], draft: bool = True
+    ) -> None:
+        self._undo = undo
+        self._undo_of_draft = draft
+        self.view.show_undo(message)
+
+    def _dismiss_draft_undo(self) -> None:
+        """Ends the undo of a discard of the draft, one of a deletion stays."""
+        if self._undo_of_draft:
+            self.dismiss_undo()
+
+    def _restore(self, discarded: _Discarded) -> bool:
+        """Brings back what a discard threw away from the draft."""
+        if discarded.left_writing:
+            self.editing = True
+            self.selected = None
+            self.view.select_entry(None)
+        elif not self.editing:
+            return False
+        if discarded.text is not None:
+            self.view.set_text(discarded.text)
+        self.draft_image = discarded.image
+        self.draft_date = discarded.date
+        self.photo_mode = discarded.photo_mode
+        self.view.show_draft_image(self.draft_image)
+        self.view.show_draft_date(self.draft_date)
+        self.view.show_mode(self.editing, self.photo_mode)
+        return True
+
+    def _take_out(self, entry: Entry) -> bool:
+        """Takes a deleted entry out of the trash and shows it if possible."""
+        if entry.id is None or self.show_trash:
+            return False
+        self.store.restore_entry(entry.id)
+        self.reload_entries()
+        if not self.editing:
+            self.selected = next((e for e in self.entries if e.id == entry.id), None)
+            self.view.select_entry(self.selected)
+            self.view.show_entry(self.selected, self._image_of(self.selected))
+        return True
+
+    def _delete_forever(self, entries: list[Entry]) -> None:
+        """Removes entries of the trash and their images, if nothing else uses them."""
+        self.store.delete_forever([e.id for e in entries if e.id is not None])
+        self.selected = None
+        self.reload_entries()
+        self.view.show_entry(None, None)
+        used = {e.photo for e in self.entries + self.trash}
+        for entry in entries:
+            if entry.photo and entry.photo not in used:
+                # It may be gone already
+                with contextlib.suppress(OSError):
+                    os.remove(os.path.join(self.folder.img_folder, entry.photo))
+
+    def _set_trash_view(self, active: bool) -> bool:
+        """Switches the list between the entries and the trash, returns if it did."""
+        if active == self.show_trash:
+            return False
+        self.show_trash = active
+        self.view.show_trash_view(active, len(self.trash))
+        return True
+
+    def _finish_editing(self) -> None:
+        """Ends changing a saved entry, the changes are thrown away."""
+        self.editing_entry = None
+        self._edit_origin = None
+        self._clear_draft()
+        self.editing = False
+        self.view.show_editing_existing(False)
 
     def _leave_writing(self) -> None:
         """Goes from writing to reading, the draft can be undone if it had content."""
         if self._has_unsaved():
-            self._discarded = _Discarded(
+            discarded = _Discarded(
                 self.draft_image,
                 self.draft_date,
                 self.photo_mode,
                 self.view.get_text(),
                 left_writing=True,
             )
-            self.view.show_undo(tr("undo.draft_discarded"))
+            self._offer_undo(
+                tr("undo.draft_discarded"), lambda: self._restore(discarded)
+            )
         else:
-            self.dismiss_undo()
+            self._dismiss_draft_undo()
         self._clear_draft()
         self.editing = False
 
@@ -533,7 +788,8 @@ class DiaryController:
     def _show_entries(self) -> None:
         shown = self.shown
         selected = self.selected if self.selected in shown else None
-        self.view.show_entries(shown, len(self.entries), selected)
+        total = len(self.trash if self.show_trash else self.entries)
+        self.view.show_entries(shown, total, selected)
 
     def _show_all(self) -> None:
         """Shows the whole state, e.g. at the start."""

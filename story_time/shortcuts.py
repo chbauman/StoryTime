@@ -14,6 +14,7 @@ CTRL_SHORTCUTS = {
     "S": "save",
     "P": "photo",
     "D": "date",
+    "E": "edit",
     "O": "folder",
     "T": "selfie",
     "Q": "quit",

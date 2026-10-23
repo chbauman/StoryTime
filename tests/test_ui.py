@@ -456,6 +456,179 @@ class TestTools(TestCase):
         ]
 
 
+def press_button(button):
+    button.Command(wx.CommandEvent(wx.wxEVT_BUTTON))
+
+
+def toggle_trash(frame, active):
+    toggle = frame.entry_list.trash_toggle
+    toggle.SetValue(active)
+    toggle.Command(wx.CommandEvent(wx.wxEVT_TOGGLEBUTTON))
+
+
+def list_texts(frame):
+    return [e.first_line for e, _ in frame.entry_list.shown]
+
+
+class TestEditAndDelete(TestCase):
+    def read(self, frame, text):
+        """Selects the entry in the list, which can be the trash."""
+        entries = frame.controller.trash + frame.controller.entries
+        entry = next(e for e in entries if e.text.startswith(text))
+        frame.entry_list.select_entry(entry, notify=True)
+
+    def action_buttons(self, frame):
+        return [
+            frame.edit_button.IsShown(),
+            frame.delete_button.IsShown(),
+            frame.restore_button.IsShown(),
+            frame.delete_forever_button.IsShown(),
+        ]
+
+    def test_buttons_follow_the_entry_and_the_trash(self):
+        with main_window() as (frame, _):
+            writing = self.action_buttons(frame)
+            click(frame, frame.new_tool)  # reading, nothing selected
+            nothing = self.action_buttons(frame)
+            self.read(frame, "Walk")
+            entry = self.action_buttons(frame)
+            frame.controller.delete_selected()
+            gone = self.action_buttons(frame)
+            toggle_trash(frame, True)
+            in_trash = self.action_buttons(frame)
+            self.read(frame, "Walk")
+            trashed = self.action_buttons(frame)
+        assert nothing == gone == in_trash == [False] * 4
+        assert writing == [False] * 4
+        assert entry == [True, True, False, False]
+        assert trashed == [False, False, True, True]
+
+    def test_edit_button(self):
+        with main_window() as (frame, dialogs):
+            self.read(frame, "Walk")
+            press_button(frame.edit_button)
+            editing = (
+                frame.book.GetSelection(),
+                frame.input_text_field.GetValue(),
+                frame.discard_button.GetLabel(),
+                frame.date_label.GetLabel(),
+            )
+            frame.input_text_field.SetValue("Edited walk")
+            dialogs.answer_confirm(True)
+            press_button(frame.discard_button)
+        assert editing[0] == frame.EDIT_PAGE
+        assert editing[1].startswith("Walk by the lake")
+        assert editing[2] == tr("main.cancel_edit")
+        assert editing[3].startswith(tr("main.editing_line", date="")[:8])
+
+    def test_save_changes_the_entry_in_the_list(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Spring")
+            press_button(frame.edit_button)
+            frame.input_text_field.SetValue("Late spring")
+            click(frame, frame.edit_tools[0])  # save
+            page = frame.book.GetSelection()
+            shown = frame.view_label.GetLabel(), frame.fix_text_box.GetValue()
+            selected = frame.entry_list.selected_entry()
+            texts = list_texts(frame)
+            label = frame.discard_button.GetLabel()
+        assert page == frame.VIEW_PAGE and shown[1] == "Late spring"
+        assert selected.text == "Late spring" and "Late spring" in texts
+        assert "Spring" not in texts
+        assert label == tr("main.discard")
+
+    def test_cancel_button_asks_about_changes(self):
+        with main_window() as (frame, dialogs):
+            self.read(frame, "Spring")
+            press_button(frame.edit_button)
+            frame.input_text_field.SetValue("Changed")
+            dialogs.answer_confirm(False, True)
+            press_button(frame.discard_button)
+            kept = frame.book.GetSelection()
+            press_button(frame.discard_button)
+            read = (frame.book.GetSelection(), frame.fix_text_box.GetValue())
+        assert kept == frame.EDIT_PAGE
+        assert read == (frame.VIEW_PAGE, "Spring")
+
+    def test_edit_shortcut(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Walk")
+            press(frame, ord("E"), ctrl=True)
+            assert frame.book.GetSelection() == frame.EDIT_PAGE
+
+    def test_delete_button_and_undo(self):
+        with main_window() as (frame, dialogs):
+            self.read(frame, "Spring")
+            press_button(frame.delete_button)
+            deleted = (
+                list_texts(frame),
+                frame.undo_bar.IsShown(),
+                frame.undo_label.GetLabel(),
+                frame.entry_list.trash_toggle.GetLabel(),
+            )
+            press_button(frame.undo_button)
+            back = (list_texts(frame), frame.fix_text_box.GetValue())
+        assert "Spring" not in deleted[0]
+        assert deleted[1:] == (
+            True,
+            tr("undo.entry_deleted"),
+            tr("main.trash", count=1),
+        )
+        assert "Spring" in back[0] and back[1] == "Spring"
+        assert not dialogs.confirms
+
+    def test_typing_does_not_end_the_undo_of_a_deletion(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Spring")
+            press_button(frame.delete_button)
+            click(frame, frame.new_tool)
+            frame.input_text_field.AppendText("Typing")
+            assert frame.undo_bar.IsShown()
+
+    def test_trash_toggle_shows_the_trash(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Spring")
+            press_button(frame.delete_button)
+            toggle_trash(frame, True)
+            in_trash = list_texts(frame), frame.entry_list.empty_trash_button.IsShown()
+            toggle_trash(frame, False)
+            back = list_texts(frame), frame.entry_list.empty_trash_button.IsShown()
+        assert in_trash == (["Spring"], True)
+        assert "Spring" not in back[0] and back[1] is False
+
+    def test_restore_button(self):
+        with main_window() as (frame, _):
+            self.read(frame, "Spring")
+            press_button(frame.delete_button)
+            toggle_trash(frame, True)
+            self.read(frame, "Spring")
+            press_button(frame.restore_button)
+            emptied = list_texts(frame), frame.entry_list.trash_toggle.GetLabel()
+            toggle_trash(frame, False)
+            texts = list_texts(frame)
+        assert emptied == ([], tr("main.trash", count=0))
+        assert "Spring" in texts
+
+    def test_delete_for_good_and_empty_trash_ask(self):
+        with main_window() as (frame, dialogs):
+            for text in ("Spring", "Logo"):
+                self.read(frame, text)
+                press_button(frame.delete_button)
+            toggle_trash(frame, True)
+            self.read(frame, "Spring")
+            dialogs.answer_confirm(True)
+            press_button(frame.delete_forever_button)
+            one_left = list_texts(frame)
+            dialogs.answer_confirm(False, True)
+            press_button(frame.entry_list.empty_trash_button)
+            kept = list_texts(frame)
+            press_button(frame.entry_list.empty_trash_button)
+            empty = list_texts(frame), frame.entry_list.info.GetLabel()
+        assert one_left == ["Logo sketch"] and kept == ["Logo sketch"]
+        assert empty == ([], tr("main.list.trash_empty"))
+        assert not os.path.exists(os.path.join(img_dir, "IMG_1.jpg"))
+
+
 class TestKeys(TestCase):
     def test_keyboard_shortcuts(self):
         with main_window(seed=None) as (frame, dialogs):
