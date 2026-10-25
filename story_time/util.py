@@ -54,6 +54,19 @@ def scale_bitmap(bitmap: wx.Bitmap, width: int, height: int) -> wx.Bitmap:
     return result
 
 
+def centered_bitmap(bitmap: wx.Bitmap, width: int, height: int) -> wx.Bitmap:
+    """Puts a bitmap in the middle of a transparent bitmap of the given size."""
+    result = wx.Image(width, height)
+    result.InitAlpha()
+    result.SetAlpha(bytes(width * height))
+    result.Paste(
+        bitmap.ConvertToImage(),
+        (width - bitmap.GetWidth()) // 2,
+        (height - bitmap.GetHeight()) // 2,
+    )
+    return wx.Bitmap(result)
+
+
 def disabled_bitmap(bitmap: wx.Bitmap) -> wx.Bitmap:
     """A gray and faded version of a bitmap, for a tool that is not applicable.
 

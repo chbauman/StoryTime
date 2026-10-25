@@ -32,7 +32,10 @@ def triangle(side: float, rotation: float = 0.0) -> list[tuple[float, float]]:
     ]
 
 
-def logo_path() -> str:
+MARGIN = 0.04  #: Space around the shape, relative to its size.
+
+
+def logo_points() -> list[tuple[float, float]]:
     main = triangle(SIDE)
     inner = triangle(INNER_RATIO * SIDE, -INNER_ANGLE)
     points = []
@@ -50,15 +53,21 @@ def logo_path() -> str:
         ]
         previous = corner
     # The y axis of SVG points down
-    path = " ".join(f"{x:.1f},{-y:.1f}" for x, y in points)
-    return f"M{path}Z"
+    return [(x, -y) for x, y in points]
 
 
 def main() -> None:
+    points = logo_points()
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    # A square around the shape, so it fills the image and is centered in it
+    size = (1 + 2 * MARGIN) * max(max(xs) - min(xs), max(ys) - min(ys))
+    left = (min(xs) + max(xs)) / 2 - size / 2
+    top = (min(ys) + max(ys)) / 2 - size / 2
+    path = "M" + " ".join(f"{x:.1f},{y:.1f}" for x, y in points) + "Z"
     svg = (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-200 -200 400 400" '
-        'width="400" height="400" fill="currentColor">\n'
-        f'  <path d="{logo_path()}"/>\n'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{left:.1f} {top:.1f} '
+        f'{size:.1f} {size:.1f}" width="400" height="400" fill="currentColor">\n'
+        f'  <path d="{path}"/>\n'
         "</svg>\n"
     )
     (OUT / "logo.svg").write_text(svg, encoding="utf8")

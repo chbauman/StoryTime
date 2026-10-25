@@ -16,7 +16,14 @@ from story_time import settings
 from story_time.main import main
 from story_time.shortcuts import KEY_LEFT, KEY_RIGHT
 from story_time.texts import tr
-from story_time.user_interface import StoryTimeAppUI, month_label
+from story_time.user_interface import (
+    BAR_HEIGHT,
+    LOGO_MARGIN,
+    LOGO_SIZE,
+    StoryTimeAppUI,
+    month_label,
+)
+from story_time.util import icon_path
 from tests.fakes import FakeDialogs
 from tests.helpers import (
     DATA_DIR,
@@ -474,6 +481,16 @@ class TestTools(TestCase):
             positions = [toolbar.GetToolPos(t.Id) for t in tools]
         # The logo and the space that pushes the tools to the right come first
         assert positions == sorted(positions) and positions[0] >= 2
+
+    def test_logo_is_large_sharp_and_in_a_bar_made_for_it(self):
+        with main_window() as (frame, _):
+            shown = frame.logo.GetBitmap()
+            source = wx.Image(os.path.join(icon_path, "logo.png"))
+            bar = frame.toolbar.GetSize().height
+        assert shown.GetSize() == (LOGO_SIZE + 2 * LOGO_MARGIN, BAR_HEIGHT)
+        assert bar >= BAR_HEIGHT
+        # The image is much larger than what is shown, so it stays sharp
+        assert source.GetWidth() >= 4 * LOGO_SIZE
 
     def test_disabled_tools_have_their_own_gray_icon(self):
         with main_window() as (frame, _):
