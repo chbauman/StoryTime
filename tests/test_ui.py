@@ -17,9 +17,8 @@ from story_time.main import main
 from story_time.shortcuts import KEY_LEFT, KEY_RIGHT
 from story_time.texts import tr
 from story_time.user_interface import (
-    BAR_HEIGHT,
     LOGO_MARGIN,
-    LOGO_SIZE,
+    TOOL_SIZE,
     StoryTimeAppUI,
     month_label,
 )
@@ -482,15 +481,17 @@ class TestTools(TestCase):
         # The logo and the space that pushes the tools to the right come first
         assert positions == sorted(positions) and positions[0] >= 2
 
-    def test_logo_is_large_sharp_and_in_a_bar_made_for_it(self):
+    def test_logo_and_tools_have_the_same_height(self):
+        """So the bar lays them out in the same way, centered, on every platform."""
         with main_window() as (frame, _):
-            shown = frame.logo.GetBitmap()
+            logo = frame.logo.GetBitmap().GetSize()
+            tool = frame.undo_tool.GetNormalBitmap().GetSize()
+            disabled = frame.undo_tool.GetDisabledBitmap().GetSize()
             source = wx.Image(os.path.join(icon_path, "logo.png"))
-            bar = frame.toolbar.GetSize().height
-        assert shown.GetSize() == (LOGO_SIZE + 2 * LOGO_MARGIN, BAR_HEIGHT)
-        assert bar >= BAR_HEIGHT
+        assert logo.height == tool.height == disabled.height == TOOL_SIZE
+        assert tool.width == TOOL_SIZE and logo.width == TOOL_SIZE + 2 * LOGO_MARGIN
         # The image is much larger than what is shown, so it stays sharp
-        assert source.GetWidth() >= 4 * LOGO_SIZE
+        assert source.GetWidth() >= 4 * TOOL_SIZE
 
     def test_disabled_tools_have_their_own_gray_icon(self):
         with main_window() as (frame, _):

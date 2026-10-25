@@ -37,8 +37,10 @@ from story_time.util import (
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 SIDEBAR_WIDTH = 340  #: Initial width of the list of the entries.
 MAX_IMAGE_SIZE = 400  #: Maximum edge length of the shown images in pixels.
-LOGO_SIZE = 64  #: Edge length of the logo in the top bar in pixels.
-BAR_HEIGHT = 76  #: Height of the top bar in pixels.
+#: Edge length of the images of the tools and of the logo in the top bar. They all
+#: have the same height, so the bar lays them out in the same way: centered.
+TOOL_SIZE = 56
+ICON_SIZE = 50  #: Edge length of the icon in the image of a tool in pixels.
 LOGO_MARGIN = 12  #: Space left and right of the logo in the top bar in pixels.
 MAX_LABEL_TEXT = 28  #: Maximum number of characters of an entry in the list.
 EXPAND_ALL = wx.ALL | wx.EXPAND
@@ -375,19 +377,15 @@ class ToolbarPanel(wx.Panel):
 
     def setup_toolbar(self) -> None:
         """Sets the toolbar up."""
-        icon_size = (50, 50)
+        self.toolbar.SetToolBitmapSize((TOOL_SIZE, TOOL_SIZE))
 
-        self.toolbar.SetToolBitmapSize(icon_size)
-
-        # The logo on the left
-        # The logo is drawn in the middle of an image as high as the bar, as a
-        # control is at the top of the bar otherwise
-        self.toolbar.SetMinSize((-1, BAR_HEIGHT))
+        # The logo on the left. It is as high as the images of the tools, as
+        # the bar puts a control at the top of its row otherwise.
         logo = wx.Bitmap(os.path.join(icon_path, "logo.png"), wx.BITMAP_TYPE_ANY)
         logo = centered_bitmap(
-            scale_bitmap(logo, LOGO_SIZE, LOGO_SIZE),
-            LOGO_SIZE + 2 * LOGO_MARGIN,
-            BAR_HEIGHT,
+            scale_bitmap(logo, TOOL_SIZE, TOOL_SIZE),
+            TOOL_SIZE + 2 * LOGO_MARGIN,
+            TOOL_SIZE,
         )
         self.logo = wx.StaticBitmap(self.toolbar, bitmap=logo)
         self.toolbar.AddControl(self.logo)
@@ -396,8 +394,14 @@ class ToolbarPanel(wx.Panel):
 
         for spec in self.tool_list:
             tool_id = wx.Window.NewControlId()
-            icon = scale_bitmap(
-                wx.Bitmap(resource_filename(f"Icons/{spec.icon}")), *icon_size
+            icon = centered_bitmap(
+                scale_bitmap(
+                    wx.Bitmap(resource_filename(f"Icons/{spec.icon}")),
+                    ICON_SIZE,
+                    ICON_SIZE,
+                ),
+                TOOL_SIZE,
+                TOOL_SIZE,
             )
             disabled = disabled_bitmap(icon)
             add_tool = (
