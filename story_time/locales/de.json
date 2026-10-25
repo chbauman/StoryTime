@@ -25,8 +25,6 @@
 
   "message.no_text.title": "Nichts zu speichern",
   "message.no_text.text": "Bitte zuerst einen Text schreiben.",
-  "message.no_image.title": "Nichts zu speichern",
-  "message.no_image.text": "Bitte zuerst ein Bild hinzufügen.",
   "message.no_webcam.title": "Keine Webcam",
   "message.no_webcam.text": "Keine Webcam gefunden, ein Selfie ist nicht möglich.",
   "undo.draft_discarded": "Entwurf verworfen.",

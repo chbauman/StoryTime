@@ -117,6 +117,17 @@ shape of the logo comes from `python tools/make_logo.py`.
 After changing one, re-render the PNGs the app loads with
 `python tools/render_icons.py` (needs `playwright`).
 
+## Releasing
+
+1. Describe the changes in `CHANGELOG.md` and rename the section "Unreleased"
+   to the new version with its date, e.g. `## [0.6.0] - 2026-11-01`.
+2. Put the version in `version.txt`, commit and merge it.
+3. Push the tag: `git tag v0.6.0 && git push origin v0.6.0`. The workflow
+   `release.yml` checks that the tag matches `version.txt`, builds the package
+   and makes a GitHub release with the notes from the changelog.
+4. Publish to PyPI with `make.ps1 -pub -to_pypi` (the release workflow does not
+   do that).
+
 ## Usage
 
 The bar on top has the logo, the tool to write an entry (Ctrl+N, click it again

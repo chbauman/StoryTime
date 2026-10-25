@@ -709,8 +709,11 @@ class StoryTimeAppUI(wx.Frame):
 
     def show_draft_date(self, date_time: datetime) -> None:
         self.draft_date = date_time
-        key = "main.editing_line" if self.editing_existing else "main.date_line"
-        self.date_label.SetLabelText(tr(key, date=format_date_time(date_time)))
+        text = tr(
+            "main.editing_line" if self.editing_existing else "main.date_line",
+            date=format_date_time(date_time),
+        )
+        self.date_label.SetLabelText(text)
         self.Layout()
 
     def show_editing_existing(self, existing: bool) -> None:
