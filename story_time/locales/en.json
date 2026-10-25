@@ -25,8 +25,6 @@
 
   "message.no_text.title": "Nothing to save",
   "message.no_text.text": "Please write some text first.",
-  "message.no_image.title": "Nothing to save",
-  "message.no_image.text": "Please add an image first.",
   "message.no_webcam.title": "No webcam",
   "message.no_webcam.text": "No webcam found, cannot take a selfie.",
   "undo.draft_discarded": "Draft discarded.",

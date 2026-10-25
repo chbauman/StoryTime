@@ -21,7 +21,7 @@ function make_docs ($rebuild = $true) {
         Remove-Item sphinx -Force -Recurse -ErrorAction Ignore
         mkdir sphinx
         Set-Location sphinx
-        sphinx-apidoc -F -H 'Story Time' -A 'Chris' -o . '../../' "../../setup.py"
+        sphinx-apidoc -F -H 'Story Time' -A 'Chris' -o . '../../story_time' '../../story_time/Icons' '../../story_time/locales'
         Copy-Item ../conf.py .
         Set-Location ..
         python doc_helper.py
@@ -39,13 +39,13 @@ function abort_failure {
     }
 }
 
-# Runs the tests using pytest
+# Starts the app
 function run{
     activate_env
     python .\story_time\main.py
 }
 
-# Runs the tests using pytest
+# Activates the virtual environment
 function activate_env {
     venv/Scripts/activate.ps1
 }

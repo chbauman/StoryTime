@@ -1,5 +1,7 @@
+import ast
 import json
 import string
+from pathlib import Path
 from unittest import TestCase
 
 from story_time import texts
@@ -26,6 +28,68 @@ class TestTexts(TestCase):
             assert set(catalog) == set(default), lang
             for key, text in catalog.items():
                 assert placeholders(text) == placeholders(default[key]), (lang, key)
+
+    def test_all_texts_are_used_and_exist(self):
+        """No text is left over and no text used by the code is missing."""
+
+        def strings(node, assigned):
+            """The texts an expression can be: a text, a choice of two or a name."""
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                return {node.value}
+            if isinstance(node, ast.IfExp):
+                one, other = strings(node.body, assigned), strings(
+                    node.orelse, assigned
+                )
+                return None if one is None or other is None else one | other
+            if isinstance(node, ast.Name):
+                return assigned.get(node.id)
+            return None
+
+        package = Path(texts.__file__).parent
+        literal, suffixes, constants = set(), set(), set()
+        for path in package.glob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf8"))
+            # key = "one" if condition else "other"; tr(key)
+            assigned: dict[str, set[str]] = {}
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                    target, found = node.targets[0], strings(node.value, {})
+                    if isinstance(target, ast.Name) and found:
+                        assigned.setdefault(target.id, set()).update(found)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    constants.add(node.value)
+                if not (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "tr"
+                    and node.args
+                ):
+                    continue
+                key = node.args[0]
+                found = strings(key, assigned)
+                if found is not None:
+                    literal.update(found)
+                elif isinstance(key, ast.JoinedStr) and isinstance(
+                    key.values[-1], ast.Constant
+                ):
+                    # tr(f"{prefix}.name"): the prefixes are strings in the code
+                    suffixes.add(key.values[-1].value)
+                else:
+                    self.fail(f"The key is not a text: {ast.unparse(key)}")
+
+        catalog = texts.load_catalog(DEFAULT_LANGUAGE)
+        assert not literal - set(catalog), "Texts that are used but missing"
+        unused = {
+            key
+            for key in catalog
+            if key not in literal
+            and not any(
+                key.endswith(suffix) and key[: -len(suffix)] in constants
+                for suffix in suffixes
+            )
+        }
+        assert not unused, f"Texts that nothing uses: {sorted(unused)}"
 
     def test_catalogs_are_valid_json(self):
         for path in LOCALE_DIR.glob("*.json"):
