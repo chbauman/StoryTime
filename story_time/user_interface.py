@@ -138,9 +138,9 @@ class TextAndImgPanel(wx.Panel):
 def entry_label(entry: Entry) -> str:
     """The text of an entry in the list: day, time and the first line."""
     dt = entry.date_time
-    weekday = wx.DateTime.GetWeekDayName(
-        datetime_to_wx_datetime(dt).GetWeekDay(), wx.DateTime.Name_Abbr
-    )
+    # `Format` instead of `GetWeekDayName`, whose flag argument is rejected by
+    # some wxPython versions
+    weekday = datetime_to_wx_datetime(dt).Format("%a")
     text = entry.first_line
     if len(text) > MAX_LABEL_TEXT:
         text = text[: MAX_LABEL_TEXT - 1].rstrip() + "\u2026"
@@ -151,7 +151,7 @@ def entry_label(entry: Entry) -> str:
 
 def month_label(year: int, month: int) -> str:
     """The text of a month in the list."""
-    return f"{wx.DateTime.GetMonthName(month - 1, wx.DateTime.Name_Full)} {year}"
+    return f"{wx.DateTime(1, month - 1, year).Format('%B')} {year}"
 
 
 class EntryListPanel(wx.Panel):
