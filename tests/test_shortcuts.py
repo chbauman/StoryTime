@@ -8,7 +8,7 @@ class TestShortcutFor(TestCase):
         for letter, action in [
             ("N", "new"),
             ("S", "save"),
-            ("P", "photo"),
+            ("P", "upload"),
             ("D", "date"),
             ("O", "folder"),
             ("T", "selfie"),

@@ -37,13 +37,13 @@ class TestTexts(TestCase):
 
     def test_other_language(self):
         texts.set_language("de")
-        assert tr("toolbar.save.name") == "Speichern"
+        assert tr("toolbar.new.name") == "Neuer Eintrag"
 
     def test_fallbacks(self):
         assert tr("no.such.key") == "no.such.key"
         # Unknown languages fall back to English
         texts.set_language("xx")
-        assert tr("toolbar.save.name") == "Save"
+        assert tr("toolbar.new.name") == "New entry"
 
     def test_language_detection(self):
         import os

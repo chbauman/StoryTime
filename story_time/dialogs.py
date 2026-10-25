@@ -564,6 +564,23 @@ class WxDialogs:
         dialog.Destroy()
         return dialog.chosen_img_ind
 
+    def pick_image_file(self) -> Optional[str]:
+        wildcard = "|".join(
+            [
+                f"{tr('dialog.image_files')}|*.jpg;*.jpeg;*.png;*.bmp",
+                f"{tr('dialog.all_files')}|*",
+            ]
+        )
+        with wx.FileDialog(
+            self.parent,
+            tr("main.upload_image"),
+            wildcard=wildcard,
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return None
+            return dialog.GetPath()
+
     def pick_date(self, start: datetime) -> Optional[datetime]:
         dialog = ChangeDateDialog(self.parent, start=datetime_to_wx_datetime(start))
         dialog.ShowModal()

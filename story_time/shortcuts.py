@@ -12,7 +12,7 @@ KEY_ESCAPE = 27
 CTRL_SHORTCUTS = {
     "N": "new",
     "S": "save",
-    "P": "photo",
+    "P": "upload",
     "D": "date",
     "E": "edit",
     "O": "folder",
