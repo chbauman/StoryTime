@@ -111,6 +111,6 @@ jobs:
         run: |
           python -m zipfile -l dist/*.whl > files.txt
           cat files.txt
-          grep -q "story_time/Icons/save_icon.png" files.txt
+          grep -q "story_time/Icons/logo.png" files.txt
           grep -q "story_time/locales/en.json" files.txt
           grep -q "story_time/controller.py" files.txt
