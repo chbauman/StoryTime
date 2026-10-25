@@ -1,12 +1,16 @@
 from datetime import datetime
 from unittest import TestCase
+from unittest.mock import MagicMock, patch
 
 import wx
 
 from story_time.util import (
+    DISABLED_OPACITY,
     FileDrop,
     datetime_to_wx_datetime,
+    disabled_bitmap,
     format_date_time,
+    hide_caret,
     scale_bitmap,
     wx_datetime_to_datetime,
 )
@@ -26,6 +30,22 @@ class TestUtil(TestCase):
         assert ",".join(res.split(",")[1:]) == " 2.12.2020, Time: 05:31:00"
         # The weekday comes from wx
         assert res.split(",")[0] == wx.DateTime.GetWeekDayName(wx.DateTime.Wed)
+
+    def test_disabled_bitmap(self):
+        with create_app():
+            image = wx.Image(4, 4)
+            image.SetRGB(wx.Rect(0, 0, 4, 4), 15, 118, 110)
+            image.SetAlpha(bytes([200] * 16))
+            result = disabled_bitmap(wx.Bitmap(image)).ConvertToImage()
+            assert (result.GetWidth(), result.GetHeight()) == (4, 4)
+            assert result.GetRed(1, 1) == result.GetGreen(1, 1) == result.GetBlue(1, 1)
+            assert result.GetAlpha(1, 1) == int(200 * DISABLED_OPACITY)
+
+    def test_hide_caret_does_nothing_but_on_windows(self):
+        window = MagicMock()
+        with patch("story_time.util.sys.platform", "linux"):
+            hide_caret(window)
+        window.GetHandle.assert_not_called()
 
     def test_scale_bitmap(self):
         with create_app():

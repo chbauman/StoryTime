@@ -111,7 +111,9 @@ The tests of the main window and of the dialogs open real windows, so on a
 headless machine run them under a virtual display, e.g. with `xvfb-run`.
 Tests that need a webcam are skipped if none is available.
 
-The toolbar icons are drawn as SVG files in `story_time/Icons/src`.
+The toolbar icons and the logo are drawn as SVG files in `story_time/Icons/src`,
+in `currentColor`, which `render_icons.py` sets to the color of the theme. The
+shape of the logo comes from `python tools/make_logo.py`.
 After changing one, re-render the PNGs the app loads with
 `python tools/render_icons.py` (needs `playwright`).
 

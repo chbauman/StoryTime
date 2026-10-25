@@ -20,11 +20,13 @@ from story_time.util import (
     bar_text_col,
     but_bg_col,
     datetime_to_wx_datetime,
+    disabled_bitmap,
     format_date_time,
     get_image_to_show,
     header_col,
     header_f_info,
     header_text_col,
+    hide_caret,
     icon_path,
     resource_filename,
     scale_bitmap,
@@ -113,6 +115,11 @@ class TextAndImgPanel(wx.Panel):
             # Read-only, but scrollable to be able to read long entries
             kws["style"] |= wx.TE_READONLY | wx.BORDER_NONE
             self.text_box = wx.TextCtrl(self, value=text_shown, **kws)
+            # Nothing is typed here, so there should be no blinking cursor
+            for event in (wx.EVT_SET_FOCUS, wx.EVT_LEFT_UP, wx.EVT_KEY_UP):
+                self.text_box.Bind(
+                    event, lambda e: (e.Skip(), wx.CallAfter(hide_caret, self.text_box))
+                )
         self.text_box.SetBackgroundColour(bg_col)
 
         exp_all = wx.EXPAND | wx.ALL
@@ -369,20 +376,18 @@ class ToolbarPanel(wx.Panel):
         self.toolbar.SetToolBitmapSize(icon_size)
 
         # The logo on the left
-        logo = wx.Image(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY)
-        logo.Rescale(*icon_size, wx.IMAGE_QUALITY_HIGH)
-        self.logo = wx.StaticBitmap(self.toolbar, bitmap=wx.Bitmap(logo))
+        logo = wx.Bitmap(os.path.join(icon_path, "logo.png"), wx.BITMAP_TYPE_ANY)
+        self.logo = wx.StaticBitmap(self.toolbar, bitmap=scale_bitmap(logo, 46, 46))
         self.toolbar.AddControl(self.logo)
-        self.toolbar.AddSeparator()
+        # Everything else is on the right
+        self.toolbar.AddStretchableSpace()
 
-        for n, spec in enumerate(self.tool_list):
-            if n == 1:
-                # What is on the right of the window
-                self.toolbar.AddStretchableSpace()
+        for spec in self.tool_list:
             tool_id = wx.Window.NewControlId()
             icon = scale_bitmap(
                 wx.Bitmap(resource_filename(f"Icons/{spec.icon}")), *icon_size
             )
+            disabled = disabled_bitmap(icon)
             add_tool = (
                 self.toolbar.AddCheckTool if spec.toggle else self.toolbar.AddTool
             )
@@ -390,6 +395,7 @@ class ToolbarPanel(wx.Panel):
                 tool_id,
                 tr(f"{spec.text_key}.name"),
                 icon,
+                disabled,
                 shortHelp=self.tool_help(spec.text_key, spec.shortcut),
             )
             self.tools.append(tool)
@@ -446,7 +452,7 @@ class StoryTimeAppUI(wx.Frame):
         self.default_img_drop = os.path.join(icon_path, "default_img_txt.png")
         icon = wx.Icon()
         icon.CopyFromBitmap(
-            wx.Bitmap(os.path.join(icon_path, "Entwurf.jpg"), wx.BITMAP_TYPE_ANY)
+            wx.Bitmap(os.path.join(icon_path, "logo.png"), wx.BITMAP_TYPE_ANY)
         )
         self.SetIcon(icon)
         self.init_ui()
@@ -677,8 +683,10 @@ class StoryTimeAppUI(wx.Frame):
         self.image_drop_space.SetBitmap(
             get_image_to_show(self.default_img_drop if path is None else path)
         )
-        # The button to remove the image is only there if there is one
+        # An image is removed, otherwise one is added
         self.remove_image_button.Show(path is not None)
+        self.upload_button.Show(path is None)
+        self.selfie_button.Show(path is None)
         self.input_text_sizer.Layout()
         self.resized_layout()
 
