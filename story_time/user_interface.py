@@ -19,6 +19,7 @@ from story_time.util import (
     FileDrop,
     bar_text_col,
     but_bg_col,
+    centered_bitmap,
     datetime_to_wx_datetime,
     disabled_bitmap,
     format_date_time,
@@ -36,6 +37,9 @@ from story_time.util import (
 LR_EXPAND = wx.LEFT | wx.RIGHT | wx.EXPAND
 SIDEBAR_WIDTH = 340  #: Initial width of the list of the entries.
 MAX_IMAGE_SIZE = 400  #: Maximum edge length of the shown images in pixels.
+LOGO_SIZE = 64  #: Edge length of the logo in the top bar in pixels.
+BAR_HEIGHT = 76  #: Height of the top bar in pixels.
+LOGO_MARGIN = 12  #: Space left and right of the logo in the top bar in pixels.
 MAX_LABEL_TEXT = 28  #: Maximum number of characters of an entry in the list.
 EXPAND_ALL = wx.ALL | wx.EXPAND
 
@@ -376,8 +380,16 @@ class ToolbarPanel(wx.Panel):
         self.toolbar.SetToolBitmapSize(icon_size)
 
         # The logo on the left
+        # The logo is drawn in the middle of an image as high as the bar, as a
+        # control is at the top of the bar otherwise
+        self.toolbar.SetMinSize((-1, BAR_HEIGHT))
         logo = wx.Bitmap(os.path.join(icon_path, "logo.png"), wx.BITMAP_TYPE_ANY)
-        self.logo = wx.StaticBitmap(self.toolbar, bitmap=scale_bitmap(logo, 46, 46))
+        logo = centered_bitmap(
+            scale_bitmap(logo, LOGO_SIZE, LOGO_SIZE),
+            LOGO_SIZE + 2 * LOGO_MARGIN,
+            BAR_HEIGHT,
+        )
+        self.logo = wx.StaticBitmap(self.toolbar, bitmap=logo)
         self.toolbar.AddControl(self.logo)
         # Everything else is on the right
         self.toolbar.AddStretchableSpace()
@@ -479,6 +491,7 @@ class StoryTimeAppUI(wx.Frame):
                 lambda _: self.controller.redo(),
             ]
         )
+        self.logo = tool_panel.logo
         self.new_tool = tool_panel.new_tool
         self.folder_tool = tool_panel.folder_tool
         self.undo_tool = tool_panel.undo_tool

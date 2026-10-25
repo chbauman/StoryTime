@@ -7,6 +7,7 @@ import wx
 from story_time.util import (
     DISABLED_OPACITY,
     FileDrop,
+    centered_bitmap,
     datetime_to_wx_datetime,
     disabled_bitmap,
     format_date_time,
@@ -30,6 +31,25 @@ class TestUtil(TestCase):
         assert ",".join(res.split(",")[1:]) == " 2.12.2020, Time: 05:31:00"
         # The weekday comes from wx
         assert res.split(",")[0] == wx.DateTime.GetWeekDayName(wx.DateTime.Wed)
+
+    def test_centered_bitmap(self):
+        with create_app():
+            image = wx.Image(10, 6)
+            image.SetRGB(wx.Rect(0, 0, 10, 6), 255, 0, 0)
+            image.InitAlpha()
+            result = centered_bitmap(wx.Bitmap(image), 30, 20)
+            pixels = result.ConvertToImage()
+            opaque = [
+                (x, y)
+                for x in range(30)
+                for y in range(20)
+                if pixels.GetAlpha(x, y) == 255
+            ]
+            assert result.GetSize() == (30, 20)
+            # The rectangle is in the middle, the rest is transparent
+            assert min(opaque) == (10, 7) and max(opaque) == (19, 12)
+            assert len(opaque) == 60 and pixels.GetAlpha(0, 0) == 0
+            assert pixels.GetRed(12, 9) == 255
 
     def test_disabled_bitmap(self):
         with create_app():
