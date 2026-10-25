@@ -2,7 +2,6 @@ import os
 import shutil
 import tempfile
 from collections import deque
-from contextlib import ExitStack
 from datetime import datetime
 from unittest import TestCase
 
@@ -37,11 +36,8 @@ class ControllerTestCase(TestCase):
     seed = True
 
     def setUp(self):
-        # `TestCase.enterContext` only exists since Python 3.11
-        stack = ExitStack()
-        self.addCleanup(stack.close)
-        stack.enter_context(use_data_dir(DATA_DIR))
-        stack.enter_context(create_test_dirs())
+        self.enterContext(use_data_dir(DATA_DIR))
+        self.enterContext(create_test_dirs())
         if self.seed:
             self.seed_entries()
 
@@ -103,9 +99,7 @@ class TestStart(ControllerTestCase):
 
 class TestStartWithoutFolder(TestCase):
     def setUp(self):
-        stack = ExitStack()
-        self.addCleanup(stack.close)
-        stack.enter_context(use_data_dir(DATA_DIR))
+        self.enterContext(use_data_dir(DATA_DIR))
         self.view, self.dialogs = FakeView(), FakeDialogs()
         self.ctrl = DiaryController(self.view, self.dialogs, now=lambda: NOW)
         settings.save_settings({})

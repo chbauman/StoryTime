@@ -10,9 +10,10 @@ use fake ones.
 
 import contextlib
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Optional, Protocol
+from typing import Protocol
 
 from story_time.dates import date_of_image_file, img_name_from_time
 from story_time.entries import Entry, EntryStore, filter_entries
@@ -29,7 +30,7 @@ class NoWebcamError(RuntimeError):
 class Dialogs(Protocol):
     """The questions to the user and the dialogs the controller needs."""
 
-    def ask_folder(self) -> Optional[str]:
+    def ask_folder(self) -> str | None:
         """Asks for the folder with the data, `None` if there is none chosen."""
 
     def confirm(self, text: str, title: str, ok_label: str, cancel_label: str) -> bool:
@@ -38,7 +39,7 @@ class Dialogs(Protocol):
     def info(self, text: str, title: str) -> None:
         """Shows a message."""
 
-    def choose_image(self, img_folder: str, files: list[str]) -> Optional[int]:
+    def choose_image(self, img_folder: str, files: list[str]) -> int | None:
         """Asks which one of the images with the same date to use for the entry.
 
         The images are the files with the given names in the image folder.
@@ -47,10 +48,10 @@ class Dialogs(Protocol):
         image anyway and `None` if there is no decision.
         """
 
-    def pick_image_file(self) -> Optional[str]:
+    def pick_image_file(self) -> str | None:
         """Lets the user choose an image file, `None` if the user cancels."""
 
-    def pick_date(self, start: datetime) -> Optional[datetime]:
+    def pick_date(self, start: datetime) -> datetime | None:
         """Lets the user pick a date and time, `None` if the user cancels."""
 
     def take_selfie(self, save_to: str) -> bool:
@@ -76,13 +77,13 @@ class View(Protocol):
     def show_mode(self, editing: bool) -> None:
         """Shows the page to write or to read."""
 
-    def show_draft_image(self, path: Optional[str]) -> None:
+    def show_draft_image(self, path: str | None) -> None:
         """Shows the image of the entry that is written, none if `path` is None."""
 
     def show_draft_date(self, date_time: datetime) -> None:
         """Shows the date of the entry that is written."""
 
-    def show_entry(self, entry: Optional[Entry], image: Optional[str]) -> None:
+    def show_entry(self, entry: Entry | None, image: str | None) -> None:
         """Shows an entry with its image, nothing if the entry is None."""
 
     def show_entries(
@@ -90,7 +91,7 @@ class View(Protocol):
         shown: list[Entry],
         trash: list[Entry],
         total: int,
-        selected: Optional[Entry],
+        selected: Entry | None,
     ) -> None:
         """Shows the list of entries and, below, the entries in the trash.
 
@@ -99,13 +100,13 @@ class View(Protocol):
         do not match the search.
         """
 
-    def select_entry(self, entry: Optional[Entry]) -> None:
+    def select_entry(self, entry: Entry | None) -> None:
         """Selects an entry in the list, deselects if it is None."""
 
     def show_editing_existing(self, existing: bool) -> None:
         """Shows whether a saved entry is changed instead of writing a new one."""
 
-    def show_history(self, undo: Optional[str], redo: Optional[str]) -> None:
+    def show_history(self, undo: str | None, redo: str | None) -> None:
         """Shows what can be undone and redone, with None if nothing."""
 
     def show_folder(self, path: str) -> None:
@@ -116,7 +117,7 @@ class View(Protocol):
 
 
 #: The text, date and image of an entry before it is changed.
-_Origin = tuple[str, datetime, Optional[str]]
+_Origin = tuple[str, datetime, str | None]
 
 #: The actions of the shortcuts that only make sense while writing.
 WRITING_ONLY = {"save", "upload", "date", "selfie", "discard"}
@@ -158,12 +159,12 @@ class DiaryController:
         #: Whether an entry is written, otherwise the entries are read.
         self.editing = True
         #: The image of the entry that is written, if one is loaded.
-        self.draft_image: Optional[str] = None
+        self.draft_image: str | None = None
         #: The date of the entry that is written.
         self.draft_date = now()
 
-        self._folder: Optional[DataFolder] = None
-        self._store: Optional[EntryStore] = None
+        self._folder: DataFolder | None = None
+        self._store: EntryStore | None = None
         #: The folder for the pictures taken with the webcam until they are saved.
         self.temp = TempFolder()
 
@@ -173,10 +174,10 @@ class DiaryController:
         self.trash: list[Entry] = []
         self.query = ""
         #: The entry that is shown on the page to read, in the trash or not.
-        self.selected: Optional[Entry] = None
+        self.selected: Entry | None = None
         #: The saved entry that is changed, None while a new one is written.
-        self.editing_entry: Optional[Entry] = None
-        self._edit_origin: Optional[_Origin] = None
+        self.editing_entry: Entry | None = None
+        self._edit_origin: _Origin | None = None
         #: What can be undone, the last step last, and what can be redone.
         self._done: list[_Step] = []
         self._undone: list[_Step] = []
@@ -304,7 +305,7 @@ class DiaryController:
                 self.view.show_entry(self.selected, self._image_of(self.selected))
         self.view.show_mode(self.editing)
 
-    def load_image(self, path: str, date_time: Optional[datetime] = None) -> bool:
+    def load_image(self, path: str, date_time: datetime | None = None) -> bool:
         """Adds the image to the entry that is written and takes its date.
 
         Args:
@@ -598,7 +599,7 @@ class DiaryController:
             self.dialogs.info(tr("message.no_text.text"), tr("message.no_text.title"))
             return False
 
-        image_name: Optional[str] = None
+        image_name: str | None = None
         if (
             self.editing_entry is not None
             and self._edit_origin is not None
@@ -718,7 +719,7 @@ class DiaryController:
         self._set_draft_image(None, self._now())
         self.view.set_text("")
 
-    def _set_draft_image(self, path: Optional[str], date_time: datetime) -> None:
+    def _set_draft_image(self, path: str | None, date_time: datetime) -> None:
         self.draft_image = path
         self.draft_date = date_time
         self.view.show_draft_image(path)
@@ -811,7 +812,7 @@ class DiaryController:
                 with contextlib.suppress(OSError):
                     os.remove(os.path.join(self.folder.img_folder, entry.photo))
 
-    def _image_of(self, entry: Optional[Entry]) -> Optional[str]:
+    def _image_of(self, entry: Entry | None) -> str | None:
         """The path of the image of an entry, None if it has none or it is missing."""
         if entry is None or not entry.photo:
             return None

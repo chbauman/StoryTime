@@ -4,9 +4,9 @@ The images are copied into the image folder and named after their date.
 """
 
 import os
+from collections.abc import Callable
 from datetime import datetime
 from shutil import copy2
-from typing import Callable, Optional
 
 from story_time.dates import date_of_image_file, img_name_from_time
 
@@ -49,9 +49,9 @@ def find_new_name(
 def copy_img_file_to_imgs(
     img_file: str,
     img_folder: str,
-    img_date: Optional[datetime] = None,
-    choose_image: Optional[Callable[[list[str]], Optional[int]]] = None,
-) -> Optional[str]:
+    img_date: datetime | None = None,
+    choose_image: Callable[[list[str]], int | None] | None = None,
+) -> str | None:
     """Copies an image to the image folder.
 
     The image is named after its date. If there are already images with the same

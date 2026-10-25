@@ -19,13 +19,12 @@ import os
 import sys
 from functools import cache
 from pathlib import Path
-from typing import Optional
 
 DEFAULT_LANGUAGE = "en"
 LOCALE_DIR = Path(__file__).resolve().parent / "locales"
 LANGUAGE_ENV_VAR = "STORY_TIME_LANG"
 
-_language: Optional[str] = None
+_language: str | None = None
 
 
 def available_languages() -> list[str]:
@@ -43,7 +42,7 @@ def load_catalog(language: str) -> dict[str, str]:
         return json.load(f)
 
 
-def _system_language() -> Optional[str]:
+def _system_language() -> str | None:
     """Finds the language code (e.g. `de`) of the system, if possible."""
     for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
         value = os.environ.get(var)
@@ -69,7 +68,7 @@ def detect_language() -> str:
     return DEFAULT_LANGUAGE
 
 
-def set_language(language: Optional[str] = None) -> None:
+def set_language(language: str | None = None) -> None:
     """Sets the language, `None` means to detect it again."""
     global _language
     _language = language

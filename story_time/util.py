@@ -4,8 +4,9 @@ conversion of dates from and to `wx.DateTime`.
 """
 
 import os
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
 import wx
 
@@ -109,7 +110,7 @@ class FileDrop(wx.FileDropTarget):
 
 
 def get_image_to_show(
-    filename: str, height: int = 180, border: int = 5, width: Optional[int] = None
+    filename: str, height: int = 180, border: int = 5, width: int | None = None
 ) -> wx.Bitmap:
     """Converts the specified image to a bitmap of according size.
 

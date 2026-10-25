@@ -6,9 +6,9 @@ needs something, see `controller.Dialogs`.
 
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
 import cv2
 import wx
@@ -98,8 +98,8 @@ class TwoButtonDialogBase(ButtonDialogBase):
         pnl: wx.Panel,
         shoot_label: str,
         cancel_label: str,
-        shoot_fun: Optional[Callable] = None,
-        cancel_fun: Optional[Callable] = None,
+        shoot_fun: Callable | None = None,
+        cancel_fun: Callable | None = None,
     ) -> None:
         """Layout setup, to be called in self.init_ui."""
         if shoot_fun is None:
@@ -135,12 +135,12 @@ class CustomMessageDialog(TwoButtonDialogBase):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        title: Optional[str] = None,
+        message: str | None = None,
+        title: str | None = None,
         *args: Any,
         cancel_only: bool = False,
-        ok_label: Optional[str] = None,
-        cancel_label: Optional[str] = None,
+        ok_label: str | None = None,
+        cancel_label: str | None = None,
         **kw: Any,
     ) -> None:
         super().__init__(*args, **kw)
@@ -185,11 +185,9 @@ class ChangeDateDialog(TwoButtonDialogBase):
     time_picker: wx.adv.TimePickerCtrl
 
     #: The date picked with Ok or Now, None if the dialog was canceled.
-    picked: Optional[wx.DateTime] = None
+    picked: wx.DateTime | None = None
 
-    def __init__(
-        self, *args: Any, start: Optional[wx.DateTime] = None, **kw: Any
-    ) -> None:
+    def __init__(self, *args: Any, start: wx.DateTime | None = None, **kw: Any) -> None:
         super().__init__(*args, **kw)
 
         self.set_time_now()
@@ -271,8 +269,8 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
         self,
         img_folder: str,
         file_list: Sequence,
-        parent: Optional[wx.Frame] = None,
-        title: Optional[str] = None,
+        parent: wx.Frame | None = None,
+        title: str | None = None,
     ) -> None:
         """
         Args:
@@ -286,7 +284,7 @@ class PhotoWithSameDateExistsDialog(ButtonDialogBase):
 
         self.img_folder = img_folder
         self.file_list = file_list
-        self.chosen_img_ind: Optional[int] = None
+        self.chosen_img_ind: int | None = None
         self.shown_img_ind = 0
         self.n_files = len(file_list)
         self.init_ui()
@@ -416,9 +414,9 @@ class AcceptPhoto(TwoButtonDialogBase):
 
     def __init__(
         self,
-        parent: Optional[wx.Frame] = None,
-        img: Optional[Any] = None,
-        title: Optional[str] = None,
+        parent: wx.Frame | None = None,
+        img: Any | None = None,
+        title: str | None = None,
     ) -> None:
         title = tr("dialog.accept_photo.title") if title is None else title
         super().__init__(parent, title=title)
@@ -473,7 +471,7 @@ class SelfieDialog(TwoButtonDialogBase):
 
     accept_diag: AcceptPhoto
 
-    def __init__(self, parent: Any = None, title: Optional[str] = None) -> None:
+    def __init__(self, parent: Any = None, title: str | None = None) -> None:
         title = tr("dialog.selfie.title") if title is None else title
         super().__init__(parent, title=title)
 
@@ -536,10 +534,10 @@ class SelfieDialog(TwoButtonDialogBase):
 class WxDialogs:
     """Asks the user with the dialogs of the app, implements `controller.Dialogs`."""
 
-    def __init__(self, parent: Optional[wx.Window] = None) -> None:
+    def __init__(self, parent: wx.Window | None = None) -> None:
         self.parent = parent
 
-    def ask_folder(self) -> Optional[str]:
+    def ask_folder(self) -> str | None:
         return ask_for_dir() or None
 
     def confirm(self, text: str, title: str, ok_label: str, cancel_label: str) -> bool:
@@ -558,13 +556,13 @@ class WxDialogs:
         dialog.ShowModal()
         dialog.Destroy()
 
-    def choose_image(self, img_folder: str, files: list[str]) -> Optional[int]:
+    def choose_image(self, img_folder: str, files: list[str]) -> int | None:
         dialog = PhotoWithSameDateExistsDialog(img_folder, files)
         dialog.ShowModal()
         dialog.Destroy()
         return dialog.chosen_img_ind
 
-    def pick_image_file(self) -> Optional[str]:
+    def pick_image_file(self) -> str | None:
         wildcard = "|".join(
             [
                 f"{tr('dialog.image_files')}|*.jpg;*.jpeg;*.png;*.bmp",
@@ -581,7 +579,7 @@ class WxDialogs:
                 return None
             return dialog.GetPath()
 
-    def pick_date(self, start: datetime) -> Optional[datetime]:
+    def pick_date(self, start: datetime) -> datetime | None:
         dialog = ChangeDateDialog(self.parent, start=datetime_to_wx_datetime(start))
         dialog.ShowModal()
         picked = dialog.picked

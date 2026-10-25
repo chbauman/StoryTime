@@ -1,7 +1,5 @@
 """The keyboard shortcuts of the main window, without any GUI."""
 
-from typing import Optional
-
 # The key codes of the arrow keys and Escape, the same as `wx.WXK_LEFT`,
 # `wx.WXK_RIGHT` and `wx.WXK_ESCAPE`.
 KEY_LEFT = 314
@@ -23,7 +21,7 @@ CTRL_SHORTCUTS = {
 
 def shortcut_for(
     key: int, ctrl: bool, alt: bool, shift: bool, in_text_input: bool
-) -> Optional[str]:
+) -> str | None:
     """Returns the name of the action of a keyboard shortcut, if there is one.
 
     The arrow keys are only used if the cursor is not in the text input or the

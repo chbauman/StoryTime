@@ -10,7 +10,7 @@ import json
 import os
 import sys
 import tempfile
-from typing import Any, Optional
+from typing import Any
 
 CONFIG_DIR_ENV_VAR = "STORY_TIME_CONFIG_DIR"
 SETTINGS_FILE_NAME = "settings.json"
@@ -65,7 +65,7 @@ def save_settings(settings: dict[str, Any]) -> None:
         raise
 
 
-def _read_legacy_data_dir() -> Optional[str]:
+def _read_legacy_data_dir() -> str | None:
     """Reads the data folder from the file of older versions, if it is valid."""
     try:
         with open(LEGACY_INFO_FILE, encoding="utf8") as f:
@@ -76,7 +76,7 @@ def _read_legacy_data_dir() -> Optional[str]:
     return path if path and os.path.isdir(path) else None
 
 
-def get_data_dir() -> Optional[str]:
+def get_data_dir() -> str | None:
     """Returns the folder with the diary data, `None` if none is set (yet).
 
     The folder of older versions is taken over once if there are no settings.

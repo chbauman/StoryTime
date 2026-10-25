@@ -6,7 +6,6 @@ All functions work with `datetime`.
 import os
 import re
 from datetime import datetime
-from typing import Optional
 
 from story_time.texts import tr
 
@@ -62,7 +61,7 @@ def img_name_from_time(date_time: datetime) -> str:
     )
 
 
-def date_from_image_name(img_file: str) -> Optional[datetime]:
+def date_from_image_name(img_file: str) -> datetime | None:
     """Extracts the date information from the image name.
 
     Tries to extract the date and optionally the time.
