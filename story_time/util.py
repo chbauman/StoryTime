@@ -4,6 +4,7 @@ conversion of dates from and to `wx.DateTime`.
 """
 
 import os
+import sys
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any
@@ -20,6 +21,8 @@ def resource_filename(rel_path: str) -> str:
 
 
 icon_path = resource_filename("Icons")
+
+DISABLED_OPACITY = 0.4  #: How much of its opacity a disabled icon keeps.
 
 # Set colors
 teal = wx.Colour(15, 118, 110)  #: Accent color.
@@ -49,6 +52,30 @@ def scale_bitmap(bitmap: wx.Bitmap, width: int, height: int) -> wx.Bitmap:
     image = image.Scale(width, height, wx.IMAGE_QUALITY_HIGH)
     result = wx.Bitmap(image)
     return result
+
+
+def disabled_bitmap(bitmap: wx.Bitmap) -> wx.Bitmap:
+    """A gray and faded version of a bitmap, for a tool that is not applicable.
+
+    wx makes one itself on some platforms only, so it is made here for all.
+    """
+    image = bitmap.ConvertToImage().ConvertToGreyscale()
+    if image.HasAlpha():
+        alpha = image.GetAlpha()
+        image.SetAlpha(bytes(int(a * DISABLED_OPACITY) for a in alpha))
+    return wx.Bitmap(image)
+
+
+def hide_caret(window: wx.Window) -> None:
+    """Hides the blinking cursor of a read-only text on Windows.
+
+    Windows shows it in a read-only text that has the focus. Elsewhere there is
+    none and nothing is done.
+    """
+    if sys.platform == "win32":
+        import ctypes
+
+        ctypes.windll.user32.HideCaret(window.GetHandle())
 
 
 def wx_datetime_to_datetime(date: wx.DateTime) -> datetime:

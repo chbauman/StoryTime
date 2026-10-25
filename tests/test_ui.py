@@ -312,10 +312,20 @@ class TestTools(TestCase):
             shown = (
                 frame.draft_image,
                 frame.remove_image_button.IsShown(),
+                frame.upload_button.IsShown(),
+                frame.selfie_button.IsShown(),
                 frame.image_drop_space.IsShown(),
             )
+            press_button(frame.remove_image_button)
+            again = (
+                frame.remove_image_button.IsShown(),
+                frame.upload_button.IsShown(),
+                frame.selfie_button.IsShown(),
+            )
         assert dialogs.image_file_asked == 2 and nothing is None
-        assert shown == (TEST_IMG, True, True)
+        # With an image it can only be removed, without one only be added
+        assert shown == (TEST_IMG, True, False, False, True)
+        assert again == (False, True, True)
 
     def test_take_image_button(self):
         with main_window() as (frame, dialogs):
@@ -452,19 +462,33 @@ class TestTools(TestCase):
             os.path.join(img_dir, "IMG_1.jpg"),
         ]
 
-    def test_logo_is_on_the_left_and_undo_on_the_right(self):
+    def test_the_tools_are_on_the_right_of_the_logo(self):
         with main_window() as (frame, _):
-            logo = frame.toolbar.GetToolPos(frame.new_tool.Id)
-            positions = [
-                frame.toolbar.GetToolPos(t.Id)
-                for t in (
-                    frame.new_tool,
-                    frame.folder_tool,
-                    frame.undo_tool,
-                    frame.redo_tool,
-                )
-            ]
-        assert positions == sorted(positions) and logo > 0
+            toolbar = frame.toolbar
+            tools = (
+                frame.new_tool,
+                frame.folder_tool,
+                frame.undo_tool,
+                frame.redo_tool,
+            )
+            positions = [toolbar.GetToolPos(t.Id) for t in tools]
+        # The logo and the space that pushes the tools to the right come first
+        assert positions == sorted(positions) and positions[0] >= 2
+
+    def test_disabled_tools_have_their_own_gray_icon(self):
+        with main_window() as (frame, _):
+            enabled = frame.undo_tool.GetNormalBitmap().ConvertToImage()
+            disabled = frame.undo_tool.GetDisabledBitmap().ConvertToImage()
+        assert disabled.GetSize() == enabled.GetSize()
+        # Gray, and fainter than the icon
+        pixels = [
+            (disabled.GetRed(x, y), disabled.GetGreen(x, y), disabled.GetBlue(x, y))
+            for x in range(disabled.GetWidth())
+            for y in range(disabled.GetHeight())
+            if disabled.GetAlpha(x, y) > 0
+        ]
+        assert pixels and all(r == g == b for r, g, b in pixels)
+        assert max(disabled.GetAlpha()) < max(enabled.GetAlpha())
 
 
 class TestEditAndDelete(TestCase):
