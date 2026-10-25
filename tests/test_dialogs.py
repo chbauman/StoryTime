@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from unittest import TestCase, skipUnless
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import cv2
 import wx
@@ -160,6 +160,19 @@ class TestWxDialogs(TestCase):
         assert seen[0][0] == "Title"
         with answer(CustomMessageDialog, lambda d: d.on_close(None)):
             assert self.dialogs.confirm("Sure?", "Title", "Yes", "No") is False
+
+    def test_pick_image_file(self):
+        file_dialog = MagicMock()
+        shown = file_dialog.return_value.__enter__.return_value
+        shown.ShowModal.return_value = wx.ID_OK
+        shown.GetPath.return_value = "/photos/a.jpg"
+        with patch.object(dialogs.wx, "FileDialog", file_dialog):
+            assert self.dialogs.pick_image_file() == "/photos/a.jpg"
+            kwargs = file_dialog.call_args.kwargs
+            assert "*.jpg" in kwargs["wildcard"] and "*.png" in kwargs["wildcard"]
+            assert kwargs["style"] & wx.FD_FILE_MUST_EXIST
+            shown.ShowModal.return_value = wx.ID_CANCEL
+            assert self.dialogs.pick_image_file() is None
 
     def test_info(self):
         shown = []

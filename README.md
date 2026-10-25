@@ -52,11 +52,11 @@ automatically. Taken photos are kept in a temporary folder until they are saved.
 | Ctrl+N | Write a new entry, or go back to reading |
 | Ctrl+S | Save the entry |
 | Ctrl+E | Edit the entry that is read |
-| Ctrl+P | Switch between text-only and photo mode |
+| Ctrl+P | Upload an image for the entry |
 | Ctrl+D | Choose another date and time |
-| Esc | Discard the text, image and date of the entry (can be undone) |
+| Esc | Discard the text, image and date of the entry (can be undone with the Undo tool) |
 | Ctrl+O | Choose another data folder |
-| Ctrl+T | Take a selfie with the webcam |
+| Ctrl+T | Take an image with the webcam |
 | Ctrl+Q | Quit |
 | Alt+Left / Alt+Right | Previous (older) / next (newer) entry |
 | Left / Right | Previous / next entry, if the cursor is not in the text input or the list |
@@ -117,23 +117,30 @@ After changing one, re-render the PNGs the app loads with
 
 ## Usage
 
-The entries are listed on the left, grouped by month, with a search field on
-top. Click an entry to read it. The first tool of the toolbar (or Ctrl+N)
-switches to writing a new entry, and back. The other tools (save, photo mode,
-date, selfie) are only active while writing.
+The bar on top has the logo, the tool to write an entry (Ctrl+N, click it again
+to go back to reading) and, on the right, the tools to choose the data folder
+(Ctrl+O), **undo** and **redo**. The entries are listed on the left, grouped by
+month, with a search field on top. The **Trash** is the last item of the list.
+Click an entry to read it.
 
-**Edit** (or Ctrl+E) below an entry that is read changes its text, date and
-photo; the button to discard becomes **Cancel** then, and asks first if
-something was changed. **Delete** moves the entry to the trash with an Undo bar.
-The **Trash** button below the list shows the trash: there an entry can be
-restored or **deleted for good**, or the whole trash be emptied, which also
-deletes the images that no entry uses any more. A replaced image is not deleted.
+**Writing:** The image area is always there, with buttons to **upload** an
+image (Ctrl+P, or drop a file on it), to **take** one with the webcam (Ctrl+T)
+and to **remove** it. An entry with an image is a photo entry. Click the date
+line to choose another date and time. **Save** (Ctrl+S) adds the entry;
+**Discard** (or Esc) clears the text, image and date, which the undo tool brings
+back. Leaving the page to write, or choosing another entry to read, asks first
+if a draft would be lost; so does closing the app.
 
-**Discard** (button or Esc) clears the text, the image and the date of the entry
-that is written. **Remove image** below the image removes only the photo.
-Instead of asking for confirmation, an **Undo** bar appears for a few seconds.
-Leaving the page to write, or choosing an entry to read, discards a draft the
-same way. Only closing the app with unsaved changes asks first.
+**Reading:** **Edit** (Ctrl+E) changes the text, date and image of the entry;
+the button to discard becomes **Cancel** then, and asks first if something was
+changed. **Delete** moves the entry to the trash. In the trash an entry can be
+**restored** or **deleted for good**, or the whole trash can be emptied, which
+also deletes the images that no entry uses any more. A replaced image is not
+deleted.
+
+**Undo and redo** (top right) take back and repeat discarding a draft or an
+image, deleting and restoring entries. The tooltip says what they would do.
+Deleting for good and emptying the trash can not be undone and ask first.
 
 ## Screenshots
 

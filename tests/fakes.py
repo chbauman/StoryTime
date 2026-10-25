@@ -15,21 +15,20 @@ class FakeView:
     def __init__(self) -> None:
         self.text = ""
         self.editing: Optional[bool] = None
-        self.photo_mode: Optional[bool] = None
         self.draft_image: Optional[str] = None
         self.draft_date: Optional[datetime] = None
         #: The entry on the page to read and the path of its image.
         self.entry: Optional[Entry] = None
         self.entry_image: Optional[str] = None
         self.shown: list[Entry] = []
+        self.trash: list[Entry] = []
         self.total = 0
         self.selected: Optional[Entry] = None
         self.folder: Optional[str] = None
         self.closed = False
-        #: The message of the undo bar, None if it is hidden.
+        #: What the buttons to undo and redo say, None if they are disabled.
         self.undo: Optional[str] = None
-        self.trash_view = False
-        self.trash_count = 0
+        self.redo: Optional[str] = None
         self.editing_existing = False
 
     def get_text(self) -> str:
@@ -38,9 +37,8 @@ class FakeView:
     def set_text(self, text: str) -> None:
         self.text = text
 
-    def show_mode(self, editing: bool, photo_mode: bool) -> None:
+    def show_mode(self, editing: bool) -> None:
         self.editing = editing
-        self.photo_mode = photo_mode
 
     def show_draft_image(self, path: Optional[str]) -> None:
         self.draft_image = path
@@ -53,24 +51,26 @@ class FakeView:
         self.entry_image = image
 
     def show_entries(
-        self, shown: list[Entry], total: int, selected: Optional[Entry]
+        self,
+        shown: list[Entry],
+        trash: list[Entry],
+        total: int,
+        selected: Optional[Entry],
     ) -> None:
         self.shown = shown
+        self.trash = trash
         self.total = total
         self.selected = selected
 
     def select_entry(self, entry: Optional[Entry]) -> None:
         self.selected = entry
 
-    def show_trash_view(self, active: bool, count: int) -> None:
-        self.trash_view = active
-        self.trash_count = count
-
     def show_editing_existing(self, existing: bool) -> None:
         self.editing_existing = existing
 
-    def show_undo(self, message: Optional[str]) -> None:
-        self.undo = message
+    def show_history(self, undo: Optional[str], redo: Optional[str]) -> None:
+        self.undo = undo
+        self.redo = redo
 
     def show_folder(self, path: str) -> None:
         self.folder = path
@@ -98,6 +98,9 @@ class FakeDialogs:
         #: Raises the error for a missing webcam instead.
         self.no_webcam = False
         self.selfie_targets: list[str] = []
+        #: The file the user "picks" to upload, None if the user cancels.
+        self.image_file: Optional[str] = None
+        self.image_file_asked = 0
         self.photos: list[str] = []
 
     def answer_confirm(self, *answers: bool) -> None:
@@ -118,6 +121,10 @@ class FakeDialogs:
     def choose_image(self, img_folder: str, files: list[str]) -> Optional[int]:
         self.image_choices.append((img_folder, files))
         return self.image_choice
+
+    def pick_image_file(self) -> Optional[str]:
+        self.image_file_asked += 1
+        return self.image_file
 
     def pick_date(self, start: datetime) -> Optional[datetime]:
         self.date_starts.append(start)
