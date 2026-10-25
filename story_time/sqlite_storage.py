@@ -15,7 +15,6 @@ import sqlite3
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Optional
 
 from story_time.entries import Entry
 
@@ -108,7 +107,7 @@ class SqliteEntryStore:
             conn.close()
 
     @staticmethod
-    def _check(entry_type: str, img_filename: Optional[str]) -> Optional[str]:
+    def _check(entry_type: str, img_filename: str | None) -> str | None:
         """Checks the type of an entry, returns the name of its image file."""
         if entry_type == "text":
             return None
@@ -122,7 +121,7 @@ class SqliteEntryStore:
         comm: str,
         date_time: datetime,
         entry_type: str = "text",
-        img_filename: Optional[str] = None,
+        img_filename: str | None = None,
     ) -> Entry:
         """Adds an entry and returns it, with its id.
 
@@ -162,7 +161,7 @@ class SqliteEntryStore:
         comm: str,
         date_time: datetime,
         entry_type: str = "text",
-        img_filename: Optional[str] = None,
+        img_filename: str | None = None,
     ) -> Entry:
         """Changes the text, date, type and image of an entry and returns it.
 

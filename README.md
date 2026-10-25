@@ -17,7 +17,7 @@ $ pip install story-time
 
 ## Running
 
-Requires python version >= 3.9.
+Requires python version >= 3.12.
 To run it, just type the following command into
 the command line:
 

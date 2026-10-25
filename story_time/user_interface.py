@@ -4,8 +4,9 @@ Inspired by: ZetCode wxPython tutorial, www.zetcode.com
 """
 
 import os
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, ClassVar, NamedTuple, Optional
+from typing import Any, ClassVar, NamedTuple
 
 import wx
 
@@ -70,10 +71,10 @@ class TextAndImgPanel(wx.Panel):
         editable: bool = False,
         drop_tgt: bool = False,
         bg_col: wx.Colour = text_bg_col,
-        on_image: Optional[Callable[[str], bool]] = None,
-        on_upload: Optional[Callable[[], object]] = None,
-        on_selfie: Optional[Callable[[], object]] = None,
-        on_remove_image: Optional[Callable[[], object]] = None,
+        on_image: Callable[[str], bool] | None = None,
+        on_upload: Callable[[], object] | None = None,
+        on_selfie: Callable[[], object] | None = None,
+        on_remove_image: Callable[[], object] | None = None,
     ):
         """
         Args:
@@ -200,7 +201,7 @@ class EntryListPanel(wx.Panel):
         #: The shown entries in the order of the list, with their tree items.
         self.shown: list[tuple[Entry, wx.TreeItemId]] = []
         #: The item of the trash, with the deleted entries below it.
-        self.trash_item: Optional[wx.TreeItemId] = None
+        self.trash_item: wx.TreeItemId | None = None
         self._notify = True
 
         self.search = wx.SearchCtrl(self)
@@ -233,7 +234,7 @@ class EntryListPanel(wx.Panel):
         shown: list[Entry],
         trash: list[Entry],
         total: int,
-        selected: Optional[Entry] = None,
+        selected: Entry | None = None,
     ) -> None:
         """Shows the entries, newest first, with the trash below, and selects one.
 
@@ -286,7 +287,7 @@ class EntryListPanel(wx.Panel):
             self.info.SetLabel("")
         self.Layout()
 
-    def selected_entry(self) -> Optional[Entry]:
+    def selected_entry(self) -> Entry | None:
         """The selected entry, None if none or a month is selected."""
         item = self.tree.GetSelection()
         if not item.IsOk():
@@ -406,7 +407,7 @@ class ToolbarPanel(wx.Panel):
 
     def bind_tools(self, met_list: list[Callable]) -> None:
         assert len(met_list) == len(self.tools), f"Tools: {self.tools}"
-        for met, tool in zip(met_list, self.tools):
+        for met, tool in zip(met_list, self.tools, strict=True):
             self.Bind(wx.EVT_TOOL, met, tool)
 
 
@@ -423,18 +424,18 @@ class StoryTimeAppUI(wx.Frame):
     resized = True
 
     #: The path of the image of the entry that is written, if there is one.
-    draft_image: Optional[str] = None
+    draft_image: str | None = None
     #: The path of the image of the entry that is read, if there is one.
-    prev_img_name: Optional[str] = None
+    prev_img_name: str | None = None
     #: The entry on the page to read.
-    shown_entry: Optional[Entry] = None
+    shown_entry: Entry | None = None
     #: Whether a saved entry is changed.
     editing_existing = False
     #: The date of the entry that is written.
-    draft_date: Optional[datetime] = None
+    draft_date: datetime | None = None
 
     def __init__(
-        self, parent: Optional[wx.Window] = None, dialogs: Optional[Dialogs] = None
+        self, parent: wx.Window | None = None, dialogs: Dialogs | None = None
     ) -> None:
         """
         Args:
@@ -671,7 +672,7 @@ class StoryTimeAppUI(wx.Frame):
             self.input_text_field.SetFocus()
         self.resized_layout()
 
-    def show_draft_image(self, path: Optional[str]) -> None:
+    def show_draft_image(self, path: str | None) -> None:
         self.draft_image = path
         self.image_drop_space.SetBitmap(
             get_image_to_show(self.default_img_drop if path is None else path)
@@ -708,7 +709,7 @@ class StoryTimeAppUI(wx.Frame):
         self.empty_trash_button.Show(trashed)
         self.view_page.Layout()
 
-    def show_entry(self, entry: Optional[Entry], image: Optional[str]) -> None:
+    def show_entry(self, entry: Entry | None, image: str | None) -> None:
         self.shown_entry = entry
         self._show_actions()
         if entry is None:
@@ -728,17 +729,17 @@ class StoryTimeAppUI(wx.Frame):
         shown: list[Entry],
         trash: list[Entry],
         total: int,
-        selected: Optional[Entry],
+        selected: Entry | None,
     ) -> None:
         self.entry_list.set_entries(shown, trash, total, selected)
 
-    def select_entry(self, entry: Optional[Entry]) -> None:
+    def select_entry(self, entry: Entry | None) -> None:
         if entry is None:
             self.entry_list.clear_selection()
         else:
             self.entry_list.select_entry(entry)
 
-    def show_history(self, undo: Optional[str], redo: Optional[str]) -> None:
+    def show_history(self, undo: str | None, redo: str | None) -> None:
         """Enables undo and redo, the tooltips say what they do."""
         for tool, key, message in (
             (self.undo_tool, "toolbar.undo", undo),

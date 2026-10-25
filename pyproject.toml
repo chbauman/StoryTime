@@ -9,7 +9,7 @@ description = "Digital Diary written in wxPython"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Christian Baumann", email = "chris.python.notifyer@gmail.com" }]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "wxPython>=4.2",
     "opencv-python>=4.5",
@@ -17,6 +17,8 @@ dependencies = [
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Topic :: Utilities",
 ]
@@ -50,7 +52,7 @@ version = { file = ["version.txt"] }
 
 [tool.ruff]
 line-length = 88  # The same as black
-target-version = "py39"
+target-version = "py312"
 extend-exclude = ["docs/sphinx"]
 
 [tool.ruff.lint]
@@ -78,4 +80,4 @@ warn_unused_ignores = true
 
 [tool.black]
 line-length = 88
-target-version = ["py39"]
+target-version = ["py312"]

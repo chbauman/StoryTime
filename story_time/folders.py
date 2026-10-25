@@ -8,8 +8,8 @@ a folder by a function that is passed in.
 import os
 import shutil
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 from story_time import settings
 
@@ -40,7 +40,7 @@ class DataFolder:
         os.makedirs(self.img_folder, exist_ok=True)
 
 
-def get_data_folder(ask_folder: Callable[[], Optional[str]]) -> Optional[DataFolder]:
+def get_data_folder(ask_folder: Callable[[], str | None]) -> DataFolder | None:
     """Gets the folder with the diary data from the settings.
 
     Asks for a folder if there is none yet and creates the sub-folders if they
@@ -75,7 +75,7 @@ class TempFolder:
     """
 
     def __init__(self) -> None:
-        self._path: Optional[str] = None
+        self._path: str | None = None
 
     @property
     def path(self) -> str:
