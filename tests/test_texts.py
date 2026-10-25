@@ -31,10 +31,32 @@ class TestTexts(TestCase):
 
     def test_all_texts_are_used_and_exist(self):
         """No text is left over and no text used by the code is missing."""
+
+        def strings(node, assigned):
+            """The texts an expression can be: a text, a choice of two or a name."""
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                return {node.value}
+            if isinstance(node, ast.IfExp):
+                one, other = strings(node.body, assigned), strings(
+                    node.orelse, assigned
+                )
+                return None if one is None or other is None else one | other
+            if isinstance(node, ast.Name):
+                return assigned.get(node.id)
+            return None
+
         package = Path(texts.__file__).parent
         literal, suffixes, constants = set(), set(), set()
         for path in package.glob("*.py"):
-            for node in ast.walk(ast.parse(path.read_text(encoding="utf8"))):
+            tree = ast.parse(path.read_text(encoding="utf8"))
+            # key = "one" if condition else "other"; tr(key)
+            assigned: dict[str, set[str]] = {}
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                    target, found = node.targets[0], strings(node.value, {})
+                    if isinstance(target, ast.Name) and found:
+                        assigned.setdefault(target.id, set()).update(found)
+            for node in ast.walk(tree):
                 if isinstance(node, ast.Constant) and isinstance(node.value, str):
                     constants.add(node.value)
                 if not (
@@ -45,15 +67,9 @@ class TestTexts(TestCase):
                 ):
                     continue
                 key = node.args[0]
-                if isinstance(key, ast.Constant):
-                    literal.add(key.value)
-                elif isinstance(key, ast.IfExp):
-                    # tr("one" if condition else "other")
-                    literal.update(
-                        branch.value
-                        for branch in (key.body, key.orelse)
-                        if isinstance(branch, ast.Constant)
-                    )
+                found = strings(key, assigned)
+                if found is not None:
+                    literal.update(found)
                 elif isinstance(key, ast.JoinedStr) and isinstance(
                     key.values[-1], ast.Constant
                 ):
