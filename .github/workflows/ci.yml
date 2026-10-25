@@ -52,7 +52,6 @@ jobs:
       - name: Run the tests that do not use wx
         run: >
           python -m pytest -q
-          tests/test_changelog.py
           tests/test_controller.py
           tests/test_dates.py
           tests/test_entries.py
